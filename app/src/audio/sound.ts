@@ -36,16 +36,15 @@ function playFile(name: SoundName) {
 
 export const play = (name: Sfx) => playFile(name);
 
-// Quick taps walk up and down a pentatonic scale, so tapping plays a little tune.
-const TAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1];
-let tapStep = 0;
-let lastTap = 0;
+// Each tap plays a random note from a pentatonic scale (never the same note twice
+// in a row). Any mix of these notes sounds pleasant together.
+let lastNote = -1;
 export function playTap(lucky = false) {
   if (lucky) return playFile('lucky');
-  const now = Date.now();
-  tapStep = now - lastTap < 450 ? (tapStep + 1) % TAP_STEPS.length : 0;
-  lastTap = now;
-  playFile(`tap${TAP_STEPS[tapStep]}` as SoundName);
+  let note = Math.floor(Math.random() * 7);
+  if (note >= lastNote) note++;
+  lastNote = note;
+  playFile(`tap${note}` as SoundName);
 }
 
 /** Home level-ups step up a scale (wrapping every 8 levels), so progress sounds like climbing. */
