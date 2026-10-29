@@ -6,6 +6,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { RESEARCH, varietyAt } from './src/game/catalog';
 import { canBuyResearch, homeHasUpgrade } from './src/game/engine';
 import { BUSINESSES } from './src/game/catalog';
+import { AlbumScreen } from './src/screens/AlbumScreen';
 import { HivesScreen } from './src/screens/HivesScreen';
 import { MapScreen } from './src/screens/MapScreen';
 import { NapScreen } from './src/screens/NapScreen';
@@ -18,12 +19,13 @@ import { play, startMusic, unlockAudio } from './src/audio/sound';
 import { CloudConflict } from './src/ui/CloudCard';
 import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
 
-type Tab = 'map' | 'hives' | 'shop' | 'wood' | 'nap';
+type Tab = 'map' | 'hives' | 'shop' | 'wood' | 'album' | 'nap';
 const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: 'map', label: 'Map', emoji: '🗺️' },
   { id: 'hives', label: 'Hives', emoji: '🐝' },
   { id: 'shop', label: 'Shop', emoji: '🛍️' },
   { id: 'wood', label: 'Friends', emoji: '💕' },
+  { id: 'album', label: 'Album', emoji: '📖' },
   { id: 'nap', label: 'Nap', emoji: '😴' },
 ];
 
@@ -52,6 +54,7 @@ function Game() {
     map: upgradable ? String(upgradable) : undefined,
     shop: affordable ? String(affordable) : undefined,
     wood: unread ? String(unread) : undefined,
+    album: s.albumNew.length ? String(s.albumNew.length) : undefined,
   };
 
   return (
@@ -72,6 +75,7 @@ function Game() {
         {tab === 'hives' && <HivesScreen />}
         {tab === 'shop' && <ShopScreen />}
         {tab === 'wood' && <WoodScreen />}
+        {tab === 'album' && <AlbumScreen />}
         {tab === 'nap' && <NapScreen />}
       </View>
       <Header />

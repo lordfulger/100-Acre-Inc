@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync, statSyn
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { handleCloud } from './cloud.js';
+import { handleCloud, loadRooms, roomsInCloud, storeRooms } from './cloud.js';
 
 const PORT = Number(process.env.PORT || 3001);
 const DATA_DIR = process.env.DATA_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
@@ -33,26 +33,53 @@ const FINAL_BOOST = { mult: 2, secs: 20 * 60 };
 
 // ---------- persistence ----------
 
+// Rooms are kept in Supabase when it's set up (see cloud.js), and in a file too.
 let rooms = {};
+// False if Supabase couldn't be read at start-up: then it's never written either,
+// so a hiccup can't replace everyone's rooms with an empty list.
+let cloudRooms = roomsInCloud();
 try {
   if (existsSync(DATA_FILE)) rooms = JSON.parse(readFileSync(DATA_FILE, 'utf8'));
 } catch (err) {
-  console.error('Could not read saved rooms, starting fresh:', err.message);
+  console.error('Could not read saved rooms file:', err.message);
+}
+if (cloudRooms) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      rooms = await loadRooms();
+      break;
+    } catch (err) {
+      console.error(`Could not load rooms from Supabase (try ${attempt}):`, err.message);
+      if (attempt === 5) { cloudRooms = false; break; }
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
+  }
 }
 
 let dirty = false;
+let saving = null;
 function markDirty() { dirty = true; }
-function save() {
-  if (!dirty) return;
+async function save() {
+  if (!dirty || saving) return saving;
   dirty = false;
-  mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = DATA_FILE + '.tmp';
-  writeFileSync(tmp, JSON.stringify(rooms));
-  renameSync(tmp, DATA_FILE);
+  const text = JSON.stringify(rooms);
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+    const tmp = DATA_FILE + '.tmp';
+    writeFileSync(tmp, text);
+    renameSync(tmp, DATA_FILE);
+  } catch (err) {
+    console.error('Could not write rooms file:', err.message);
+  }
+  if (!cloudRooms) return;
+  saving = storeRooms(JSON.parse(text))
+    .catch((err) => { dirty = true; console.error('Could not save rooms to Supabase:', err.message); })
+    .finally(() => { saving = null; });
+  return saving;
 }
 setInterval(save, 5_000).unref();
 for (const sig of ['SIGINT', 'SIGTERM']) {
-  process.on(sig, () => { dirty = true; save(); process.exit(0); });
+  process.on(sig, async () => { dirty = true; await saving; await save(); process.exit(0); });
 }
 
 // ---------- helpers ----------
@@ -72,7 +99,7 @@ function cleanBuildings(b) {
   };
   return {
     owned: pick(b.owned, (v) => Math.min(1e6, num(Number(v)))),
-    levels: pick(b.levels, (v) => Math.min(10, num(Number(v)))),
+    levels: pick(b.levels, (v) => Math.min(1e6, num(Number(v)))),
     managed: pick(b.managed, (v) => v === true),
     addons: Array.isArray(b.addons) ? b.addons.filter((a) => /^[a-z]{2,12}:[0-9]$/.test(a)).slice(0, 80) : [],
   };

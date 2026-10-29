@@ -105,6 +105,24 @@ async function storeSave(sub, email, data, allTime) {
   return updatedAt;
 }
 
+// ---------- the multiplayer rooms ----------
+
+// Render's free disk is wiped whenever the server restarts or wakes from sleep, so
+// the rooms (members, chat, queued gifts, Expotitions) live in a reserved row of
+// the saves table too. Google account ids are numbers, so this key can't clash.
+const ROOMS_ROW = 'server:rooms';
+export const roomsInCloud = () => Boolean(SUPA_URL && SUPA_KEY);
+
+/** The saved rooms, or null when Supabase isn't set up. Throws if Supabase can't be read. */
+export async function loadRooms() {
+  if (!roomsInCloud()) return null;
+  return (await loadSave(ROOMS_ROW))?.data ?? {};
+}
+
+export async function storeRooms(rooms) {
+  await storeSave(ROOMS_ROW, null, rooms, 0);
+}
+
 // ---------- HTTP ----------
 
 function json(res, status, body) {

@@ -68,6 +68,8 @@ type Ctx = {
   dismissWelcome: () => void;
   hearts: number; // bumps when a hug arrives, for the heart burst animation
   net: Net;
+  /** Writes the save to the phone now (it also saves every few seconds). */
+  save: () => void;
   /** Wipes all progress but keeps name, character, room, sound settings and Google sign-in. */
   startOver: () => void;
   wood: {
@@ -157,9 +159,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // ---------- game loop + autosave ----------
   useEffect(() => {
     if (!ready) return;
+    // Coming back after a while goes through the offline payout (capped), whether
+    // the game loop or the app-switch event notices first. The welcome-back note
+    // waits until the game is on screen (browsers still run hidden tabs now and then).
+    const away = { seconds: 0, earned: 0 };
+    const catchUp = () => {
+      const off = applyOffline(sRef.current!, Date.now());
+      away.seconds += off.seconds;
+      away.earned += off.earned;
+    };
+    const welcome = () => {
+      if (away.earned > 0 && away.seconds > 60) setWelcomeBack({ ...away });
+      away.seconds = 0;
+      away.earned = 0;
+    };
     const loop = setInterval(() => {
       const s = sRef.current!;
-      tick(s, Date.now());
+      if (Date.now() - s.lastTick > 5_000) catchUp();
+      else tick(s, Date.now());
+      if (away.seconds && AppState.currentState === 'active') welcome();
       const found = checkAlbum(s);
       if (found.length) {
         play('unlock');
@@ -172,10 +190,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       // No music or sounds while the game is off screen.
       setAppActive(state === 'active');
       if (state !== 'active') return save();
-      const off = applyOffline(sRef.current!, Date.now());
-      if (off.earned > 0 && off.seconds > 60) setWelcomeBack(off);
+      catchUp();
+      welcome();
     });
-    return () => { clearInterval(loop); clearInterval(autosave); sub.remove(); save(); };
+    // Closing or reloading the page doesn't always count as going to the background.
+    const onLeave = () => save();
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('pagehide', onLeave);
+    return () => {
+      clearInterval(loop); clearInterval(autosave); sub.remove(); save();
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.removeEventListener('pagehide', onLeave);
+    };
   }, [ready, rerender, save, toast]);
 
   // ---------- multiplayer ----------
@@ -235,7 +259,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           toast(`🏆 ${m.name}: +${m.combs} Golden Honeycombs${m.boost ? ` and ×${m.boost.mult} honey!` : ''}`);
           save();
           break;
-        case 'giftSent': toast('🎁 Gift delivered!'); break;
+        case 'giftSent':
+          // Paid for once the server has it, so a dropped connection can't lose the honey.
+          s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
+          s.stats.giftsSent++;
+          toast('🎁 Gift delivered!');
+          break;
         case 'hugSent': toast('💕 Hug sent!'); break;
         case 'error':
           if (client.status !== 'online') {
@@ -247,8 +276,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
       rerender();
     };
-    if (sRef.current!.profile.room && sRef.current!.profile.name) client.connect(sRef.current!.profile.server, hello);
-    return () => client.close();
+    const join = () => {
+      const p = sRef.current!.profile;
+      if (p.room && p.name) client.connect(p.server, hello);
+    };
+    join();
+    // After the phone sleeps or switches apps the old connection is often silently
+    // dead (the game would look online while messages go nowhere), so start a fresh one.
+    let hiddenAt = 0;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 10_000) join();
+    });
+    return () => { sub.remove(); client.close(); };
   }, [ready, client, hello, sendStats, toast, save, rerender]);
 
   // Share stats and pour honey into the co-op Expotition every few seconds.
@@ -348,11 +388,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     hug: (to) => { client.send({ t: 'hug', to }); },
     gift: (to, amount) => {
       if (amount <= 0 || amount > s.honey) return;
-      if (client.send({ t: 'gift', to, amount })) {
-        s.honey -= amount;
-        s.stats.giftsSent++;
-        rerender();
-      }
+      if (!client.send({ t: 'gift', to, amount })) toast('Oh bother: not connected to the wood right now.');
     },
     startContract: (id) => { client.send({ t: 'startContract', id }); },
     abandonContract: () => { client.send({ t: 'abandonContract' }); },
@@ -410,7 +446,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameCtx.Provider value={{
-      s, d: derive(s, now), now, act, toast, toasts, welcomeBack, dismissWelcome: () => setWelcomeBack(null), hearts, net, wood, cloud: cloudApi, startOver,
+      s, d: derive(s, now), now, act, toast, toasts, welcomeBack, dismissWelcome: () => setWelcomeBack(null), hearts, net, wood, cloud: cloudApi, startOver, save,
     }}>
       {children}
     </GameCtx.Provider>

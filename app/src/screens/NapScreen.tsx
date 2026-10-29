@@ -12,7 +12,7 @@ import { play } from '../audio/sound';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
 
 export function NapScreen() {
-  const { s, act, toast, now, startOver } = useGame();
+  const { s, act, toast, now, startOver, save } = useGame();
   const [confirm, setConfirm] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [woke, setWoke] = useState(0);
@@ -86,14 +86,15 @@ export function NapScreen() {
               const got = act((g, t) => nap(g, t));
               if (got) play('nap');
               setConfirm(false);
-              if (got) setWoke(got);
+              if (got) { setWoke(got); save(); }
             }}
           />
           <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
         </Card>
   
         <Section title="🧸 You" />
-        <ProfileCard />
+        {/* Keyed by name so the box shows a name loaded from the cloud. */}
+        <ProfileCard key={s.profile.name} />
   
         <Section title="🔊 Sound" />
         <SoundCard />

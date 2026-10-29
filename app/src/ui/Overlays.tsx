@@ -7,7 +7,6 @@ import { useGame } from '../state/GameContext';
 import { Button, buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
 import { play } from '../audio/sound';
-import { say } from '../audio/voices';
 
 // Golden balloons drift up the screen now and then. Catch one for a bonus —
 // and your partner gets a little shared joy too.
