@@ -13,9 +13,10 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const SUPA_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
-const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+// Accepts the project URL with or without a trailing /rest/v1/.
+const SUPA_URL = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+const SUPA_KEY = (process.env.SUPABASE_SERVICE_KEY || '').trim();
 const FAKE_GOOGLE = process.env.FAKE_GOOGLE === '1'; // tests only: accepts "fake:<id>:<email>"
 const SECRET = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
 if (!process.env.SESSION_SECRET) console.warn('SESSION_SECRET not set: cloud sign-ins will reset when the server restarts.');
