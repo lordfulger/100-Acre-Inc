@@ -25,6 +25,7 @@ export type GameState = {
   addons: string[]; // add-ons bought, as `${home}:${index}`
   album: string[]; // album cards found (kept forever)
   albumNew: string[]; // found but not looked at yet
+  chatSeen: number; // time of the newest chat message read on the Friends tab
   settings: { music: boolean; sfx: boolean; voices: boolean };
   boosts: Boost[];
   lastTick: number;
@@ -75,7 +76,7 @@ export function newGame(now: number): GameState {
   biz.beetree.owned = 1;
   return {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
-    biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
+    biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0, settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
   };
@@ -129,7 +130,13 @@ export function migrate(raw: any, now: number): GameState {
   const cards = (list: unknown) => (Array.isArray(list) ? [...new Set(list.filter((id) => typeof id === 'string' && id in ALBUM_BY_ID))] : []);
   s.album = raw.album ? cards(raw.album) : ['pooh'];
   s.albumNew = cards(raw.albumNew).filter((id) => s.album.includes(id));
+  // Saves from before this was kept: count the chat so far as read.
+  s.chatSeen = Number.isFinite(raw.chatSeen) ? raw.chatSeen : now;
   s.boosts = (raw.boosts || []).filter((b: Boost) => b.until > now);
+  // A save from a phone whose clock was ahead (or this phone's clock going back)
+  // would leave times in the future, and businesses would stall until they came round.
+  if (!(s.lastTick <= now)) s.lastTick = now;
+  for (const b of BUSINESSES) if (!(s.biz[b.id].cycleStart <= now)) s.biz[b.id].cycleStart = now;
   return s;
 }
 
@@ -346,7 +353,9 @@ export function quote(s: GameState, id: string, mode: BuyMode) {
   const b = BIZ_BY_ID[id];
   const owned = s.biz[id].owned;
   const discount = bizCostMult(s);
-  const n = mode === 'max' ? Math.max(1, maxAffordable(b, owned, s.honey / discount)) : mode;
+  let n = mode === 'max' ? Math.max(1, maxAffordable(b, owned, s.honey / discount)) : mode;
+  // Rounding in the logarithm can overshoot by one, which would make "Max" look affordable but do nothing.
+  if (mode === 'max' && n > 1 && costFor(b, owned, n) * discount > s.honey) n--;
   return { n, cost: costFor(b, owned, n) * discount };
 }
 

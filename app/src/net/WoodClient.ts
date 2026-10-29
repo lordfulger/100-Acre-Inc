@@ -59,6 +59,7 @@ export class WoodClient {
     this.ws = ws;
     ws.onopen = () => ws.send(JSON.stringify(this.hello()));
     ws.onmessage = (e) => {
+      if (this.ws !== ws) return; // a connection that was already replaced
       let msg: any;
       try { msg = JSON.parse(String(e.data)); } catch { return; }
       if (msg.t === 'welcome') { this.retry = 0; this.setStatus('online'); }

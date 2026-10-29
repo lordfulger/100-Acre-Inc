@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
@@ -44,10 +44,10 @@ function Game() {
   const [tab, setTab] = useState<Tab>('map');
   const accent = varietyAt(s.variety).deep;
 
-  // Unread chat badge on the Friends tab.
-  const seenChat = useRef(net.chat.length);
-  useEffect(() => { if (tab === 'wood') seenChat.current = net.chat.length; }, [tab, net.chat.length]);
-  const unread = tab === 'wood' ? 0 : Math.max(0, net.chat.length - seenChat.current);
+  // Unread chat badge on the Friends tab: messages from others newer than the last one read.
+  const newest = net.chat.length ? net.chat[net.chat.length - 1].at : 0;
+  useEffect(() => { if (tab === 'wood' && newest > s.chatSeen) s.chatSeen = newest; }, [tab, newest, s]);
+  const unread = tab === 'wood' ? 0 : net.chat.filter((m) => m.at > s.chatSeen && m.from !== net.you).length;
   const affordable = RESEARCH.filter((r) => canBuyResearch(s, r.id)).length;
   const upgradable = ['pooh', ...BUSINESSES.map((b) => b.id)].filter((id) => homeHasUpgrade(s, id)).length;
   const badges: Partial<Record<Tab, string>> = {

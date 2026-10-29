@@ -166,4 +166,23 @@ function shop(s: GameState, t: number) {
   assert.deepEqual(migrate({ ...JSON.parse(JSON.stringify(s)), album: ['owl'], albumNew: ['owl', 'tigger'] }, now).albumNew, ['owl']);
   assert.equal(new Set(ALBUM.map((c) => c.id)).size, ALBUM.length, 'card ids are unique');
 }
+// ---------- clocks and "Max" ----------
+{
+  // A save from a phone whose clock ran ahead doesn't stall the businesses.
+  const ahead = newGame(now + 3_600_000);
+  hireManager(Object.assign(ahead, { honey: 1e9 }), 'beetree', now + 3_600_000);
+  const s = migrate(JSON.parse(JSON.stringify(ahead)), now);
+  assert.ok(s.lastTick <= now && s.biz.beetree.cycleStart <= now, 'future times are brought back to now');
+  assert.ok(tick(s, now + 60_000) > 0, 'businesses keep earning');
+  // "Max" never asks for more honey than you have.
+  for (const honey of [12, 1e3, 7.77e6, 1e12, 3.3e40]) {
+    for (const b of BUSINESSES) {
+      const g = newGame(now);
+      g.honey = honey;
+      g.biz[b.id].owned = 37;
+      const q = quote(g, b.id, 'max');
+      assert.ok(q.n === 1 || q.cost <= honey, `Max for ${b.id} with ${honey} honey`);
+    }
+  }
+}
 console.log('All engine checks passed 🍯');

@@ -112,6 +112,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   netRef.current = net;
   const [cloud, setCloud] = useState<CloudState>({ phase: 'off' });
   const signInCancelled = useRef(false);
+  // Honey in gifts sent but not yet confirmed by the server (paid for on confirmation).
+  const giftsPending = useRef(0);
   const clientRef = useRef<WoodClient | null>(null);
   if (!clientRef.current) clientRef.current = new WoodClient();
   const client = clientRef.current;
@@ -225,6 +227,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const now = Date.now();
       switch (m.t) {
         case 'welcome':
+          giftsPending.current = 0;
           setNet((n) => ({ ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null }));
           if (m.contract?.status !== 'active') s.pendingContribution = 0;
           sendStats();
@@ -262,6 +265,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         case 'giftSent':
           // Paid for once the server has it, so a dropped connection can't lose the honey.
           s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
+          giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
           s.stats.giftsSent++;
           toast('🎁 Gift delivered!');
           break;
@@ -345,6 +349,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const next = migrate(data, Date.now());
     next.profile.cloud = cur.profile.cloud;
     next.profile.server = cur.profile.server;
+    // Album cards are kept forever, so ones found on this phone stay.
+    next.album = [...new Set([...next.album, ...cur.album])];
     const off = applyOffline(next, Date.now());
     if (off.earned > 0 && off.seconds > 60) setWelcomeBack(off);
     sRef.current = next;
@@ -387,8 +393,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     chat: (text) => { if (text.trim()) client.send({ t: 'chat', text: text.trim() }); },
     hug: (to) => { client.send({ t: 'hug', to }); },
     gift: (to, amount) => {
-      if (amount <= 0 || amount > s.honey) return;
-      if (!client.send({ t: 'gift', to, amount })) toast('Oh bother: not connected to the wood right now.');
+      if (amount <= 0 || amount > s.honey - giftsPending.current) return;
+      if (client.send({ t: 'gift', to, amount })) giftsPending.current += amount;
+      else toast('Oh bother: not connected to the wood right now.');
     },
     startContract: (id) => { client.send({ t: 'startContract', id }); },
     abandonContract: () => { client.send({ t: 'abandonContract' }); },
@@ -401,6 +408,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     fresh.settings = { ...s.settings };
     fresh.album = [...s.album];
     fresh.albumNew = [...s.albumNew];
+    fresh.chatSeen = s.chatSeen;
     sRef.current = fresh;
     save();
     setWelcomeBack(null);

@@ -16,6 +16,8 @@ const buffers = new Map<string, AudioBuffer>();
 const loading = new Map<string, Promise<void>>();
 let musicSource: AudioBufferSourceNode | null = null;
 let checkTimer: ReturnType<typeof setTimeout> | null = null;
+// True while the game is off screen: nothing may start playing, and the engine isn't rebuilt.
+let hidden = false;
 
 /** Called after the engine is rebuilt, so the caller can reload sounds and restart music. */
 export let onRebuilt: () => void = () => {};
@@ -42,6 +44,7 @@ function rebuild() {
 
 /** Wakes the engine. Must be called from a finished tap (it's called on every tap). */
 export function wake() {
+  hidden = false;
   if (!ctx) create();
   if (!ctx || !master) return;
   master.gain.value = 1;
@@ -57,12 +60,15 @@ export function wake() {
   if (checkTimer) clearTimeout(checkTimer);
   checkTimer = setTimeout(() => {
     checkTimer = null;
-    if (ctx && ctx.state !== 'running') rebuild();
+    if (!hidden && ctx && ctx.state !== 'running') rebuild();
   }, 500);
 }
 
-/** Silences everything while the game is off screen. */
+/** Silences everything while the game is off screen. The music is stopped, not just muted. */
 export function sleep() {
+  hidden = true;
+  if (checkTimer) { clearTimeout(checkTimer); checkTimer = null; }
+  stopLoop();
   if (master) master.gain.value = 0;
   ctx?.suspend().catch(() => {});
 }
@@ -86,7 +92,7 @@ export function load(key: string, module: number) {
 /** Plays a loaded sound. Sounds still loading are skipped rather than played late. */
 export function playBuffer(key: string, volume: number) {
   const buf = buffers.get(key);
-  if (!ctx || !master || !buf || ctx.state !== 'running') return;
+  if (hidden || !ctx || !master || !buf || ctx.state !== 'running') return;
   const src = ctx.createBufferSource();
   const gain = ctx.createGain();
   gain.gain.value = volume;
@@ -99,7 +105,7 @@ export async function startLoop(key: string, module: number, volume: number) {
   if (!ctx || musicSource) return;
   await load(key, module);
   const buf = buffers.get(key);
-  if (!ctx || !master || !buf || musicSource) return;
+  if (hidden || !ctx || !master || !buf || musicSource) return;
   const gain = ctx.createGain();
   gain.gain.value = volume;
   musicSource = ctx.createBufferSource();

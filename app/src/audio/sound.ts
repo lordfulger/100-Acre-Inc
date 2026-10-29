@@ -76,8 +76,8 @@ export function setAppActive(active: boolean) {
   appActive = active;
   try {
     if (WEB) {
-      if (active) Web.wake();
-      else Web.sleep();
+      // The music was stopped when the game went off screen; start it again.
+      if (active) { Web.wake(); if (started) startMusic(); } else Web.sleep();
     } else if (!active) music?.pause();
     else if (started && settings.music) music?.play();
   } catch {}
