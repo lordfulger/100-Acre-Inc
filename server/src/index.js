@@ -98,10 +98,14 @@ function cleanSub(sub) {
   return { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } };
 }
 
-/** Sends a notification to a player's phone. The phone only shows it when the game isn't on screen. */
-function notify(room, pid, title, body, tag) {
+/**
+ * Sends a notification to a player's phone, but only when they aren't in the game
+ * (iPhones show every one, even mid-game). `always` is for things that need them
+ * right now, like a Poohsticks challenge; phones that can, hide those while the game is on screen.
+ */
+function notify(room, pid, title, body, tag, { always = false } = {}) {
   const m = room.members[pid];
-  if (!m?.push) return;
+  if (!m?.push || (!always && isOnline(room.code, pid))) return;
   // A bad address can make the library throw straight away rather than fail later.
   Promise.resolve().then(() => webpush.sendNotification(m.push, JSON.stringify({ title, body, tag }), { TTL: 6 * 3600 })).catch((err) => {
     // Gone: the phone turned notifications off or the app was removed.
@@ -537,7 +541,7 @@ wss.on('connection', (ws) => {
         }, STICK_INVITE_MS);
         races.set(id, race);
         sendTo(room, to, { t: 'stickInvite', id, from: pid, name: me.name, avatar: me.avatar });
-        notify(room, to, `🥢 ${me.name} wants to play Poohsticks!`, 'Quick, come to the bridge.', 'sticks');
+        notify(room, to, `🥢 ${me.name} wants to play Poohsticks!`, 'Quick, come to the bridge.', 'sticks', { always: true });
         send(ws, { t: 'stickWaiting', id, to, name: room.members[to].name, avatar: room.members[to].avatar });
         break;
       }

@@ -180,7 +180,9 @@ const statFor = (s: GameState, kind: VisitKind) => (kind === 'find' ? (s.visitor
 export function visitorToday(s: GameState, now: number) {
   const day = dayKey(now);
   if (s.visitor.day !== day) {
-    const idx = hash(day + s.profile.secret) % VISITS.length;
+    let idx = hash(day + s.profile.secret) % VISITS.length;
+    // Sending a hug needs someone to send it to.
+    if (VISITS[idx].kind === 'hugsSent' && !s.profile.room) idx = (idx + 1) % VISITS.length;
     const homes = [POOH_HOUSE.id, ...BUSINESSES.filter((b) => s.biz[b.id].owned > 0).map((b) => b.id)];
     s.visitor = { day, idx, base: 0, place: homes[hash(day + 'place') % homes.length], found: false, done: false };
     s.visitor.base = statFor(s, VISITS[idx].kind);

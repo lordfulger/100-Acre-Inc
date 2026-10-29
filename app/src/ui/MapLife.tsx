@@ -88,10 +88,11 @@ export function MapLife({ s, width, now }: { s: GameState; width: number; now: n
 
 // ---------- weather ----------
 
+// Kept light: on the web every flake is moved by the page itself, which costs phones battery.
 const FALL: Record<string, { n: number; ms: number; drift: number; size: number }> = {
-  rain: { n: 26, ms: 1_400, drift: 20, size: 10 },
-  snow: { n: 22, ms: 9_000, drift: 40, size: 14 },
-  windy: { n: 14, ms: 5_000, drift: 260, size: 16 },
+  rain: { n: 14, ms: 1_400, drift: 20, size: 11 },
+  snow: { n: 14, ms: 9_000, drift: 40, size: 14 },
+  windy: { n: 10, ms: 5_000, drift: 260, size: 16 },
   clear: { n: 6, ms: 14_000, drift: 60, size: 15 },
 };
 

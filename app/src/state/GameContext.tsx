@@ -6,7 +6,7 @@ import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, m
 import { fmt } from '../game/format';
 import { checkAlbum } from '../game/album';
 import { bumpEvent } from '../game/calendar';
-import { checkDecor, checkTrophies, finishGame } from '../game/extras';
+import { checkDecor, checkTrophies, finishGame, INTERIOR_NAPS, interiorsOpen } from '../game/extras';
 import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
@@ -228,7 +228,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         play('fanfare');
         toast(trophies.length === 1 ? `${trophies[0].emoji} Trophy: ${trophies[0].name}!` : `🏅 You earned ${trophies.length} trophies! See them in the Album.`);
       }
-      for (const item of checkDecor(s)) toast(`${item.emoji} New decoration: ${item.name}! Put it up inside a home.`);
+      for (const item of checkDecor(s)) {
+        toast(`${item.emoji} New decoration: ${item.name}! ${interiorsOpen(s) ? 'Put it up inside a home.' : `Keep it for when the homes open their doors (after ${INTERIOR_NAPS} naps).`}`);
+      }
       if (s.eventsWon.length > eventsSeen.current) {
         eventsSeen.current = s.eventsWon.length;
         play('fanfare');
