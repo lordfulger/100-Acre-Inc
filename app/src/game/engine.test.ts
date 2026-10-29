@@ -9,6 +9,9 @@ import {
 } from './engine';
 import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
+import { activeEvent, seasonAt } from './calendar';
+import { buyDecor, checkTrophies, findThing, finishGame, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
+import { catchBalloon } from './engine';
 
 let now = 1_700_000_000_000;
 
@@ -184,5 +187,65 @@ function shop(s: GameState, t: number) {
       assert.ok(q.n === 1 || q.cost <= honey, `Max for ${b.id} with ${honey} honey`);
     }
   }
+}
+// ---------- seasons, events, homes, visitors, games ----------
+{
+  const day = (m: number, d: number, h = 12) => new Date(2026, m - 1, d, h).getTime();
+  assert.equal(seasonAt(day(10, 29)), 'autumn');
+  assert.equal(seasonAt(day(1, 5)), 'winter');
+  assert.equal(activeEvent(day(10, 29))?.id, 'halloween');
+  assert.equal(activeEvent(day(1, 1))?.id, 'christmas', 'Christmas runs over New Year');
+  assert.equal(activeEvent(day(3, 1)), null);
+  const s = newGame(day(10, 29));
+  // Autumn taps are 25% stronger than spring's.
+  assert.ok(Math.abs(derive(s, day(10, 29)).tapValue / derive(s, day(4, 1)).tapValue - 1.25) < 1e-9);
+  // Halloween: 13 balloons finish it once, for a card and a decoration.
+  for (let i = 0; i < 13; i++) catchBalloon(s, day(10, 29), () => 0);
+  assert.deepEqual(s.eventsWon, ['halloween']);
+  assert.ok(s.decor.includes('halloween'));
+  assert.ok(checkAlbum(s).some((c) => c.id === 'halloween'));
+
+  // Homes open after enough naps; decorations go in, one place at a time, and add honey.
+  assert.equal(placeDecor(s, 'pooh', 'halloween'), false, 'doors shut before the naps');
+  s.stats.naps = INTERIOR_NAPS;
+  s.honey = 1e9;
+  assert.ok(buyDecor(s, 'rug', day(10, 29)));
+  assert.ok(!buyDecor(s, 'rug', day(10, 29)), 'each only once');
+  const taps = derive(s, day(10, 29)).tapValue;
+  assert.ok(placeDecor(s, 'pooh', 'rug'));
+  assert.ok(derive(s, day(10, 29)).tapValue > taps);
+  s.biz.haycorn.owned = 1;
+  assert.ok(placeDecor(s, 'haycorn', 'rug'));
+  assert.deepEqual([s.rooms.pooh, s.rooms.haycorn], [[], ['rug']], 'moving takes it from the other home');
+
+  // Talking: one heart a day.
+  assert.ok(talk(s, 'pooh', day(10, 29)).gained);
+  assert.ok(!talk(s, 'pooh', day(10, 29, 18)).gained);
+  assert.ok(talk(s, 'pooh', day(10, 30)).gained);
+  assert.equal(s.friends.pooh.hearts, 2);
+
+  // The daily visitor: progress counts from when they arrive.
+  s.profile.secret = 'x';
+  let v = visitorToday(s, day(10, 29));
+  for (let i = 0; i < 600; i++) tap(s, day(10, 29));
+  for (let i = 0; i < 3; i++) catchBalloon(s, day(10, 29), () => 0);
+  s.stats.games += 2; s.stats.hugsSent++; s.stats.upgrades += 5;
+  if (v.def.kind === 'find') assert.ok(findThing(s, v.place));
+  v = visitorToday(s, day(10, 29));
+  assert.ok(v.ready, `visitor ${v.def.kind} ready`);
+  assert.ok(thankVisitor(s, day(10, 29)) > 0);
+  assert.equal(thankVisitor(s, day(10, 29)), 0, 'once a day');
+  assert.ok(!visitorToday(s, day(10, 30)).done, 'a new visitor tomorrow');
+
+  // Minigames pay once per cooldown.
+  const a = finishGame(s, 'drip', 30, day(10, 29));
+  assert.ok(a.honey > 0 && a.newBest);
+  assert.equal(finishGame(s, 'drip', 50, day(10, 29, 12) + 60_000).honey, 0);
+  assert.equal(s.games.drip.best, 50);
+  assert.ok(finishGame(s, 'drip', 5, day(10, 29, 13)).honey > 0);
+  assert.ok(checkTrophies(s).length > 0);
+  // Old saves get the new things empty.
+  const m = migrate({ ...JSON.parse(JSON.stringify(newGame(now))), rooms: undefined, friends: 'bad', letters: undefined }, now);
+  assert.deepEqual([m.rooms, m.friends, m.letters], [{}, {}, []]);
 }
 console.log('All engine checks passed 🍯');

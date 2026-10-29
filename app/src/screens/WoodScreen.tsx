@@ -7,6 +7,7 @@ import { Contract, ContractDef, Member, useGame } from '../state/GameContext';
 import { Bar, Button, C, Card, Section } from '../ui/kit';
 import { HAND, WoodMap } from '../ui/WoodMap';
 import { Portrait } from '../ui/Portrait';
+import { Letters, Projects } from '../ui/Together';
 
 function JoinCard() {
   const { s, net, wood } = useGame();
@@ -59,7 +60,7 @@ function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () =>
         <View style={{ flex: 1 }}>
           <Text style={styles.memberName}>{m.name}{me ? ' (you)' : ''}</Text>
           <Text style={styles.small}>{m.online ? '🟢 in the wood now' : `💤 ${timeAgo(m.lastSeen)}`} · {variety.emoji} {variety.name}</Text>
-          <Text style={styles.memberStats}>🍯 {fmt(m.stats.hps || 0)}/s  ·  🏦 {fmt(m.stats.honey || 0)}  ·  ✨ {fmt(m.stats.combs || 0)}  ·  📖 {m.stats.cards || 1}/{ALBUM.length}</Text>
+          <Text style={styles.memberStats}>🍯 {fmt(m.stats.hps || 0)}/s  ·  🏦 {fmt(m.stats.honey || 0)}  ·  ✨ {fmt(m.stats.combs || 0)}  ·  📖 {m.stats.cards || 1}/{ALBUM.length}  ·  🏅 {m.stats.trophies || 0}</Text>
         </View>
       </View>
       {!me && (
@@ -211,7 +212,10 @@ export function WoodScreen() {
     <View style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
       {!online ? (
-        <JoinCard />
+        <>
+          <JoinCard />
+          <Letters />
+        </>
       ) : (
         <>
           <Section
@@ -224,7 +228,9 @@ export function WoodScreen() {
           )}
           {others.map((m) => <MemberCard key={m.id} m={m} me={false} onVisit={() => setVisiting(m.id)} />)}
           {me && <MemberCard m={me} me onVisit={() => {}} />}
+          <Projects />
           <Expotitions />
+          <Letters />
           <Chat />
         </>
       )}

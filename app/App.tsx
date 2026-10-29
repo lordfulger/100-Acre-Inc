@@ -7,6 +7,7 @@ import { RESEARCH, varietyAt } from './src/game/catalog';
 import { canBuyResearch, homeHasUpgrade } from './src/game/engine';
 import { BUSINESSES } from './src/game/catalog';
 import { AlbumScreen } from './src/screens/AlbumScreen';
+import { GamesScreen, SticksLive } from './src/screens/GamesScreen';
 import { HivesScreen } from './src/screens/HivesScreen';
 import { MapScreen } from './src/screens/MapScreen';
 import { NapScreen } from './src/screens/NapScreen';
@@ -19,11 +20,12 @@ import { play, startMusic, unlockAudio } from './src/audio/sound';
 import { CloudConflict } from './src/ui/CloudCard';
 import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
 
-type Tab = 'map' | 'hives' | 'shop' | 'wood' | 'album' | 'nap';
+type Tab = 'map' | 'hives' | 'shop' | 'games' | 'wood' | 'album' | 'nap';
 const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: 'map', label: 'Map', emoji: '🗺️' },
   { id: 'hives', label: 'Hives', emoji: '🐝' },
   { id: 'shop', label: 'Shop', emoji: '🛍️' },
+  { id: 'games', label: 'Games', emoji: '🎲' },
   { id: 'wood', label: 'Friends', emoji: '💕' },
   { id: 'album', label: 'Album', emoji: '📖' },
   { id: 'nap', label: 'Nap', emoji: '😴' },
@@ -47,7 +49,7 @@ function Game() {
   // Unread chat badge on the Friends tab: messages from others newer than the last one read.
   const newest = net.chat.length ? net.chat[net.chat.length - 1].at : 0;
   useEffect(() => { if (tab === 'wood' && newest > s.chatSeen) s.chatSeen = newest; }, [tab, newest, s]);
-  const unread = tab === 'wood' ? 0 : net.chat.filter((m) => m.at > s.chatSeen && m.from !== net.you).length;
+  const unread = (tab === 'wood' ? 0 : net.chat.filter((m) => m.at > s.chatSeen && m.from !== net.you).length) + s.letters.filter((l) => !l.read).length;
   const affordable = RESEARCH.filter((r) => canBuyResearch(s, r.id)).length;
   const upgradable = ['pooh', ...BUSINESSES.map((b) => b.id)].filter((id) => homeHasUpgrade(s, id)).length;
   const badges: Partial<Record<Tab, string>> = {
@@ -74,6 +76,7 @@ function Game() {
         {tab === 'map' && <MapScreen />}
         {tab === 'hives' && <HivesScreen />}
         {tab === 'shop' && <ShopScreen />}
+        {tab === 'games' && <GamesScreen />}
         {tab === 'wood' && <WoodScreen />}
         {tab === 'album' && <AlbumScreen />}
         {tab === 'nap' && <NapScreen />}
@@ -82,6 +85,7 @@ function Game() {
       <BalloonLayer />
       <Toasts />
       <WelcomeBack />
+      <SticksLive />
       <CloudConflict />
       {!s.profile.name && <Onboarding />}
     </SafeAreaView>
@@ -104,8 +108,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   tabs: { flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: C.border, backgroundColor: C.card, paddingTop: 6, paddingBottom: 4 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 2 },
-  tabEmoji: { fontSize: 24 },
-  tabLabel: { fontSize: 12, fontWeight: '800', color: C.soft, marginTop: 1 },
+  tabEmoji: { fontSize: 22 },
+  tabLabel: { fontSize: 11, fontWeight: '800', color: C.soft, marginTop: 1 },
   badge: { position: 'absolute', top: -2, right: '24%', borderRadius: 9, minWidth: 18, paddingHorizontal: 4, alignItems: 'center' },
   badgeText: { color: 'white', fontSize: 11, fontWeight: '900' },
   onlineDot: { position: 'absolute', top: 2, left: '30%', width: 9, height: 9, borderRadius: 5, backgroundColor: C.green, borderWidth: 1.5, borderColor: 'white' },

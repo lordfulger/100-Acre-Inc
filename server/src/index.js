@@ -29,6 +29,25 @@ export const CONTRACTS = [
   { id: 'flood', name: 'Rescue Piglet from the Flood', emoji: '🌧️', minutes: 480, goalSeconds: 25_000, minGoal: 1_000_000, combs: [8, 16, 32] },
 ];
 const TIERS = [0.25, 0.6, 1];
+
+// Shared projects: built one after another by everyone in a wood, paid for with
+// honey from the bank. Each one finished adds honey for good (the bonus lives in the app).
+// `goalSeconds` works like the Expotitions'. After the named ones come endless festivals.
+export const PROJECTS = [
+  { id: 'eeyore', name: 'A House for Eeyore', emoji: '🛖', goalSeconds: 2 * 3600, minGoal: 1e5 },
+  { id: 'wolery', name: 'A New House for Owl', emoji: '🏡', goalSeconds: 6 * 3600, minGoal: 1e6 },
+  { id: 'picnic', name: 'The Great Picnic at Galleons Lap', emoji: '🧺', goalSeconds: 12 * 3600, minGoal: 1e7 },
+  { id: 'pot', name: 'The Really Big Honey Pot', emoji: '🍯', goalSeconds: 24 * 3600, minGoal: 1e8 },
+  { id: 'pole', name: 'A Proper North Pole Sign', emoji: '🪧', goalSeconds: 48 * 3600, minGoal: 1e9 },
+];
+export function projectDef(n) {
+  if (n < PROJECTS.length) return PROJECTS[n];
+  const k = n - PROJECTS.length + 1;
+  return { id: `festival${k}`, name: `Honey Festival ${k}`, emoji: '🎪', goalSeconds: 24 * 3600, minGoal: 1e10 };
+}
+const LETTER_MAX = 280;
+const STICK_DROP_MS = 20_000;
+const STICK_INVITE_MS = 60_000;
 const FINAL_BOOST = { mult: 2, secs: 20 * 60 };
 
 // ---------- persistence ----------
@@ -102,13 +121,14 @@ function cleanBuildings(b) {
     levels: pick(b.levels, (v) => Math.min(1e6, num(Number(v)))),
     managed: pick(b.managed, (v) => v === true),
     addons: Array.isArray(b.addons) ? b.addons.filter((a) => /^[a-z]{2,12}:[0-9]$/.test(a)).slice(0, 80) : [],
+    rooms: pick(b.rooms, (v) => (Array.isArray(v) ? v.filter((d) => /^[a-z]{2,12}$/.test(d)).slice(0, 6) : [])),
   };
 }
 const publicId = (secret) => createHash('sha256').update(String(secret)).digest('hex').slice(0, 12);
 
 function getRoom(code) {
   if (!rooms[code]) {
-    rooms[code] = { code, createdAt: Date.now(), members: {}, chat: [], contract: null, inbox: {} };
+    rooms[code] = { code, createdAt: Date.now(), members: {}, chat: [], contract: null, inbox: {}, project: null, built: [] };
     markDirty();
   }
   return rooms[code];
@@ -203,6 +223,63 @@ setInterval(() => {
     }
   }
 }, 5_000).unref();
+
+// ---------- shared projects ----------
+
+const roomHps = (room) => Object.values(room.members).reduce((s, m) => s + num(m.stats?.hps), 0);
+
+/** The project being built now, started fresh (goal from today's honey) when needed. */
+function currentProject(room) {
+  room.built ||= [];
+  const def = projectDef(room.built.length);
+  if (!room.project || room.project.id !== def.id) {
+    room.project = { id: def.id, goal: Math.max(def.minGoal, Math.round(roomHps(room) * def.goalSeconds)), progress: 0, contributions: {} };
+    markDirty();
+  }
+  return room.project;
+}
+const projectInfo = (room) => ({ project: currentProject(room), projectDef: projectDef(room.built.length), built: room.built });
+
+function donate(room, pid, amount) {
+  const p = currentProject(room);
+  const def = projectDef(room.built.length);
+  p.progress += amount;
+  p.contributions[pid] = (p.contributions[pid] || 0) + amount;
+  markDirty();
+  if (p.progress >= p.goal) {
+    room.built.push(p.id);
+    room.project = null;
+    for (const member of Object.keys(room.members)) sendTo(room, member, { t: 'projectDone', id: def.id, name: def.name, emoji: def.emoji }, { queue: true });
+    system(room, `${def.emoji} You built "${def.name}" together! Everyone's honey is up for good.`);
+  }
+  broadcast(room, { t: 'project', ...projectInfo(room) });
+}
+
+// ---------- Poohsticks ----------
+
+// Races live only in memory: an invite, both players drop their sticks, then the
+// server decides the race (so both phones see the same one) and sends it out.
+const races = new Map(); // id -> { room, a, b, drops, phase, timer }
+
+/** Seconds to the finish: a good drop takes up to 4s off, and the river adds up to 3s of luck. */
+export const raceTimes = (quality, rand = Math.random) => quality.map((q) => 14 - 4 * q + rand() * 3);
+
+function finishRace(id) {
+  const race = races.get(id);
+  if (!race || race.phase !== 'dropping') return;
+  clearTimeout(race.timer);
+  races.delete(id);
+  const pids = [race.a, race.b];
+  const quality = pids.map((p) => race.drops[p] ?? 0.3);
+  const times = raceTimes(quality);
+  const winner = times[0] <= times[1] ? race.a : race.b;
+  const sticks = pids.map((p, i) => ({ pid: p, name: race.room.members[p]?.name, avatar: race.room.members[p]?.avatar, q: quality[i], time: times[i] }));
+  const seed = Math.floor(Math.random() * 1e9);
+  for (const p of pids) sendTo(race.room, p, { t: 'stickRace', id, sticks, winner, seed });
+  const w = race.room.members[winner];
+  const l = race.room.members[winner === race.a ? race.b : race.a];
+  setTimeout(() => system(race.room, `🥢 ${w?.name} beat ${l?.name} at Poohsticks!`), 15_000).unref?.();
+}
 
 // ---------- connections ----------
 
@@ -301,7 +378,7 @@ wss.on('connection', (ws) => {
       sockets.get(key).add(ws);
       markDirty();
 
-      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract });
+      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, ...projectInfo(r) });
       for (const queued of r.inbox[id] || []) send(ws, queued);
       delete r.inbox[id];
       broadcast(r, { t: 'roster', roster: roster(r) }, id);
@@ -319,6 +396,7 @@ wss.on('connection', (ws) => {
         me.stats = {
           hps: num(s.hps), honey: num(s.honey), allTime: num(s.allTime), combs: num(s.combs),
           variety: num(s.variety), naps: num(s.naps), cards: num(s.cards), buildings: cleanBuildings(s.buildings),
+          trophies: Math.min(1000, num(s.trophies)),
         };
         if (s.name) me.name = cleanText(s.name, 16) || me.name;
         if (s.avatar) me.avatar = cleanText(s.avatar, 8) || me.avatar;
@@ -374,6 +452,67 @@ wss.on('connection', (ws) => {
       case 'contribute':
         contribute(room, pid, num(Number(msg.amount)));
         break;
+      case 'donate': {
+        const amount = num(Number(msg.amount));
+        if (!amount) return;
+        send(ws, { t: 'donated', amount });
+        donate(room, pid, amount);
+        break;
+      }
+      case 'letter': {
+        const to = String(msg.to || '');
+        // Letters keep their line breaks; other control characters become spaces.
+        const text = String(msg.text || '').replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ').trim().slice(0, LETTER_MAX);
+        const amount = num(Number(msg.amount));
+        if (!room.members[to] || to === pid || !text) return;
+        const letter = { id: `${Date.now()}-${pid}`, from: pid, name: me.name, avatar: me.avatar, text, amount, at: Date.now() };
+        sendTo(room, to, { t: 'letter', letter }, { queue: true });
+        send(ws, { t: 'letterSent', amount });
+        system(room, `✉️ ${me.name} left ${room.members[to].name} a letter${amount ? ' with honey tucked inside' : ''}.`);
+        break;
+      }
+      case 'stickInvite': {
+        const to = String(msg.to || '');
+        if (!room.members[to] || to === pid) return;
+        if (!isOnline(room.code, to)) return send(ws, { t: 'error', text: `${room.members[to].name} isn't in the wood right now.` });
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const race = { room, a: pid, b: to, drops: {}, phase: 'invited' };
+        race.timer = setTimeout(() => {
+          if (races.get(id)?.phase !== 'invited') return;
+          races.delete(id);
+          sendTo(room, pid, { t: 'stickOff', id, why: 'No answer. Maybe later!' });
+          sendTo(room, to, { t: 'stickOff', id, why: '' });
+        }, STICK_INVITE_MS);
+        races.set(id, race);
+        sendTo(room, to, { t: 'stickInvite', id, from: pid, name: me.name, avatar: me.avatar });
+        send(ws, { t: 'stickWaiting', id, to, name: room.members[to].name, avatar: room.members[to].avatar });
+        break;
+      }
+      case 'stickAnswer': {
+        const id = String(msg.id);
+        const race = races.get(id);
+        if (!race || race.room !== room || race.phase !== 'invited' || (pid !== race.b && pid !== race.a)) return;
+        clearTimeout(race.timer);
+        if (!msg.yes) {
+          races.delete(id);
+          sendTo(room, race.a, { t: 'stickOff', id, why: pid === race.a ? '' : `${me.name} can't play just now.` });
+          sendTo(room, race.b, { t: 'stickOff', id, why: '' });
+          return;
+        }
+        race.phase = 'dropping';
+        const players = [race.a, race.b].map((p) => ({ pid: p, name: room.members[p]?.name, avatar: room.members[p]?.avatar }));
+        for (const p of [race.a, race.b]) sendTo(room, p, { t: 'stickGo', id, players, ms: STICK_DROP_MS });
+        race.timer = setTimeout(() => finishRace(id), STICK_DROP_MS + 2_000);
+        break;
+      }
+      case 'stickDrop': {
+        const id = String(msg.id);
+        const race = races.get(id);
+        if (!race || race.phase !== 'dropping' || (pid !== race.a && pid !== race.b)) return;
+        race.drops[pid] = Math.max(0, Math.min(1, Number(msg.q) || 0));
+        if (race.a in race.drops && race.b in race.drops) finishRace(id);
+        break;
+      }
       case 'ping':
         send(ws, { t: 'pong', at: Date.now() });
         break;

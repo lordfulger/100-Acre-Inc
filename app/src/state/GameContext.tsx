@@ -5,6 +5,8 @@ import Constants from 'expo-constants';
 import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, tick } from '../game/engine';
 import { fmt } from '../game/format';
 import { checkAlbum } from '../game/album';
+import { bumpEvent } from '../game/calendar';
+import { checkDecor, checkTrophies, finishGame } from '../game/extras';
 import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
@@ -15,7 +17,7 @@ const SAVE_KEY = 'hundred-acre-honey-tycoon/save/v1';
 
 export type Member = {
   id: string; name: string; avatar: string; online: boolean; lastSeen: number;
-  stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; buildings?: MapView };
+  stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; trophies?: number; buildings?: MapView };
 };
 export type ChatMsg = { id: string; from?: string; name?: string; avatar?: string; text: string; at: number; system?: boolean };
 export type ContractDef = { id: string; name: string; emoji: string; minutes: number; goalSeconds: number; minGoal: number; combs: number[] };
@@ -23,9 +25,19 @@ export type Contract = {
   id: string; goal: number; progress: number; contributions: Record<string, number>; tiersReached: number;
   status: 'active' | 'complete' | 'expired'; startedAt: number; endsAt: number; startedBy: string;
 };
+export type Project = { id: string; goal: number; progress: number; contributions: Record<string, number> };
+export type ProjectDef = { id: string; name: string; emoji: string };
 export type Net = {
   status: NetStatus; you: string | null; room: string | null; roster: Member[]; chat: ChatMsg[];
   contract: Contract | null; contracts: ContractDef[]; tiers: number[]; error: string | null;
+  project: Project | null; projectDef: ProjectDef | null; built: string[];
+};
+export type StickPlayer = { pid: string; name: string; avatar: string };
+export type StickRace = { sticks: (StickPlayer & { q: number; time: number })[]; winner: string; seed: number };
+/** A live Poohsticks game with a friend, from the invite to the finish. */
+export type Sticks = {
+  id: string; phase: 'invited' | 'waiting' | 'dropping' | 'race'; other: { name: string; avatar: string };
+  players?: StickPlayer[]; ms?: number; race?: StickRace;
 };
 export type Toast = { id: number; text: string };
 
@@ -38,7 +50,10 @@ export type CloudState = {
   conflict?: { data: any; allTime: number; honey: number; savedAt: string };
 };
 
-const emptyNet: Net = { status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null };
+const emptyNet: Net = {
+  status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null,
+  project: null, projectDef: null, built: [],
+};
 
 /** The online server baked into app.json (`extra.serverUrl`), if any. */
 const configuredServerUrl = () => (Constants.expoConfig?.extra as { serverUrl?: string } | undefined)?.serverUrl || '';
@@ -81,6 +96,16 @@ type Ctx = {
     startContract: (id: string) => void;
     abandonContract: () => void;
     balloon: () => void;
+    donate: (amount: number) => void;
+    letter: (to: string, text: string, amount: number) => void;
+  };
+  sticks: Sticks | null;
+  stickApi: {
+    invite: (to: string) => void;
+    answer: (yes: boolean) => void;
+    drop: (q: number) => void;
+    /** Leave the finished race, recording it (and paying the prize). */
+    done: () => void;
   };
   cloud: CloudState & {
     signIn: () => void;
@@ -108,6 +133,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [hearts, setHearts] = useState(0);
   const [net, setNet] = useState<Net>(emptyNet);
+  const [sticks, setSticks] = useState<Sticks | null>(null);
+  const sticksRef = useRef(sticks);
+  sticksRef.current = sticks;
   const netRef = useRef(net);
   netRef.current = net;
   const [cloud, setCloud] = useState<CloudState>({ phase: 'off' });
@@ -175,6 +203,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       away.seconds = 0;
       away.earned = 0;
     };
+    const eventsSeen = { current: sRef.current!.eventsWon.length };
     const loop = setInterval(() => {
       const s = sRef.current!;
       if (Date.now() - s.lastTick > 5_000) catchUp();
@@ -184,6 +213,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (found.length) {
         play('unlock');
         toast(found.length === 1 ? `📖 New album card: ${found[0].name}!` : `📖 You found ${found.length} new album cards!`);
+      }
+      const trophies = checkTrophies(s);
+      if (trophies.length) {
+        play('fanfare');
+        toast(trophies.length === 1 ? `${trophies[0].emoji} Trophy: ${trophies[0].name}!` : `🏅 You earned ${trophies.length} trophies! See them in the Album.`);
+      }
+      for (const item of checkDecor(s)) toast(`${item.emoji} New decoration: ${item.name}! Put it up inside a home.`);
+      if (s.eventsWon.length > eventsSeen.current) {
+        eventsSeen.current = s.eventsWon.length;
+        play('fanfare');
+        toast('🎉 Holiday event complete! A new album card and decoration are yours.');
       }
       rerender();
     }, 200);
@@ -215,7 +255,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const d = derive(s, Date.now());
     client.send({
       t: 'stats',
-      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, variety: s.variety, naps: s.stats.naps, cards: s.album.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s) },
+      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, variety: s.variety, naps: s.stats.naps, cards: s.album.length, trophies: s.trophies.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s) },
     });
   }, [client]);
 
@@ -228,7 +268,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       switch (m.t) {
         case 'welcome':
           giftsPending.current = 0;
-          setNet((n) => ({ ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null }));
+          setNet((n) => ({
+            ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null,
+            project: m.project || null, projectDef: m.projectDef || null, built: m.built || [],
+          }));
+          // Projects built in this wood count for everyone in it, even ones finished before you joined.
+          for (const id of m.built || []) if (!s.projects.includes(id)) s.projects.push(id);
+          setSticks(null);
           if (m.contract?.status !== 'active') s.pendingContribution = 0;
           sendStats();
           break;
@@ -258,7 +304,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         case 'reward':
           play('fanfare');
           s.combsBonus += m.combs;
-          if (m.boost) addBoost(s, 'profit', m.boost.mult, m.boost.secs, m.name, now);
+          if (m.boost) { addBoost(s, 'profit', m.boost.mult, m.boost.secs, m.name, now); s.stats.expos++; }
           toast(`🏆 ${m.name}: +${m.combs} Golden Honeycombs${m.boost ? ` and ×${m.boost.mult} honey!` : ''}`);
           save();
           break;
@@ -269,7 +315,50 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           s.stats.giftsSent++;
           toast('🎁 Gift delivered!');
           break;
-        case 'hugSent': toast('💕 Hug sent!'); break;
+        case 'hugSent':
+          s.stats.hugsSent++;
+          bumpEvent(s, 'hug', now);
+          toast('💕 Hug sent!');
+          break;
+        case 'project': setNet((n) => ({ ...n, project: m.project, projectDef: m.projectDef, built: m.built })); break;
+        case 'projectDone':
+          if (!s.projects.includes(m.id)) s.projects.push(m.id);
+          play('fanfare');
+          toast(`${m.emoji} ${m.name} is built! Your honey is up for good.`);
+          save();
+          break;
+        case 'donated':
+          s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
+          giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
+          toast('🔨 Thank you for helping build!');
+          break;
+        case 'letter': {
+          const l = m.letter;
+          if (!l || s.letters.some((x) => x.id === l.id)) break;
+          s.letters = [{ ...l, read: false }, ...s.letters].slice(0, 30);
+          play('pop');
+          toast(`✉️ ${l.avatar} ${l.name} left you a letter!`);
+          save();
+          break;
+        }
+        case 'letterSent':
+          s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
+          giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
+          s.stats.lettersSent++;
+          toast('✉️ Letter delivered!');
+          break;
+        case 'stickInvite':
+          if (sticksRef.current) { client.send({ t: 'stickAnswer', id: m.id, yes: false }); break; }
+          play('pop');
+          setSticks({ id: m.id, phase: 'invited', other: { name: m.name, avatar: m.avatar } });
+          break;
+        case 'stickWaiting': setSticks({ id: m.id, phase: 'waiting', other: { name: m.name, avatar: m.avatar } }); break;
+        case 'stickGo': setSticks((x) => (x && x.id === m.id ? { ...x, phase: 'dropping', players: m.players, ms: m.ms } : x)); break;
+        case 'stickRace': setSticks((x) => (x && x.id === m.id ? { ...x, phase: 'race', race: { sticks: m.sticks, winner: m.winner, seed: m.seed } } : x)); break;
+        case 'stickOff':
+          setSticks((x) => (x && x.id === m.id ? null : x));
+          if (m.why) toast(`🥢 ${m.why}`);
+          break;
         case 'error':
           if (client.status !== 'online') {
             client.close();
@@ -400,6 +489,30 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     startContract: (id) => { client.send({ t: 'startContract', id }); },
     abandonContract: () => { client.send({ t: 'abandonContract' }); },
     balloon: () => { client.send({ t: 'balloon' }); },
+    donate: (amount) => {
+      if (!(amount > 0) || amount > s.honey - giftsPending.current) return;
+      if (client.send({ t: 'donate', amount })) giftsPending.current += amount;
+      else toast('Oh bother: not connected to the wood right now.');
+    },
+    letter: (to, text, amount) => {
+      if (!text.trim() || amount < 0 || amount > s.honey - giftsPending.current) return;
+      if (client.send({ t: 'letter', to, text: text.trim(), amount })) giftsPending.current += amount;
+      else toast('Oh bother: not connected to the wood right now.');
+    },
+  };
+
+  const stickApi: Ctx['stickApi'] = {
+    invite: (to) => { if (!client.send({ t: 'stickInvite', to })) toast('Oh bother: not connected to the wood right now.'); },
+    answer: (yes) => { if (sticks) client.send({ t: 'stickAnswer', id: sticks.id, yes }); if (!yes) setSticks(null); },
+    drop: (q) => { if (sticks) client.send({ t: 'stickDrop', id: sticks.id, q }); },
+    done: () => {
+      const race = sticks?.race;
+      setSticks(null);
+      if (!race) return;
+      const won = race.winner === net.you;
+      const r = act((g, t) => finishGame(g, 'sticks', won ? 1 : 0, t, won));
+      if (r.honey > 0) toast(`🥢 ${won ? 'You won' : 'Good race'}! +${fmt(r.honey)} honey`);
+    },
   };
 
   const startOver = () => {
@@ -409,6 +522,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     fresh.album = [...s.album];
     fresh.albumNew = [...s.albumNew];
     fresh.chatSeen = s.chatSeen;
+    fresh.trophies = [...s.trophies];
     sRef.current = fresh;
     save();
     setWelcomeBack(null);
@@ -455,6 +569,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   return (
     <GameCtx.Provider value={{
       s, d: derive(s, now), now, act, toast, toasts, welcomeBack, dismissWelcome: () => setWelcomeBack(null), hearts, net, wood, cloud: cloudApi, startOver, save,
+      sticks, stickApi,
     }}>
       {children}
     </GameCtx.Provider>

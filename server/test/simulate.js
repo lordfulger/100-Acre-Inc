@@ -49,11 +49,11 @@ try {
   assert.equal(wb.roster.length, 2);
   console.log('✓ both players joined room', wb.room);
 
-  a.send({ t: 'stats', stats: { hps: 10, honey: 500, allTime: 1000, buildings: { owned: { garden: 12, 'x y': 3 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0', 'bad addon'] } } });
+  a.send({ t: 'stats', stats: { hps: 10, honey: 500, allTime: 1000, buildings: { owned: { garden: 12, 'x y': 3 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0', 'bad addon'], rooms: { garden: ['rug', 'Bad!'] } } } });
   b.send({ t: 'stats', stats: { hps: 5, honey: 200, allTime: 400 } });
   await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.hps === 10);
   const pooh = (await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.buildings)).roster.find((r) => r.name === 'Pooh');
-  assert.deepEqual(pooh.stats.buildings, { owned: { garden: 12 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0'] });
+  assert.deepEqual(pooh.stats.buildings, { owned: { garden: 12 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0'], rooms: { garden: ['rug'] } });
   console.log('✓ live stats and maps shared');
 
   a.send({ t: 'chat', text: 'Hallo Piglet!' });
@@ -80,6 +80,41 @@ try {
   assert.ok(r3.boost);
   await a.wait((m) => m.t === 'contract' && m.contract.status === 'complete');
   console.log('✓ co-op Expotition completes and rewards both players');
+
+  // Shared projects: honey donated by both builds them, then the next one starts.
+  assert.equal(wa.project.id, 'eeyore');
+  a.send({ t: 'donate', amount: wa.project.goal / 2 });
+  await a.wait((m) => m.t === 'donated');
+  b.send({ t: 'donate', amount: wa.project.goal });
+  const built = await a.wait((m) => m.t === 'projectDone');
+  assert.equal(built.id, 'eeyore');
+  const next = await b.wait((m) => m.t === 'project' && m.built.length === 1);
+  assert.equal(next.project.id, 'wolery');
+  console.log('✓ shared project built together');
+
+  a.send({ t: 'letter', to: wb.you, text: 'Dear Piglet,\nHallo.', amount: 10 });
+  const letter = await b.wait((m) => m.t === 'letter');
+  assert.equal(letter.letter.text, 'Dear Piglet,\nHallo.');
+  assert.equal((await a.wait((m) => m.t === 'letterSent')).amount, 10);
+  console.log('✓ letters delivered');
+
+  // Poohsticks: invite, accept, both drop, both see the same race.
+  a.send({ t: 'stickInvite', to: wb.you });
+  const inv = await b.wait((m) => m.t === 'stickInvite');
+  b.send({ t: 'stickAnswer', id: inv.id, yes: true });
+  await a.wait((m) => m.t === 'stickGo');
+  await b.wait((m) => m.t === 'stickGo');
+  a.send({ t: 'stickDrop', id: inv.id, q: 1 });
+  b.send({ t: 'stickDrop', id: inv.id, q: 0.2 });
+  const ra = await a.wait((m) => m.t === 'stickRace');
+  const rb = await b.wait((m) => m.t === 'stickRace');
+  assert.equal(ra.winner, rb.winner);
+  assert.equal(ra.sticks.length, 2);
+  a.send({ t: 'stickInvite', to: wb.you });
+  const inv2 = await b.wait((m) => m.t === 'stickInvite');
+  b.send({ t: 'stickAnswer', id: inv2.id, yes: false });
+  assert.match((await a.wait((m) => m.t === 'stickOff')).why, /Piglet/);
+  console.log('✓ Poohsticks races and declines');
 
   // Rewards/gifts queue for players who are offline.
   b.ws.close();

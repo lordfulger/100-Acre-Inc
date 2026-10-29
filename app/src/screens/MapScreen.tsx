@@ -9,6 +9,10 @@ import { Bar, Button, buzz, C, nativeDriver } from '../ui/kit';
 import { Portrait, portraitFor } from '../ui/Portrait';
 import { HAND, HomeCloseUp, WoodMap } from '../ui/WoodMap';
 import { play, playLevel } from '../audio/sound';
+import { activeEvent, eventProgress, seasonAt, SEASONS, WEATHER_NAMES, weatherAt } from '../game/calendar';
+import { findThing, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
+import { MapLife, Weather } from '../ui/MapLife';
+import { HomeInside } from './HomeInside';
 import { say } from '../audio/voices';
 
 const ALL_IDS = [POOH_HOUSE.id, ...BUSINESSES.map((b) => b.id)];
@@ -35,8 +39,66 @@ function CloseUp({ id, look, addons }: { id: string; look: number; addons: strin
   );
 }
 
-function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
-  const { s, d, act, toast } = useGame();
+/** The season, the weather, any holiday event, and today's visitor, along the top of the map. */
+function TopBar() {
+  const { s, act, toast, now } = useGame();
+  const [open, setOpen] = useState(false);
+  const season = SEASONS[seasonAt(now)];
+  const event = activeEvent(now);
+  const v = visitorToday(s, now);
+  const thank = () => {
+    const honey = act((g, t) => thankVisitor(g, t));
+    if (!honey) return;
+    buzz('success');
+    play('fanfare');
+    say(v.def.who, 'hire');
+    toast(`💛 ${v.def.name} says thank you! +${fmt(honey)} honey`);
+    setOpen(false);
+  };
+  return (
+    <View style={styles.top} pointerEvents="box-none">
+      <View style={styles.chips}>
+        <Pressable style={styles.chip} onPress={() => toast(`${season.emoji} ${season.name}: ${season.bonus}`)}>
+          <Text style={styles.chipText}>{season.emoji} {WEATHER_NAMES[weatherAt(now)]}</Text>
+        </Pressable>
+        {event && (
+          <Pressable style={styles.chip} onPress={() => toast(`${event.emoji} ${event.name}: ${event.task.toLowerCase()} for a special album card and decoration.`)}>
+            <Text style={styles.chipText}>
+              {event.emoji} {s.eventsWon.includes(event.id) ? 'Done! ✓' : `${eventProgress(s, event, now)}/${event.goal}`}
+            </Text>
+          </Pressable>
+        )}
+        {!v.done && (
+          <Pressable style={[styles.chip, v.ready && styles.chipReady]} onPress={() => setOpen((o) => !o)}>
+            <Text style={styles.chipText}>🚪 {v.ready ? `${v.def.name} is waiting!` : 'A visitor'}</Text>
+          </Pressable>
+        )}
+      </View>
+      {open && !v.done && (
+        <View style={styles.visitor}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Portrait id={v.def.who} size={48} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.visitorName}>{v.def.name} knocks at the door</Text>
+              <Text style={styles.visitorLine}>“{v.def.line}”</Text>
+            </View>
+          </View>
+          <Text style={styles.info}>
+            {v.def.kind === 'find'
+              ? v.ready ? `✓ You found ${v.def.thing}!` : `🔍 Tap the homes on the map to look for ${v.def.thing}.`
+              : `Progress: ${v.progress}/${v.def.target}`}
+          </Text>
+          <View style={[styles.row, { marginTop: 8 }]}>
+            <Button small label={v.ready ? '💛 Hand it over' : 'On it!'} disabled={false} onPress={() => (v.ready ? thank() : setOpen(false))} style={{ flex: 1 }} />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function BuildingSheet({ id, onClose, onEnter }: { id: string; onClose: () => void; onEnter: () => void }) {
+  const { s, d, act, toast, now } = useGame();
   const isPooh = id === POOH_HOUSE.id;
   const b = isPooh ? null : BIZ_BY_ID[id];
   const name = isPooh ? POOH_HOUSE.name : b!.name;
@@ -72,6 +134,12 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
 
       <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
       <CloseUp id={id} look={b && owned === 0 ? 0 : look} addons={s.addons} />
+      <Finder id={id} />
+      {(!b || owned > 0) && (
+        homeOpen(s, id)
+          ? <Button label={`🚪 Go inside${s.rooms[id]?.length ? ` (${s.rooms[id].length} 🛋️)` : ''}`} color={C.pink} onPress={() => { play('pop'); onEnter(); }} style={{ marginBottom: 6 }} />
+          : !interiorsOpen(s) && <Text style={styles.locked}>🚪 The door is shut for now. Homes open their doors after {INTERIOR_NAPS} naps ({s.stats.naps}/{INTERIOR_NAPS}).</Text>
+      )}
       {b && owned === 0 ? (
         <View style={styles.row}>
           <Text style={[styles.info, { flex: 1 }]}>Nobody lives here yet. Unlock it to start making honey here!</Text>
@@ -140,8 +208,23 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+/** When today's visitor lost something here: the button to pick it up. */
+function Finder({ id }: { id: string }) {
+  const { s, act, toast, now } = useGame();
+  const v = visitorToday(s, now);
+  if (v.def.kind !== 'find' || v.place !== id || v.ready || v.done) return null;
+  return (
+    <Button
+      label={`🔍 Something's here… it's ${v.def.thing}!`} color={C.blue}
+      onPress={() => { if (act((g) => findThing(g, id))) { buzz('success'); play('unlock'); toast(`🔍 Found ${v.def.thing}! Take it back to ${v.def.name} (top of the map).`); } }}
+      style={{ marginBottom: 6 }}
+    />
+  );
+}
+
 export function MapScreen() {
-  const { s } = useGame();
+  const { s, now } = useGame();
+  const [inside, setInside] = useState<string | null>(null);
   const [width, setWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
@@ -153,7 +236,10 @@ export function MapScreen() {
       {width > 0 && (
         <ScrollView contentContainerStyle={{ paddingBottom: selected ? 520 : 16 }}>
           <ScrollView horizontal scrollEnabled={zoom > 1} showsHorizontalScrollIndicator={zoom > 1}>
-            <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} />
+            <View>
+              <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} />
+              <MapLife s={s} width={mapWidth} now={now} />
+            </View>
           </ScrollView>
         </ScrollView>
       )}
@@ -162,12 +248,24 @@ export function MapScreen() {
           <Text style={styles.zoomText}>{zoom === 1 ? '🔍 Zoom in' : '🗺️ Whole wood'}</Text>
         </Pressable>
       )}
-      {selected && <BuildingSheet id={selected} onClose={() => setSelected(null)} />}
+      <Weather now={now} />
+      {!selected && <TopBar />}
+      {selected && <BuildingSheet id={selected} onClose={() => setSelected(null)} onEnter={() => setInside(selected)} />}
+      {inside && <HomeInside id={inside} onClose={() => setInside(null)} />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  top: { position: 'absolute', top: 8, left: 8, right: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { backgroundColor: 'rgba(255,250,232,0.95)', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1.5, borderColor: '#D9C48E' },
+  chipReady: { borderColor: C.green, backgroundColor: 'rgba(236,248,224,0.97)' },
+  chipText: { fontFamily: HAND, fontSize: 15, color: C.ink },
+  visitor: { marginTop: 8, backgroundColor: C.card, borderRadius: 18, padding: 12, borderWidth: 2, borderColor: '#D9C48E', maxWidth: 520 },
+  visitorName: { fontFamily: HAND, fontSize: 19, color: C.ink },
+  visitorLine: { color: C.ink, fontSize: 13, fontStyle: 'italic', marginTop: 2 },
+  locked: { color: C.soft, fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
   zoom: { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(255,250,232,0.95)', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1.5, borderColor: '#D9C48E' },
   zoomText: { fontFamily: HAND, fontSize: 15, color: C.ink },
   sheet: {

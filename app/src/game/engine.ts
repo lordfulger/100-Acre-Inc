@@ -7,6 +7,7 @@ import {
   POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
 } from './catalog';
 import { ALBUM_BY_ID, albumMult } from './album';
+import { bumpEvent, projectMult, seasonAt } from './calendar';
 
 export type BizState = { owned: number; managed: boolean; running: boolean; cycleStart: number };
 export type Boost = { id: string; kind: 'profit' | 'tap'; mult: number; until: number; label: string };
@@ -26,13 +27,28 @@ export type GameState = {
   album: string[]; // album cards found (kept forever)
   albumNew: string[]; // found but not looked at yet
   chatSeen: number; // time of the newest chat message read on the Friends tab
+  trophies: string[];
+  decor: string[]; // decorations collected
+  rooms: Record<string, string[]>; // decorations placed inside each home
+  friends: Record<string, { hearts: number; day: string }>; // friendship with whoever lives in each home
+  games: Record<string, { last: number; best: number }>; // minigames: last rewarded play and best score
+  visitor: { day: string; idx: number; base: number; place: string; found: boolean; done: boolean };
+  events: Record<string, number>; // holiday event progress, per event and year
+  eventsWon: string[];
+  projects: string[]; // shared projects finished in your wood (each adds honey)
+  letters: Letter[];
   settings: { music: boolean; sfx: boolean; voices: boolean };
   boosts: Boost[];
   lastTick: number;
   pendingContribution: number; // honey earned but not yet reported to the co-op Expotition
-  stats: { taps: number; balloons: number; naps: number; hugsGot: number; giftsSent: number; startedAt: number };
+  stats: {
+    taps: number; balloons: number; naps: number; hugsGot: number; giftsSent: number; startedAt: number;
+    hugsSent: number; upgrades: number; games: number; sticksWon: number; visitors: number; lettersSent: number; expos: number;
+  };
   profile: { name: string; avatar: string; secret: string; room: string; server: string; cloud?: { token: string; email: string } };
 };
+
+export type Letter = { id: string; from: string; name: string; avatar: string; text: string; amount: number; at: number; read: boolean };
 
 export type BizInfo = { cycle: number; perCycle: number; perSec: number; nextMilestone: number; mult: number };
 export type Derived = {
@@ -76,8 +92,11 @@ export function newGame(now: number): GameState {
   biz.beetree.owned = 1;
   return {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
-    biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0, settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
-    stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now },
+    biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
+    trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
+    events: {}, eventsWon: [], projects: [], letters: [],
+    settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
+    stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0 },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
   };
 }
@@ -133,6 +152,19 @@ export function migrate(raw: any, now: number): GameState {
   // Saves from before this was kept: count the chat so far as read.
   s.chatSeen = Number.isFinite(raw.chatSeen) ? raw.chatSeen : now;
   s.boosts = (raw.boosts || []).filter((b: Boost) => b.until > now);
+  // Things added later: anything missing or the wrong shape starts empty.
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+  const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as object) } : {});
+  s.trophies = list(raw.trophies);
+  s.decor = list(raw.decor);
+  s.eventsWon = list(raw.eventsWon);
+  s.projects = list(raw.projects);
+  s.rooms = obj(raw.rooms);
+  s.friends = obj(raw.friends);
+  s.games = obj(raw.games);
+  s.events = obj(raw.events);
+  s.visitor = { ...base.visitor, ...obj(raw.visitor) };
+  s.letters = Array.isArray(raw.letters) ? raw.letters.slice(0, 30) : [];
   // A save from a phone whose clock was ahead (or this phone's clock going back)
   // would leave times in the future, and businesses would stall until they came round.
   if (!(s.lastTick <= now)) s.lastTick = now;
@@ -196,6 +228,14 @@ function addonMult(s: GameState, home: string, effect: Addon['effect']) {
   return m;
 }
 
+/** Each decoration put up inside a home: +3% to that home's honey (taps for Pooh's). */
+export const COSY_BONUS = 0.03;
+export const cosyMult = (s: GameState, home: string) => 1 + COSY_BONUS * (s.rooms[home]?.length || 0);
+/** Each friendship heart: +0.2% honey everywhere. */
+export const HEART_BONUS = 0.002;
+export const totalHearts = (s: GameState) => Object.values(s.friends).reduce((n, f) => n + (f.hearts || 0), 0);
+const friendMult = (s: GameState) => 1 + HEART_BONUS * totalHearts(s);
+
 function boostMult(s: GameState, kind: Boost['kind'], now: number) {
   let m = 1;
   for (const b of s.boosts) if (b.kind === kind && b.until > now) m *= b.mult;
@@ -217,13 +257,17 @@ export function derive(s: GameState, now: number): Derived {
     else if (r.kind === 'balloonRate') balloonRate += r.per * lv;
     else if (r.kind === 'balloonPower') balloonPower += r.per * lv;
   }
+  const season = seasonAt(now);
+  if (season === 'spring') balloonRate += 0.25;
+  if (season === 'winter') offlineHours += 2;
 
   const speed = 1 + researchSum(s, 'speed');
   const combBonus = COMB_BONUS + researchSum(s, 'combPower');
 
   const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** allMilestonesReached(minOwned);
-  const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album);
+  const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album)
+    * projectMult(s.projects) * friendMult(s) * (season === 'summer' ? 1.1 : 1);
   const globalMult = baseMult * boostMult(s, 'profit', now);
 
   const biz: Record<string, BizInfo> = {};
@@ -231,14 +275,15 @@ export function derive(s: GameState, now: number): Derived {
   for (const b of BUSINESSES) {
     const st = s.biz[b.id];
     const { cycle, extra } = bizCycle(b, st.owned, speed * addonMult(s, b.id, 'speed'));
-    const mult = extra * buildingMult(s.levels[b.id] || 0) * addonMult(s, b.id, 'honey') * globalMult;
+    const mult = extra * buildingMult(s.levels[b.id] || 0) * addonMult(s, b.id, 'honey') * cosyMult(s, b.id) * globalMult;
     const perCycle = b.revenue * st.owned * mult;
     const perSec = perCycle / cycle;
     if (st.managed) hps += perSec;
     biz[b.id] = { cycle, perCycle, perSec, nextMilestone: nextMilestone(st.owned), mult };
   }
 
-  const tapMult = poohTapMult(s.levels.pooh || 0) * addonMult(s, POOH_HOUSE.id, 'taps');
+  const tapMult = poohTapMult(s.levels.pooh || 0) * addonMult(s, POOH_HOUSE.id, 'taps') * cosyMult(s, POOH_HOUSE.id)
+    * (season === 'autumn' ? 1.25 : 1);
   const tapValue = (tapMult * baseMult * boostMult(s, 'profit', now) + hps * tapPct) * boostMult(s, 'tap', now);
   return {
     hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned),
@@ -257,7 +302,7 @@ export function derive(s: GameState, now: number): Derived {
 // Numbers stop at ~1.8e308 in JavaScript; hold there rather than turning into Infinity.
 const cap = (n: number) => (Number.isFinite(n) ? n : Number.MAX_VALUE);
 
-function earn(s: GameState, amount: number) {
+export function earn(s: GameState, amount: number) {
   if (!(amount > 0)) return;
   s.honey = cap(s.honey + amount);
   s.runEarned = cap(s.runEarned + amount);
@@ -437,17 +482,20 @@ export function upgradeBuilding(s: GameState, id: string) {
   if (!next.ready || !(s.honey >= next.cost)) return false;
   s.honey -= next.cost;
   s.levels[id] = next.level + 1;
+  s.stats.upgrades++;
   return true;
 }
 
 /** Everything the map needs to draw a wood — yours or a friend's. */
-export type MapView = { owned: Record<string, number>; levels: Record<string, number>; managed: Record<string, boolean>; addons?: string[] };
+export type MapView = {
+  owned: Record<string, number>; levels: Record<string, number>; managed: Record<string, boolean>; addons?: string[]; rooms?: Record<string, string[]>;
+};
 
 export function mapView(s: GameState): MapView {
   const owned: Record<string, number> = {};
   const managed: Record<string, boolean> = {};
   for (const b of BUSINESSES) { owned[b.id] = s.biz[b.id].owned; managed[b.id] = s.biz[b.id].managed; }
-  return { owned, levels: { ...s.levels }, managed, addons: [...s.addons] };
+  return { owned, levels: { ...s.levels }, managed, addons: [...s.addons], rooms: JSON.parse(JSON.stringify(s.rooms)) };
 }
 
 export function buyVariety(s: GameState) {
@@ -494,6 +542,7 @@ export function catchBalloon(s: GameState, now: number, rand = Math.random) {
     if ((r -= v.weight) < 0) { kind = k; break; }
   }
   s.stats.balloons++;
+  bumpEvent(s, 'balloon', now);
   const def = BALLOONS[kind];
   if (kind === 'lucky') {
     const amount = Math.max(d.tapValue * 20, Math.min(s.honey * 0.1, d.hps * 300)) * d.balloonPower;
