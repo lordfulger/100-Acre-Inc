@@ -1,7 +1,7 @@
 // Inside a home: the room, whoever lives there, and the decorations you've put up.
 // Opens once you've taken enough naps (see INTERIOR_NAPS).
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
 import { seasonAt, SEASONS, weatherAt } from '../game/calendar';
 import { COSY_BONUS, HEART_BONUS } from '../game/engine';
@@ -13,6 +13,7 @@ import { useGame } from '../state/GameContext';
 import { Button, buzz, C } from '../ui/kit';
 import { Portrait } from '../ui/Portrait';
 import { HAND } from '../ui/WoodMap';
+import { ROOM_IMAGES } from '../ui/roomImages';
 import { play } from '../audio/sound';
 import { say } from '../audio/voices';
 
@@ -57,8 +58,15 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
       </View>
       <ScrollView contentContainerStyle={styles.list}>
         <View style={[styles.room, { width: w, height: h, backgroundColor: WALLS[id] || '#F3D9A0' }]}>
-          <View style={styles.floor} />
-          <View style={[styles.window, { left: w / 2 - 34 }]}><Text style={{ fontSize: 28 }}>{outside}</Text></View>
+          {ROOM_IMAGES[id] ? (
+            // Sized exactly (inside the 3px frame): on the web an image only stretched by its edges shows at full size.
+            <Image source={ROOM_IMAGES[id]} style={{ position: 'absolute', left: 0, top: 0, width: w - 6, height: h - 6 }} resizeMode="stretch" />
+          ) : (
+            <>
+              <View style={styles.floor} />
+              <View style={[styles.window, { left: w / 2 - 34 }]}><Text style={{ fontSize: 28 }}>{outside}</Text></View>
+            </>
+          )}
           {room.map((d, i) => DECOR_BY_ID[d] && (
             <Pressable
               key={d}
