@@ -32,6 +32,10 @@
         -webkit-touch-callout: none;
         overscroll-behavior: none;
       }
+      /* Taps are taps: no double-tap zoom (iPhones ignore user-scalable=no). */
+      html, body, #root, #root * {
+        touch-action: manipulation;
+      }
       /* These styles make the root element full-height */
       #root {
         display: flex;
@@ -46,5 +50,10 @@
     <noscript> You need to enable JavaScript to run this app. </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
+    <script>
+      // iPhone Safari: no pinch-zoom or double-tap zoom while playing.
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
+    </script>
   </body>
 </html>
