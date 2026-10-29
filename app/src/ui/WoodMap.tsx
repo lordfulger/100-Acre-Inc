@@ -5,7 +5,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
-import { BIZ_BY_ID, lookOf, POOH_HOUSE } from '../game/catalog';
+import { addonsFor, BIZ_BY_ID, lookOf, POOH_HOUSE } from '../game/catalog';
 import { MapView } from '../game/engine';
 import { nativeDriver } from './kit';
 import { Portrait, portraitFor } from './Portrait';
@@ -703,6 +703,9 @@ export function WoodMap({ view, width, selected, upgradable, onSelect }: Props) 
             accessibilityRole="button"
             accessibilityLabel={name}
           >
+            {!locked && addonsFor(id, 0).map((a, i) => (view.addons || []).includes(`${id}:${i}`) && (
+              <Text key={i} pointerEvents="none" style={[styles.decor, { left: (boxW / 2 + DECOR[i][0]) * k, top: (90 + DECOR[i][1]) * k, fontSize: Math.max(10, 15 * k) }]}>{a.emoji}</Text>
+            ))}
             {manager && !locked && <Portrait id={manager} size={Math.max(20, 30 * k)} style={[styles.manager, { right: 4 * k, bottom: 24 * k }]} />}
             <View style={[styles.nameTag, { maxWidth: (boxW + 20) * k }, upgradable?.has(id) && styles.nameTagReady]}>
               {upgradable?.has(id) && <Pulse><Text style={{ fontSize: Math.max(10, 13 * k) }}>⬆️</Text></Pulse>}
@@ -718,7 +721,11 @@ export function WoodMap({ view, width, selected, upgradable, onSelect }: Props) 
   );
 }
 
+// Where add-on decorations sit around a home (offsets from the centre of its base).
+const DECOR: [number, number][] = [[-58, -14], [-60, -40], [-50, -66], [44, -70], [52, -46], [-30, -92]];
+
 const styles = StyleSheet.create({
+  decor: { position: 'absolute' },
   label: { position: 'absolute', textAlign: 'center', color: '#4B3A26', fontFamily: HAND, letterSpacing: 1 },
   hit: { position: 'absolute', alignItems: 'center', justifyContent: 'flex-end' },
   manager: { position: 'absolute' },

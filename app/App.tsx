@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { RESEARCH, varietyAt } from './src/game/catalog';
-import { canBuyResearch, canUpgradeBuilding } from './src/game/engine';
+import { canBuyResearch, homeHasUpgrade } from './src/game/engine';
 import { BUSINESSES } from './src/game/catalog';
 import { HivesScreen } from './src/screens/HivesScreen';
 import { MapScreen } from './src/screens/MapScreen';
@@ -35,7 +35,7 @@ function Game() {
   useEffect(() => { if (tab === 'wood') seenChat.current = net.chat.length; }, [tab, net.chat.length]);
   const unread = tab === 'wood' ? 0 : Math.max(0, net.chat.length - seenChat.current);
   const affordable = RESEARCH.filter((r) => canBuyResearch(s, r.id)).length;
-  const upgradable = ['pooh', ...BUSINESSES.map((b) => b.id)].filter((id) => canUpgradeBuilding(s, id)).length;
+  const upgradable = ['pooh', ...BUSINESSES.map((b) => b.id)].filter((id) => homeHasUpgrade(s, id)).length;
   const badges: Partial<Record<Tab, string>> = {
     map: upgradable ? String(upgradable) : undefined,
     shop: affordable ? String(affordable) : undefined,

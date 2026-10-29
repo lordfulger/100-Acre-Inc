@@ -2,9 +2,9 @@
 // be tested on its own and reused by any screen.
 
 import {
-  allMilestonesReached, BALLOONS, BalloonKind, BIZ_BY_ID, buildingCost, buildingMult, Business, BUSINESSES,
+  Addon, addonsFor, allMilestonesReached, BALLOONS, BalloonKind, BIZ_BY_ID, buildingCost, buildingMult, Business, BUSINESSES,
   COMB_BONUS, COMB_DIVISOR, lookName, lookOf, milestonesReached, MIN_CYCLE, nextAllMilestone, nextMilestone,
-  POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, varietyAt,
+  POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
 } from './catalog';
 
 export type BizState = { owned: number; managed: boolean; running: boolean; cycleStart: number };
@@ -21,6 +21,7 @@ export type GameState = {
   biz: Record<string, BizState>;
   research: Record<string, number>; // Rabbit's General Store item levels
   levels: Record<string, number>; // building levels on the map (business ids + 'pooh')
+  addons: string[]; // add-ons bought, as `${home}:${index}`
   boosts: Boost[];
   lastTick: number;
   pendingContribution: number; // honey earned but not yet reported to the co-op Expotition
@@ -38,7 +39,23 @@ export type Derived = {
   balloonRate: number;
   balloonPower: number;
   allMilestoneNext: number;
+  critChance: number;
+  autoTaps: number; // taps per second from Bouncy Helper
+  frenzyMult: number;
+  swarmMult: number;
+  hugSecs: number;
+  giftMult: number;
+  expoMult: number;
 };
+
+/** Total effect of one kind of store item (summed levels × per-level effect). */
+const researchSum = (s: GameState, kind: ResearchKind) =>
+  RESEARCH.reduce((sum, r) => (r.kind === kind ? sum + r.per * (s.research[r.id] || 0) : sum), 0);
+
+// Discounts from the store.
+export const bizCostMult = (s: GameState) => 1 - researchSum(s, 'bizDiscount');
+export const managerCost = (s: GameState, b: Business) => b.manager.cost * (1 - researchSum(s, 'managerDiscount'));
+export const varietyCost = (s: GameState, i: number) => varietyAt(i).cost * (1 - researchSum(s, 'varietyDiscount'));
 
 const freshBiz = (): BizState => ({ owned: 0, managed: false, running: false, cycleStart: 0 });
 
@@ -54,7 +71,7 @@ export function newGame(now: number): GameState {
   biz.beetree.owned = 1;
   return {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
-    biz, research: {}, levels: {}, boosts: [], lastTick: now, pendingContribution: 0,
+    biz, research: {}, levels: {}, addons: [], boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
   };
@@ -102,6 +119,7 @@ export function migrate(raw: any, now: number): GameState {
     s.levels = { ...(raw.levels || {}) };
   }
   delete (s as any).upgrades;
+  s.addons = Array.isArray(raw.addons) ? raw.addons : [];
   s.boosts = (raw.boosts || []).filter((b: Boost) => b.until > now);
   return s;
 }
@@ -119,11 +137,47 @@ export function nextCombAt(s: GameState) {
   return (next / 5) ** 4 * COMB_DIVISOR;
 }
 
-function bizCycle(b: Business, owned: number) {
+function bizCycle(b: Business, owned: number, speed: number) {
   const m = milestonesReached(owned);
   const maxHalvings = Math.max(0, Math.floor(Math.log2(b.cycle / MIN_CYCLE)));
   const h = Math.min(m, maxHalvings);
-  return { cycle: b.cycle / 2 ** h, extra: 2 ** (m - h) };
+  const raw = b.cycle / 2 ** h / speed;
+  // Once a cycle is as fast as it can go, extra speed turns into extra honey instead.
+  return raw >= MIN_CYCLE || raw >= b.cycle / 2 ** h
+    ? { cycle: raw, extra: 2 ** (m - h) }
+    : { cycle: MIN_CYCLE, extra: 2 ** (m - h) * (MIN_CYCLE / raw) };
+}
+
+// ---------- add-ons ----------
+
+export const addonKey = (home: string, i: number) => `${home}:${i}`;
+const homeBaseCost = (home: string) => (home === POOH_HOUSE.id ? 0 : BIZ_BY_ID[home].baseCost);
+
+/** A home's six add-ons, each marked owned / unlocked (home level high enough). */
+export function addonList(s: GameState, home: string): (Addon & { index: number; owned: boolean; unlocked: boolean })[] {
+  const level = s.levels[home] || 0;
+  return addonsFor(home, homeBaseCost(home)).map((a, index) => ({
+    ...a, index, owned: s.addons.includes(addonKey(home, index)), unlocked: level >= a.level,
+  }));
+}
+
+export function canBuyAddon(s: GameState, home: string) {
+  return addonList(s, home).some((a) => !a.owned && a.unlocked && s.honey >= a.cost);
+}
+
+export function buyAddon(s: GameState, home: string, index: number) {
+  const a = addonList(s, home)[index];
+  if (!a || a.owned || !a.unlocked || !(s.honey >= a.cost)) return false;
+  s.honey -= a.cost;
+  s.addons.push(addonKey(home, index));
+  return true;
+}
+
+/** Combined multiplier from a home's owned add-ons of one effect. */
+function addonMult(s: GameState, home: string, effect: Addon['effect']) {
+  let m = 1;
+  for (const a of addonList(s, home)) if (a.owned && a.effect === effect) m *= a.mult;
+  return m;
 }
 
 function boostMult(s: GameState, kind: Boost['kind'], now: number) {
@@ -148,26 +202,38 @@ export function derive(s: GameState, now: number): Derived {
     else if (r.kind === 'balloonPower') balloonPower += r.per * lv;
   }
 
+  const speed = 1 + researchSum(s, 'speed');
+  const combBonus = COMB_BONUS + researchSum(s, 'combPower');
+
   const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** allMilestonesReached(minOwned);
-  const baseMult = varietyAt(s.variety).mult * (1 + COMB_BONUS * totalCombs(s)) * globalUpg * allMult;
+  const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult;
   const globalMult = baseMult * boostMult(s, 'profit', now);
 
   const biz: Record<string, BizInfo> = {};
   let hps = 0;
   for (const b of BUSINESSES) {
     const st = s.biz[b.id];
-    const { cycle, extra } = bizCycle(b, st.owned);
-    const mult = extra * buildingMult(s.levels[b.id] || 0) * globalMult;
+    const { cycle, extra } = bizCycle(b, st.owned, speed * addonMult(s, b.id, 'speed'));
+    const mult = extra * buildingMult(s.levels[b.id] || 0) * addonMult(s, b.id, 'honey') * globalMult;
     const perCycle = b.revenue * st.owned * mult;
     const perSec = perCycle / cycle;
     if (st.managed) hps += perSec;
     biz[b.id] = { cycle, perCycle, perSec, nextMilestone: nextMilestone(st.owned), mult };
   }
 
-  const tapMult = poohTapMult(s.levels.pooh || 0);
+  const tapMult = poohTapMult(s.levels.pooh || 0) * addonMult(s, POOH_HOUSE.id, 'taps');
   const tapValue = (tapMult * baseMult * boostMult(s, 'profit', now) + hps * tapPct) * boostMult(s, 'tap', now);
-  return { hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned) };
+  return {
+    hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned),
+    critChance: researchSum(s, 'critChance'),
+    autoTaps: researchSum(s, 'autoTap'),
+    frenzyMult: BALLOONS.frenzy.mult + researchSum(s, 'frenzyPower'),
+    swarmMult: BALLOONS.swarm.mult + researchSum(s, 'swarmPower'),
+    hugSecs: 60 + researchSum(s, 'hugSecs'),
+    giftMult: 1 + researchSum(s, 'giftBonus'),
+    expoMult: 1 + researchSum(s, 'expoBonus'),
+  };
 }
 
 // ---------- time ----------
@@ -205,6 +271,9 @@ export function tick(s: GameState, now: number): number {
       st.running = false;
     }
   }
+  // Bouncy Helper taps the pot while the game is open (not while you're away).
+  const dt = (now - s.lastTick) / 1000;
+  if (d.autoTaps > 0 && dt > 0 && dt < 5) earned += d.autoTaps * d.tapValue * dt;
   earn(s, earned);
   s.lastTick = now;
   return earned;
@@ -232,8 +301,10 @@ export function cycleProgress(s: GameState, d: Derived, id: string, now: number)
 
 // ---------- actions ----------
 
-export function tap(s: GameState, now: number) {
-  const v = derive(s, now).tapValue;
+export function tap(s: GameState, now: number, rand = Math.random) {
+  const d = derive(s, now);
+  const lucky = rand() < d.critChance;
+  const v = d.tapValue * (lucky ? 10 : 1);
   earn(s, v);
   s.stats.taps++;
   return v;
@@ -265,8 +336,9 @@ export type BuyMode = 1 | 10 | 100 | 'max';
 export function quote(s: GameState, id: string, mode: BuyMode) {
   const b = BIZ_BY_ID[id];
   const owned = s.biz[id].owned;
-  const n = mode === 'max' ? Math.max(1, maxAffordable(b, owned, s.honey)) : mode;
-  return { n, cost: costFor(b, owned, n) };
+  const discount = bizCostMult(s);
+  const n = mode === 'max' ? Math.max(1, maxAffordable(b, owned, s.honey / discount)) : mode;
+  return { n, cost: costFor(b, owned, n) * discount };
 }
 
 export function buyBiz(s: GameState, id: string, mode: BuyMode, now: number) {
@@ -282,8 +354,9 @@ export function buyBiz(s: GameState, id: string, mode: BuyMode, now: number) {
 export function hireManager(s: GameState, id: string, now: number) {
   const b = BIZ_BY_ID[id];
   const st = s.biz[id];
-  if (st.managed || st.owned <= 0 || s.honey < b.manager.cost) return false;
-  s.honey -= b.manager.cost;
+  const cost = managerCost(s, b);
+  if (st.managed || st.owned <= 0 || s.honey < cost) return false;
+  s.honey -= cost;
   st.managed = true;
   if (!st.running) { st.running = true; st.cycleStart = now; }
   return true;
@@ -295,17 +368,17 @@ export function researchNext(s: GameState, id: string) {
   const r = RESEARCH_BY_ID[id];
   const level = s.research[id] || 0;
   const maxed = r.max !== undefined && level >= r.max;
-  return { level, cost: researchCost(r, level), maxed };
+  return { level, cost: researchCost(r, level), maxed, unlocked: level > 0 || s.allTimeEarned >= r.unlock };
 }
 
 export function canBuyResearch(s: GameState, id: string) {
   const n = researchNext(s, id);
-  return !n.maxed && s.honey >= n.cost;
+  return n.unlocked && !n.maxed && s.honey >= n.cost;
 }
 
 export function buyResearch(s: GameState, id: string) {
   const n = researchNext(s, id);
-  if (n.maxed || !(s.honey >= n.cost)) return false;
+  if (!n.unlocked || n.maxed || !(s.honey >= n.cost)) return false;
   s.honey -= n.cost;
   s.research[id] = n.level + 1;
   return true;
@@ -338,6 +411,9 @@ export function canUpgradeBuilding(s: GameState, id: string) {
   return next.ready && s.honey >= next.cost;
 }
 
+/** Something to buy at this home on the map: its next level or an add-on. */
+export const homeHasUpgrade = (s: GameState, id: string) => canUpgradeBuilding(s, id) || canBuyAddon(s, id);
+
 export function upgradeBuilding(s: GameState, id: string) {
   const next = buildingNext(s, id);
   if (!next.ready || !(s.honey >= next.cost)) return false;
@@ -347,19 +423,19 @@ export function upgradeBuilding(s: GameState, id: string) {
 }
 
 /** Everything the map needs to draw a wood — yours or a friend's. */
-export type MapView = { owned: Record<string, number>; levels: Record<string, number>; managed: Record<string, boolean> };
+export type MapView = { owned: Record<string, number>; levels: Record<string, number>; managed: Record<string, boolean>; addons?: string[] };
 
 export function mapView(s: GameState): MapView {
   const owned: Record<string, number> = {};
   const managed: Record<string, boolean> = {};
   for (const b of BUSINESSES) { owned[b.id] = s.biz[b.id].owned; managed[b.id] = s.biz[b.id].managed; }
-  return { owned, levels: { ...s.levels }, managed };
+  return { owned, levels: { ...s.levels }, managed, addons: [...s.addons] };
 }
 
 export function buyVariety(s: GameState) {
-  const next = varietyAt(s.variety + 1);
-  if (!(s.honey >= next.cost)) return false;
-  s.honey -= next.cost;
+  const cost = varietyCost(s, s.variety + 1);
+  if (!(s.honey >= cost)) return false;
+  s.honey -= cost;
   s.variety++;
   return true;
 }
@@ -375,6 +451,7 @@ export function nap(s: GameState, now: number) {
   s.biz = fresh.biz;
   s.research = {};
   s.levels = {};
+  s.addons = [];
   s.boosts = [];
   s.stats.naps++;
   s.lastTick = now;
@@ -405,6 +482,7 @@ export function catchBalloon(s: GameState, now: number, rand = Math.random) {
     earn(s, amount);
     return { kind, title: def.title, amount };
   }
-  addBoost(s, kind === 'frenzy' ? 'profit' : 'tap', def.mult, def.secs * d.balloonPower, def.title, now);
+  const mult = kind === 'frenzy' ? d.frenzyMult : d.swarmMult;
+  addBoost(s, kind === 'frenzy' ? 'profit' : 'tap', mult, def.secs * d.balloonPower, def.title, now);
   return { kind, title: def.title, amount: 0 };
 }

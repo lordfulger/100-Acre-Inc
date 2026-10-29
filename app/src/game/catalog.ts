@@ -59,41 +59,123 @@ export const MIN_CYCLE = 0.5;
 // ---------- Rabbit's General Store (levelled, endless) ----------
 
 // Every store item can be bought again and again. Each level costs a little more
-// than the last (cost = base × growth^level), so there's always something next.
-export type ResearchKind = 'globalMult' | 'tapPct' | 'offlineHours' | 'balloonRate' | 'balloonPower';
+// than the last (cost = base × growth^level). Items appear as your all-time honey
+// passes `unlock`. Only Busy Bees, Longer Strings and Owl's Research are endless;
+// everything else has a `max`, so no mix of items can make honey run away.
+export type ResearchKind =
+  | 'globalMult' | 'tapPct' | 'offlineHours' | 'balloonRate' | 'balloonPower'
+  | 'critChance' | 'autoTap' | 'speed' | 'managerDiscount' | 'bizDiscount' | 'combPower'
+  | 'frenzyPower' | 'swarmPower' | 'hugSecs' | 'giftBonus' | 'varietyDiscount' | 'expoBonus';
+export type ResearchSection = 'Honey' | 'Taps' | 'Balloons' | 'Helpers' | 'Friends';
 export type Research = {
   id: string;
   name: string;
   emoji: string;
+  section: ResearchSection;
   base: number;
   growth: number;
   per: number; // effect per level
   kind: ResearchKind;
   max?: number;
+  unlock: number; // all-time honey needed before it shows in the store
 };
 
 export const RESEARCH: Research[] = [
-  { id: 'busy', name: 'Busy Bees', emoji: '🐝', base: 50, growth: 1.9, per: 1.05, kind: 'globalMult' },
-  { id: 'paws', name: 'Sticky Paws', emoji: '🍯', base: 250, growth: 1.9, per: 0.01, kind: 'tapPct', max: 100 },
-  { id: 'balloons', name: 'More Balloons', emoji: '🎈', base: 750, growth: 2, per: 0.05, kind: 'balloonRate', max: 30 },
-  { id: 'armchair', name: 'Cosy Armchair', emoji: '🛋️', base: 2_000, growth: 2.2, per: 1, kind: 'offlineHours', max: 20 },
-  { id: 'strings', name: 'Longer Strings', emoji: '🧵', base: 5_000, growth: 2, per: 0.1, kind: 'balloonPower' },
-  { id: 'owl', name: "Owl's Research", emoji: '📚', base: 1e6, growth: 1e4, per: 2, kind: 'globalMult' },
+  // Honey
+  { id: 'busy', name: 'Busy Bees', emoji: '🐝', section: 'Honey', base: 50, growth: 1.9, per: 1.05, kind: 'globalMult', unlock: 0 },
+  { id: 'speed', name: 'Quick Wings', emoji: '⚡', section: 'Honey', base: 1e4, growth: 2.5, per: 0.02, kind: 'speed', max: 25, unlock: 1e4 },
+  { id: 'combs', name: 'Comb Polish', emoji: '✨', section: 'Honey', base: 1e5, growth: 3, per: 0.001, kind: 'combPower', max: 20, unlock: 5e4 },
+  { id: 'seeds', name: 'Flower Seeds', emoji: '🌻', section: 'Honey', base: 5e6, growth: 3, per: 0.05, kind: 'varietyDiscount', max: 10, unlock: 2e6 },
+  { id: 'owl', name: "Owl's Research", emoji: '📚', section: 'Honey', base: 1e6, growth: 1e4, per: 2, kind: 'globalMult', unlock: 5e5 },
+  // Taps
+  { id: 'paws', name: 'Sticky Paws', emoji: '🍯', section: 'Taps', base: 250, growth: 1.9, per: 0.01, kind: 'tapPct', max: 100, unlock: 0 },
+  { id: 'lucky', name: 'Lucky Paw', emoji: '🍀', section: 'Taps', base: 1_000, growth: 2, per: 0.01, kind: 'critChance', max: 30, unlock: 1_000 },
+  { id: 'bouncy', name: 'Bouncy Helper', emoji: '🤸', section: 'Taps', base: 5_000, growth: 2.3, per: 0.5, kind: 'autoTap', max: 10, unlock: 5_000 },
+  // Balloons
+  { id: 'balloons', name: 'More Balloons', emoji: '🎈', section: 'Balloons', base: 750, growth: 2, per: 0.05, kind: 'balloonRate', max: 30, unlock: 300 },
+  { id: 'strings', name: 'Longer Strings', emoji: '🧵', section: 'Balloons', base: 5_000, growth: 2, per: 0.1, kind: 'balloonPower', unlock: 3_000 },
+  { id: 'frenzy', name: 'Frenzy Nectar', emoji: '🌺', section: 'Balloons', base: 1e4, growth: 2.3, per: 1, kind: 'frenzyPower', max: 13, unlock: 8_000 },
+  { id: 'swarm', name: 'Swarm Song', emoji: '🎶', section: 'Balloons', base: 2e4, growth: 2.3, per: 10, kind: 'swarmPower', max: 10, unlock: 1.5e4 },
+  // Helpers
+  { id: 'tea', name: 'Manager Tea Party', emoji: '🫖', section: 'Helpers', base: 800, growth: 2.2, per: 0.05, kind: 'managerDiscount', max: 10, unlock: 500 },
+  { id: 'bargain', name: "Rabbit's Bargains", emoji: '🏷️', section: 'Helpers', base: 3_000, growth: 2.3, per: 0.01, kind: 'bizDiscount', max: 20, unlock: 3_000 },
+  { id: 'armchair', name: 'Cosy Armchair', emoji: '🛋️', section: 'Helpers', base: 2_000, growth: 2.2, per: 1, kind: 'offlineHours', max: 20, unlock: 1_500 },
+  // Friends
+  { id: 'hugs', name: 'Warm Hugs', emoji: '🤗', section: 'Friends', base: 500, growth: 2, per: 10, kind: 'hugSecs', max: 12, unlock: 400 },
+  { id: 'ribbons', name: 'Gift Ribbons', emoji: '🎀', section: 'Friends', base: 5e4, growth: 2.5, per: 0.1, kind: 'giftBonus', max: 10, unlock: 3e4 },
+  { id: 'map', name: 'Expotition Map', emoji: '🗺️', section: 'Friends', base: 1e5, growth: 2.5, per: 0.1, kind: 'expoBonus', max: 10, unlock: 6e4 },
 ];
+export const RESEARCH_SECTIONS: ResearchSection[] = ['Honey', 'Taps', 'Balloons', 'Helpers', 'Friends'];
 export const RESEARCH_BY_ID = Object.fromEntries(RESEARCH.map((r) => [r.id, r])) as Record<string, Research>;
 
 export const researchCost = (r: Research, level: number) => r.base * r.growth ** level;
 
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+
 /** Plain-words description of what a store item does at a given level. */
 export function researchEffect(r: Research, level: number) {
+  const v = r.per * level;
   switch (r.kind) {
     case 'globalMult': return `All honey ×${Number((r.per ** level).toPrecision(3))}`;
-    case 'tapPct': return `Taps also earn ${Math.round(r.per * level * 100)}% of your honey/sec`;
-    case 'offlineHours': return `Managers work ${4 + r.per * level}h while you're away`;
-    case 'balloonRate': return `Balloons come ${Math.round(r.per * level * 100)}% more often`;
-    case 'balloonPower': return `Balloon bonuses ${Math.round(r.per * level * 100)}% stronger`;
+    case 'tapPct': return `Taps also earn ${pct(v)} of your honey/sec`;
+    case 'offlineHours': return `Managers work ${4 + v}h while you're away`;
+    case 'balloonRate': return `Balloons come ${pct(v)} more often`;
+    case 'balloonPower': return `Balloon bonuses ${pct(v)} stronger`;
+    case 'critChance': return `${pct(v)} of taps are lucky (×10 honey)`;
+    case 'autoTap': return `The pot taps itself ${v}× a second`;
+    case 'speed': return `Everything works ${pct(v)} faster`;
+    case 'managerDiscount': return `Managers cost ${pct(v)} less`;
+    case 'bizDiscount': return `Homes cost ${pct(v)} less to buy`;
+    case 'combPower': return `Each Golden Honeycomb gives +${(2 + v * 100).toFixed(1)}%`;
+    case 'frenzyPower': return `Bee Frenzy is ×${7 + v}`;
+    case 'swarmPower': return `Bee Swarm taps are ×${50 + v}`;
+    case 'hugSecs': return `Hugs last ${60 + v}s`;
+    case 'giftBonus': return `Gifts you receive are worth ${pct(v)} more`;
+    case 'varietyDiscount': return `Honey varieties cost ${pct(v)} less`;
+    case 'expoBonus': return `Your honey counts ${pct(v)} extra in Expotitions`;
   }
 }
+
+// ---------- add-ons: six named upgrades for every home ----------
+
+// One-time purchases that unlock as a home levels up. Each shows as a little
+// decoration beside the home on the map. Effects: 'honey' multiplies that home's
+// honey, 'speed' makes it work faster, 'taps' (Pooh's House) multiplies taps.
+export type AddonEffect = 'honey' | 'speed' | 'taps';
+export type Addon = { name: string; emoji: string; effect: AddonEffect; mult: number; level: number; cost: number };
+
+const ADDON_LEVELS = [10, 20, 35, 50, 75, 100];
+const ADDON_COSTS = [1e4, 1e6, 1e9, 1e12, 1e17, 2e22]; // × the home's base cost (~10× that level's upgrade)
+const POOH_ADDON_COSTS = [1e4, 5e5, 2e8, 1e11, 3e15, 6e19];
+const BIZ_EFFECTS: [AddonEffect, number][] = [['honey', 1.25], ['speed', 1.15], ['honey', 1.5], ['speed', 1.25], ['honey', 1.5], ['honey', 2]];
+const POOH_EFFECTS: [AddonEffect, number][] = [['taps', 1.25], ['taps', 1.25], ['taps', 1.5], ['taps', 1.5], ['taps', 1.5], ['taps', 2]];
+
+// Named so they don't repeat the free decorations each home gets every 5 levels (LEVEL_PERKS).
+const ADDON_NAMES: Record<string, [string, string][]> = {
+  pooh: [['Honey Spoon', '🥄'], ['Larder Door', '🚪'], ['Honey Cupboard', '🗄️'], ['Stoutness Exercises', '🏋️'], ['Party Hat', '🎉'], ['Golden Pot', '🏆']],
+  beetree: [['Busy Hive', '🐝'], ['Drip Bucket', '🪣'], ['Climbing Branch', '🌿'], ['Blue Balloon', '🎈'], ['Little Black Rain-Cloud', '🌧️'], ['Royal Comb', '👑']],
+  haycorn: [['Haycorn Patch', '🌰'], ['Fixed-Up Sign', '🪧'], ['Cosy Fireplace', '🔥'], ['Knitted Scarf', '🧣'], ['Violet Garden', '💜'], ['Beech-Tree Loft', '🏠']],
+  garden: [['Cabbage Patch', '🥬'], ['Watering Can', '💧'], ['Labelled Jars', '🏷️'], ['Seed Packets', '🌱'], ['Relations Workforce', '🐇'], ['Prize Marrow', '🎃']],
+  oak: [['Bell-Pull', '🔔'], ['Reading Lamp', '🪔'], ['Big Books', '📚'], ['Writing Desk', '🖋️'], ['Spelling Lessons', '✏️'], ["Owl's Spectacles", '👓']],
+  kitchen: [['Mixing Bowl', '🥣'], ['Bun Oven', '🍞'], ['Strengthening Medicine', '🧴'], ["Roo's Toy Box", '🧸'], ['Bath-Time Tub', '🛁'], ['Honey Bun Basket', '🧺']],
+  thistle: [['Thistle Patch', '🌿'], ['Stick Pile', '🪵'], ['Rainy-Day Umbrella', '🌂'], ['Bell-Rope Tail', '🎀'], ['Birthday Cake', '🎂'], ['Gloomy Raincloud', '🌧️']],
+  ranch: [['Bouncy Ball', '⚽'], ['Picnic Basket', '🧃'], ['Extract of Malt', '🍼'], ['Kite', '🪁'], ['Stripy Tent', '⛺'], ['Bounce Trophy', '🏆']],
+  works: [['Wellington Boots', '🥾'], ['Satchel', '🎒'], ['Biscuit Tin', '🍪'], ['Upside-Down Umbrella', '☂️'], ['Big Ideas Notebook', '📓'], ['Compass', '🧭']],
+  heffalump: [['Leafy Cover', '🍂'], ['Rope Net', '🕸️'], ['Trap Map', '📜'], ['Pickaxe', '⛏️'], ['Woozle Tracker', '🐾'], ['Heffalump Lookout', '🔦']],
+  bridge: [['Poohsticks Pile', '🥢'], ['Fishing Rod', '🎣'], ['Stepping Stones', '🪨'], ['Rope Railing', '🪢'], ['River Dock', '⚓'], ['Life Ring', '🛟']],
+};
+
+/** The six add-ons for a home (business id or 'pooh'), with costs worked out. */
+export function addonsFor(id: string, baseCost: number): Addon[] {
+  const pooh = id === 'pooh';
+  return (ADDON_NAMES[id] || []).map(([name, emoji], i) => {
+    const [effect, mult] = (pooh ? POOH_EFFECTS : BIZ_EFFECTS)[i];
+    return { name, emoji, effect, mult, level: ADDON_LEVELS[i], cost: pooh ? POOH_ADDON_COSTS[i] : baseCost * ADDON_COSTS[i] };
+  });
+}
+
+export const addonEffectText = (a: Addon) =>
+  a.effect === 'speed' ? `Works ${Math.round((a.mult - 1) * 100)}% faster` : `${a.effect === 'taps' ? 'Taps' : 'Honey'} ×${a.mult}`;
 
 // ---------- honey varieties (endless) ----------
 

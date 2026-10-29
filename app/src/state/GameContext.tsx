@@ -175,14 +175,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         case 'chat': setNet((n) => ({ ...n, chat: [...n.chat.slice(-59), m.msg] })); break;
         case 'contract': setNet((n) => ({ ...n, contract: m.contract })); break;
         case 'gift':
-          receiveGift(s, m.amount);
+          receiveGift(s, m.amount * derive(s, now).giftMult);
           toast(`🎁 ${m.avatar} ${m.name} sent you ${fmt(m.amount)} honey!`);
           break;
         case 'hug':
-          addBoost(s, 'profit', 2, 60, `Hug from ${m.name}`, now);
+          addBoost(s, 'profit', 2, derive(s, now).hugSecs, `Hug from ${m.name}`, now);
           s.stats.hugsGot++;
           setHearts((h) => h + 1);
-          toast(`💕 ${m.avatar} ${m.name} sent you a big hug! ×2 honey for 60s`);
+          toast(`💕 ${m.avatar} ${m.name} sent you a big hug! ×2 honey for ${derive(s, now).hugSecs}s`);
           break;
         case 'balloon':
           addBoost(s, 'profit', 2, 20, 'Shared joy', now);
@@ -219,7 +219,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (n.status !== 'online') return;
       sendStats();
       if (n.contract?.status === 'active') {
-        if (s.pendingContribution > 0 && client.send({ t: 'contribute', amount: s.pendingContribution })) s.pendingContribution = 0;
+        if (s.pendingContribution > 0 && client.send({ t: 'contribute', amount: s.pendingContribution * derive(s, Date.now()).expoMult })) s.pendingContribution = 0;
       } else {
         s.pendingContribution = 0;
       }

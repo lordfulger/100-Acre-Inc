@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Business, BUSINESSES, varietyAt } from '../game/catalog';
-import { buyBiz, BuyMode, cycleProgress, hireManager, quote, startCycle } from '../game/engine';
+import { buyBiz, BuyMode, cycleProgress, hireManager, managerCost, quote, startCycle } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, Card } from '../ui/kit';
@@ -68,12 +68,12 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
       </View>
       {!st.managed && (
         <Pressable
-          disabled={s.honey < b.manager.cost}
+          disabled={s.honey < managerCost(s, b)}
           onPress={() => { if (act((g, t) => hireManager(g, b.id, t))) buzz('success'); }}
-          style={[styles.hire, s.honey >= b.manager.cost && { backgroundColor: '#FFE9B0', borderColor: v.deep }]}
+          style={[styles.hire, s.honey >= managerCost(s, b) && { backgroundColor: '#FFE9B0', borderColor: v.deep }]}
         >
-          <Text style={[styles.hireText, s.honey < b.manager.cost && { color: C.faint }]}>
-            Hire {b.manager.name} to run it forever — {fmt(b.manager.cost)}
+          <Text style={[styles.hireText, s.honey < managerCost(s, b) && { color: C.faint }]}>
+            Hire {b.manager.name} to run it forever — {fmt(managerCost(s, b))}
           </Text>
         </Pressable>
       )}

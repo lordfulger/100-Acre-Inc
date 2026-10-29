@@ -4,8 +4,8 @@
 import assert from 'node:assert/strict';
 import { BUSINESSES, RESEARCH, varietyAt } from './catalog';
 import {
-  applyOffline, buildingNext, buyBiz, buyResearch, buyVariety, derive, GameState, hireManager, migrate, nap,
-  napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding,
+  addonList, applyOffline, buildingNext, buyAddon, buyBiz, buyResearch, buyVariety, derive, GameState, hireManager, migrate,
+  nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, varietyCost,
 } from './engine';
 import { fmt, fmtTime } from './format';
 
@@ -30,12 +30,13 @@ function shop(s: GameState, t: number) {
     const d = derive(s, t);
     let any = false;
     for (const b of BUSINESSES) if (s.biz[b.id].owned > 0 && !s.biz[b.id].managed && hireManager(s, b.id, t)) any = true;
-    for (const r of RESEARCH) { const n = researchNext(s, r.id); if (!n.maxed && s.honey > n.cost * 2 && buyResearch(s, r.id)) any = true; }
+    for (const r of RESEARCH) { const n = researchNext(s, r.id); if (n.unlocked && !n.maxed && s.honey > n.cost * 2 && buyResearch(s, r.id)) any = true; }
     for (const id of ['pooh', ...BUSINESSES.map((b) => b.id)]) {
       const n = buildingNext(s, id);
       if (n.ready && s.honey > n.cost * 2 && upgradeBuilding(s, id)) any = true;
+      for (const a of addonList(s, id)) if (!a.owned && a.unlocked && s.honey > a.cost * 2 && buyAddon(s, id, a.index)) any = true;
     }
-    if (s.honey > varietyAt(s.variety + 1).cost * 1.5 && buyVariety(s)) any = true;
+    if (s.honey > varietyCost(s, s.variety + 1) * 1.5 && buyVariety(s)) any = true;
     let best: string | null = null;
     let bestScore = 0;
     for (const b of BUSINESSES) {
@@ -76,7 +77,9 @@ function shop(s: GameState, t: number) {
   console.log(report.join('\n'));
   console.log(`First Pooh's House upgrade after ${firstPooh}s of play`);
   console.log(`Purchases per 10 minutes: ${buysPerWindow.join(' ')}`);
-  console.log(`Levels: ${JSON.stringify(s.levels)}\nStore: ${JSON.stringify(s.research)}`);
+  console.log(`Levels: ${JSON.stringify(s.levels)}\nStore: ${JSON.stringify(s.research)}\nAdd-ons owned: ${s.addons.length}/66`);
+  assert.ok(s.addons.length > 0, 'greedy player should buy add-ons');
+  assert.ok(Object.keys(s.research).length >= 10, 'most store items should unlock in the first hours');
   assert.ok(firstPooh > 0 && firstPooh <= 30, 'first upgrade should come within seconds');
   assert.ok(buysPerWindow.every((n) => n >= 3), 'something to buy every 10 minutes');
 
@@ -129,11 +132,13 @@ function shop(s: GameState, t: number) {
   s.allTimeEarned = 1e15;
   s.levels = { pooh: 7 };
   s.research = { busy: 3 };
+  s.addons = ['garden:0'];
   s.variety = 2;
   assert.ok(nap(s, now) > 0);
   assert.deepEqual(s.levels, {});
   assert.deepEqual(s.research, {});
   assert.equal(s.variety, 2);
+  assert.deepEqual(s.addons, [], 'nap resets add-ons');
   assert.equal(migrate(JSON.parse(JSON.stringify(s)), now).combsFromNaps, s.combsFromNaps);
 }
 console.log('All engine checks passed 🍯');

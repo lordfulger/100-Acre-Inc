@@ -73,6 +73,7 @@ function cleanBuildings(b) {
     owned: pick(b.owned, (v) => Math.min(1e6, num(Number(v)))),
     levels: pick(b.levels, (v) => Math.min(10, num(Number(v)))),
     managed: pick(b.managed, (v) => v === true),
+    addons: Array.isArray(b.addons) ? b.addons.filter((a) => /^[a-z]{2,12}:[0-9]$/.test(a)).slice(0, 80) : [],
   };
 }
 const publicId = (secret) => createHash('sha256').update(String(secret)).digest('hex').slice(0, 12);

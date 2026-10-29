@@ -49,11 +49,11 @@ try {
   assert.equal(wb.roster.length, 2);
   console.log('✓ both players joined room', wb.room);
 
-  a.send({ t: 'stats', stats: { hps: 10, honey: 500, allTime: 1000, buildings: { owned: { garden: 12, 'x y': 3 }, levels: { garden: 2 }, managed: { garden: true } } } });
+  a.send({ t: 'stats', stats: { hps: 10, honey: 500, allTime: 1000, buildings: { owned: { garden: 12, 'x y': 3 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0', 'bad addon'] } } });
   b.send({ t: 'stats', stats: { hps: 5, honey: 200, allTime: 400 } });
   await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.hps === 10);
   const pooh = (await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.buildings)).roster.find((r) => r.name === 'Pooh');
-  assert.deepEqual(pooh.stats.buildings, { owned: { garden: 12 }, levels: { garden: 2 }, managed: { garden: true } });
+  assert.deepEqual(pooh.stats.buildings, { owned: { garden: 12 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0'] });
   console.log('✓ live stats and maps shared');
 
   a.send({ t: 'chat', text: 'Hallo Piglet!' });

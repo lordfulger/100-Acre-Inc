@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { COMB_BONUS, varietyAt } from '../game/catalog';
-import { buyVariety, nap, napCombsAvailable, nextCombAt, totalCombs } from '../game/engine';
+import { buyVariety, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
@@ -42,7 +42,7 @@ export function NapScreen() {
           <View style={styles.actionRow}>
             <Text style={[styles.body, { flex: 1 }]}>Next: <Text style={{ fontWeight: '900' }}>{next.emoji} {next.name}</Text> (×{next.mult})</Text>
             <Button
-              label="Discover" sub={fmt(next.cost)} color={next.deep} disabled={s.honey < next.cost}
+              label="Discover" sub={fmt(varietyCost(s, s.variety + 1))} color={next.deep} disabled={s.honey < varietyCost(s, s.variety + 1)}
               onPress={() => { if (act((g) => buyVariety(g))) { buzz('success'); toast(`${next.emoji} You discovered ${next.name}!`); } }}
             />
           </View>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BIZ_BY_ID, buildingMult, BUSINESSES, LEVEL_PERKS, LEVEL_STEP, lookName, lookOf, POOH_HOUSE, poohTapMult } from '../game/catalog';
-import { buildingNext, buyBiz, canUpgradeBuilding, hireManager, mapView, quote, upgradeBuilding } from '../game/engine';
+import { addonEffectText } from '../game/catalog';
+import { addonList, buildingNext, buyAddon, buyBiz, canUpgradeBuilding, hireManager, homeHasUpgrade, managerCost, mapView, quote, upgradeBuilding } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C } from '../ui/kit';
@@ -71,13 +72,31 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
             />
           </View>
 
+          <Text style={styles.addonsTitle}>🧰 Add-ons</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {addonList(s, id).map((a) => (
+              <View key={a.index} style={[styles.addon, a.owned && styles.addonOwned, !a.unlocked && { opacity: 0.5 }]}>
+                <Text style={styles.addonEmoji}>{a.unlocked || a.owned ? a.emoji : '🔒'}</Text>
+                <Text style={styles.addonName} numberOfLines={2}>{a.name}</Text>
+                <Text style={styles.addonFx}>{addonEffectText(a)}</Text>
+                {a.owned ? (
+                  <Text style={styles.addonDone}>✓ Owned</Text>
+                ) : a.unlocked ? (
+                  <Button small label="Buy" sub={fmt(a.cost)} disabled={s.honey < a.cost} onPress={() => { if (act((g) => buyAddon(g, id, a.index))) { buzz('success'); toast(`${a.emoji} ${a.name} added to ${name}!`); } }} />
+                ) : (
+                  <Text style={styles.addonLock}>At Lv {a.level}</Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+
           {b && (
             <View style={[styles.row, { marginTop: 8 }]}>
               <Button small outline label="Buy 1 more" sub={fmt(buy!.cost)} disabled={s.honey < buy!.cost} onPress={() => act((g, t) => buyBiz(g, id, 1, t))} style={{ flex: 1 }} />
               {!s.biz[id].managed && (
                 <Button
-                  small outline color={C.blue} label={`Hire ${b.manager.name}`} sub={fmt(b.manager.cost)}
-                  disabled={s.honey < b.manager.cost} onPress={() => { if (act((g, t) => hireManager(g, id, t))) buzz('success'); }}
+                  small outline color={C.blue} label={`Hire ${b.manager.name}`} sub={fmt(managerCost(s, b))}
+                  disabled={s.honey < managerCost(s, b)} onPress={() => { if (act((g, t) => hireManager(g, id, t))) buzz('success'); }}
                   style={{ flex: 1 }}
                 />
               )}
@@ -94,7 +113,7 @@ export function MapScreen() {
   const [width, setWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
-  const upgradable = new Set(ALL_IDS.filter((id) => canUpgradeBuilding(s, id)));
+  const upgradable = new Set(ALL_IDS.filter((id) => homeHasUpgrade(s, id)));
   const mapWidth = width * zoom;
 
   return (
@@ -133,4 +152,12 @@ const styles = StyleSheet.create({
   next: { marginTop: 10, backgroundColor: '#FFF6DA', borderRadius: 14, padding: 10 },
   nextTitle: { fontWeight: '900', color: C.ink, fontSize: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addonsTitle: { fontWeight: '900', color: C.ink, fontSize: 14, marginTop: 10, marginBottom: 6 },
+  addon: { width: 104, marginRight: 8, padding: 8, borderRadius: 14, backgroundColor: '#FFF6DA', borderWidth: 1.5, borderColor: '#EBD9AE', alignItems: 'center', gap: 3 },
+  addonOwned: { backgroundColor: '#E8F4DC', borderColor: C.green },
+  addonEmoji: { fontSize: 24 },
+  addonName: { fontSize: 12, fontWeight: '800', color: C.ink, textAlign: 'center', minHeight: 30 },
+  addonFx: { fontSize: 11, color: C.soft, fontWeight: '700', textAlign: 'center' },
+  addonDone: { color: C.green, fontWeight: '900', fontSize: 12, paddingVertical: 6 },
+  addonLock: { color: C.soft, fontWeight: '800', fontSize: 12, paddingVertical: 6 },
 });
