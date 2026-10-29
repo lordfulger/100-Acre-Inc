@@ -57,6 +57,7 @@ function shop(s: GameState, t: number) {
   const s = newGame(now);
   const report: string[] = [];
   let firstPooh = -1;
+  let reached300B = -1;
   const buysPerWindow: number[] = [];
   let windowBuys = 0;
   const seen = new Set<string>();
@@ -68,6 +69,7 @@ function shop(s: GameState, t: number) {
     tick(s, now);
     windowBuys += shop(s, now);
     if (firstPooh < 0 && (s.levels.pooh || 0) > 0) firstPooh = t + 10;
+    if (reached300B < 0 && s.allTimeEarned >= 3e11) reached300B = t + 10;
     if ((t + 10) % 600 === 0) { buysPerWindow.push(windowBuys); windowBuys = 0; }
     for (const b of BUSINESSES) {
       if (s.biz[b.id].owned > 0 && !seen.has(b.id)) { seen.add(b.id); report.push(`${fmtTime(t)}: first ${b.name}`); }
@@ -76,6 +78,7 @@ function shop(s: GameState, t: number) {
   }
   console.log(report.join('\n'));
   console.log(`First Pooh's House upgrade after ${firstPooh}s of play`);
+  console.log(`300B all-time honey after ${reached300B < 0 ? 'more than ' + HOURS + 'h' : fmtTime(reached300B)} of non-stop play`);
   console.log(`Purchases per 10 minutes: ${buysPerWindow.join(' ')}`);
   console.log(`Levels: ${JSON.stringify(s.levels)}\nStore: ${JSON.stringify(s.research)}\nAdd-ons owned: ${s.addons.length}/66`);
   assert.ok(s.addons.length > 0, 'greedy player should buy add-ons');

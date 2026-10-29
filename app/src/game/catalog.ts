@@ -14,16 +14,21 @@ export type Business = {
 };
 
 export const BUSINESSES: Business[] = [
-  { id: 'beetree', name: 'The Bee Tree', emoji: '🌳', blurb: 'A buzzing noise means somebody is making honey.', baseCost: 5, growth: 1.10, cycle: 1, revenue: 1, manager: { name: 'Pooh', emoji: '🐻', cost: 500 } },
-  { id: 'haycorn', name: "Piglet's House", emoji: '🌰', blurb: 'In a beech tree, by a broken sign that says TRESPASSERS W.', baseCost: 100, growth: 1.13, cycle: 3, revenue: 24, manager: { name: 'Piglet', emoji: '🐷', cost: 8_000 } },
-  { id: 'garden', name: "Rabbit's Farm", emoji: '🥕', blurb: 'Very Organised. Labelled. Hives between the carrots, tended by Friends-and-Relations.', baseCost: 1_500, growth: 1.14, cycle: 8, revenue: 480, manager: { name: 'Rabbit', emoji: '🐰', cost: 100_000 } },
-  { id: 'oak', name: "Owl's House", emoji: '🦉', blurb: 'The Chestnuts. The sign on the door is spelled almost correctly.', baseCost: 25_000, growth: 1.14, cycle: 20, revenue: 8_000, manager: { name: 'Owl', emoji: '🦉', cost: 1_500_000 } },
-  { id: 'kitchen', name: "Kanga's House", emoji: '🧁', blurb: 'By the Sandy Pit where Roo plays. Honey buns and strengthening medicine.', baseCost: 400_000, growth: 1.15, cycle: 45, revenue: 120_000, manager: { name: 'Kanga & Roo', emoji: '🦘', cost: 30_000_000 } },
-  { id: 'thistle', name: "Eeyore's Gloomy Place", emoji: '🌾', blurb: "Rather boggy and sad. Bees don't mind thistles. Eeyore minds everything.", baseCost: 7e6, growth: 1.15, cycle: 100, revenue: 1.8e6, manager: { name: 'Eeyore', emoji: '🐴', cost: 5e8 } },
-  { id: 'ranch', name: "Tigger's Picnic Hill", emoji: '🎪', blurb: 'Nice for picnics. The bees bounce. Tigger insists this is normal.', baseCost: 1.2e8, growth: 1.15, cycle: 240, revenue: 3e7, manager: { name: 'Tigger', emoji: '🐯', cost: 1e10 } },
-  { id: 'works', name: "Christopher Robin's House", emoji: '🚪', blurb: 'Behind a green door in a big tree, where all the clever plans are made.', baseCost: 2e9, growth: 1.15, cycle: 600, revenue: 5e8, manager: { name: 'Christopher Robin', emoji: '🧒', cost: 2e11 } },
-  { id: 'heffalump', name: 'The Heffalump Trap', emoji: '🕳️', blurb: 'A Very Deep Pit, baited with honey. No Heffalumps yet. Lots of honey.', baseCost: 4e10, growth: 1.15, cycle: 1_500, revenue: 8e9, manager: { name: 'Small', emoji: '🐞', cost: 5e12 } },
-  { id: 'bridge', name: 'Poohsticks Bridge', emoji: '🌉', blurb: 'Honey barges float under the bridge all day, past the Floody Place.', baseCost: 8e11, growth: 1.15, cycle: 3_600, revenue: 1.3e11, manager: { name: 'The Woozles', emoji: '🐾', cost: 1e14 } },
+  { id: 'beetree', name: 'The Bee Tree', emoji: '🌳', blurb: 'A buzzing noise means somebody is making honey.', baseCost: 5, growth: 1.13, cycle: 1, revenue: 1, manager: { name: 'Pooh', emoji: '🐻', cost: 500 * 3 } },
+  { id: 'haycorn', name: "Piglet's House", emoji: '🌰', blurb: 'In a beech tree, by a broken sign that says TRESPASSERS W.', baseCost: 100, growth: 1.16, cycle: 3, revenue: 24 / 2, manager: { name: 'Piglet', emoji: '🐷', cost: 8_000 * 3 } },
+  { id: 'garden', name: "Rabbit's Farm", emoji: '🥕', blurb: 'Very Organised. Labelled. Hives between the carrots, tended by Friends-and-Relations.', baseCost: 1_500, growth: 1.17, cycle: 8, revenue: 480 / 2, manager: { name: 'Rabbit', emoji: '🐰', cost: 100_000 * 3 } },
+  { id: 'oak', name: "Owl's House", emoji: '🦉', blurb: 'The Chestnuts. The sign on the door is spelled almost correctly.', baseCost: 25_000, growth: 1.17, cycle: 20, revenue: 8_000 / 2, manager: { name: 'Owl', emoji: '🦉', cost: 1_500_000 * 3 } },
+  { id: 'kitchen', name: "Kanga's House", emoji: '🧁', blurb: 'By the Sandy Pit where Roo plays. Honey buns and strengthening medicine.', baseCost: 400_000, growth: 1.18, cycle: 45, revenue: 120_000 / 2, manager: { name: 'Kanga & Roo', emoji: '🦘', cost: 30_000_000 * 3 } },
+  { id: 'thistle', name: "Eeyore's Gloomy Place", emoji: '🌾', blurb: "Rather boggy and sad. Bees don't mind thistles. Eeyore minds everything.", baseCost: 7e6, growth: 1.18, cycle: 100, revenue: 1.8e6 / 2, manager: { name: 'Eeyore', emoji: '🐴', cost: 5e8 * 3 } },
+  { id: 'ranch', name: "Tigger's Picnic Hill", emoji: '🎪', blurb: 'Nice for picnics. The bees bounce. Tigger insists this is normal.', baseCost: 1.2e8, growth: 1.18, cycle: 240, revenue: 3e7 / 2, manager: { name: 'Tigger', emoji: '🐯', cost: 1e10 * 3 } },
+  { id: 'works', name: "Christopher Robin's House", emoji: '🚪', blurb: 'Behind a green door in a big tree, where all the clever plans are made.', baseCost: 2e9, growth: 1.18, cycle: 600, revenue: 5e8 / 2, manager: { name: 'Christopher Robin', emoji: '🧒', cost: 2e11 * 3 } },
+  { id: 'heffalump', name: 'The Heffalump Trap', emoji: '🕳️', blurb: 'A Very Deep Pit, baited with honey. No Heffalumps yet. Lots of honey.', baseCost: 4e10, growth: 1.18, cycle: 1_500, revenue: 8e9 / 2, manager: { name: 'Small', emoji: '🐞', cost: 5e12 * 3 } },
+  { id: 'bridge', name: 'Poohsticks Bridge', emoji: '🌉', blurb: 'Honey barges float under the bridge all day, past the Floody Place.', baseCost: 8e11, growth: 1.18, cycle: 3_600, revenue: 1.3e11 / 2, manager: { name: 'The Woozles', emoji: '🐾', cost: 1e14 * 3 } },
+  // Further into the wood (the south of the map).
+  { id: 'floody', name: 'The Floody Place', emoji: '🛶', blurb: 'Where the river spreads out. Honey boats bob at a wobbly little dock.', baseCost: 1.6e13, growth: 1.18, cycle: 7_200, revenue: 2.2e12 / 2, manager: { name: 'Roo', emoji: '🦘', cost: 2e15 * 3 } },
+  { id: 'galleons', name: 'Galleons Lap', emoji: '✨', blurb: 'An enchanted clearing on top of the wood, ringed with trees. You can see the whole world.', baseCost: 3.2e14, growth: 1.18, cycle: 14_400, revenue: 3.6e13 / 2, manager: { name: 'Pooh & Piglet', emoji: '🐷', cost: 4e16 * 3 } },
+  { id: 'camp', name: 'Expotition Camp', emoji: '⛺', blurb: 'Base camp for finding the North Pole. Mostly used for honey breaks.', baseCost: 6.4e15, growth: 1.18, cycle: 28_800, revenue: 6e14 / 2, manager: { name: 'The Bees', emoji: '🐝', cost: 8e17 * 3 } },
+  { id: 'pines', name: 'Heffalump Pines', emoji: '🌲', blurb: 'Big round footprints between the pines. Something very large likes honey too.', baseCost: 1.3e17, growth: 1.18, cycle: 57_600, revenue: 1e16 / 2, manager: { name: 'The Heffalump', emoji: '🐘', cost: 1.6e19 * 3 } },
 ];
 
 export const BIZ_BY_ID = Object.fromEntries(BUSINESSES.map((b) => [b.id, b])) as Record<string, Business>;
@@ -82,20 +87,20 @@ export type Research = {
 
 export const RESEARCH: Research[] = [
   // Honey
-  { id: 'busy', name: 'Busy Bees', emoji: '🐝', section: 'Honey', base: 50, growth: 1.9, per: 1.05, kind: 'globalMult', unlock: 0 },
+  { id: 'busy', name: 'Busy Bees', emoji: '🐝', section: 'Honey', base: 50, growth: 2.6, per: 1.04, kind: 'globalMult', unlock: 0 },
   { id: 'speed', name: 'Quick Wings', emoji: '⚡', section: 'Honey', base: 1e4, growth: 2.5, per: 0.02, kind: 'speed', max: 25, unlock: 1e4 },
   { id: 'combs', name: 'Comb Polish', emoji: '✨', section: 'Honey', base: 1e5, growth: 3, per: 0.001, kind: 'combPower', max: 20, unlock: 5e4 },
   { id: 'seeds', name: 'Flower Seeds', emoji: '🌻', section: 'Honey', base: 5e6, growth: 3, per: 0.05, kind: 'varietyDiscount', max: 10, unlock: 2e6 },
   { id: 'owl', name: "Owl's Research", emoji: '📚', section: 'Honey', base: 1e6, growth: 1e4, per: 2, kind: 'globalMult', unlock: 5e5 },
   // Taps
-  { id: 'paws', name: 'Sticky Paws', emoji: '🍯', section: 'Taps', base: 250, growth: 1.9, per: 0.01, kind: 'tapPct', max: 100, unlock: 0 },
-  { id: 'lucky', name: 'Lucky Paw', emoji: '🍀', section: 'Taps', base: 1_000, growth: 2, per: 0.01, kind: 'critChance', max: 30, unlock: 1_000 },
-  { id: 'bouncy', name: 'Bouncy Helper', emoji: '🤸', section: 'Taps', base: 5_000, growth: 2.3, per: 0.5, kind: 'autoTap', max: 10, unlock: 5_000 },
+  { id: 'paws', name: 'Sticky Paws', emoji: '🍯', section: 'Taps', base: 250, growth: 2.2, per: 0.005, kind: 'tapPct', max: 100, unlock: 0 },
+  { id: 'lucky', name: 'Lucky Paw', emoji: '🍀', section: 'Taps', base: 1_000, growth: 2.5, per: 0.01, kind: 'critChance', max: 15, unlock: 1_000 },
+  { id: 'bouncy', name: 'Bouncy Helper', emoji: '🤸', section: 'Taps', base: 5_000, growth: 2.8, per: 0.5, kind: 'autoTap', max: 10, unlock: 5_000 },
   // Balloons
   { id: 'balloons', name: 'More Balloons', emoji: '🎈', section: 'Balloons', base: 750, growth: 2, per: 0.05, kind: 'balloonRate', max: 30, unlock: 300 },
   { id: 'strings', name: 'Longer Strings', emoji: '🧵', section: 'Balloons', base: 5_000, growth: 2, per: 0.1, kind: 'balloonPower', unlock: 3_000 },
-  { id: 'frenzy', name: 'Frenzy Nectar', emoji: '🌺', section: 'Balloons', base: 1e4, growth: 2.3, per: 1, kind: 'frenzyPower', max: 13, unlock: 8_000 },
-  { id: 'swarm', name: 'Swarm Song', emoji: '🎶', section: 'Balloons', base: 2e4, growth: 2.3, per: 10, kind: 'swarmPower', max: 10, unlock: 1.5e4 },
+  { id: 'frenzy', name: 'Frenzy Nectar', emoji: '🌺', section: 'Balloons', base: 1e4, growth: 2.6, per: 0.25, kind: 'frenzyPower', max: 8, unlock: 8_000 },
+  { id: 'swarm', name: 'Swarm Song', emoji: '🎶', section: 'Balloons', base: 2e4, growth: 2.6, per: 1, kind: 'swarmPower', max: 8, unlock: 1.5e4 },
   // Helpers
   { id: 'tea', name: 'Manager Tea Party', emoji: '🫖', section: 'Helpers', base: 800, growth: 2.2, per: 0.05, kind: 'managerDiscount', max: 10, unlock: 500 },
   { id: 'bargain', name: "Rabbit's Bargains", emoji: '🏷️', section: 'Helpers', base: 3_000, growth: 2.3, per: 0.01, kind: 'bizDiscount', max: 20, unlock: 3_000 },
@@ -127,8 +132,8 @@ export function researchEffect(r: Research, level: number) {
     case 'managerDiscount': return `Managers cost ${pct(v)} less`;
     case 'bizDiscount': return `Homes cost ${pct(v)} less to buy`;
     case 'combPower': return `Each Golden Honeycomb gives +${(2 + v * 100).toFixed(1)}%`;
-    case 'frenzyPower': return `Bee Frenzy is ×${7 + v}`;
-    case 'swarmPower': return `Bee Swarm taps are ×${50 + v}`;
+    case 'frenzyPower': return `Bee Frenzy is ×${3 + v}`;
+    case 'swarmPower': return `Bee Swarm taps are ×${8 + v}`;
     case 'hugSecs': return `Hugs last ${60 + v}s`;
     case 'giftBonus': return `Gifts you receive are worth ${pct(v)} more`;
     case 'varietyDiscount': return `Honey varieties cost ${pct(v)} less`;
@@ -163,6 +168,10 @@ const ADDON_NAMES: Record<string, [string, string][]> = {
   works: [['Wellington Boots', '🥾'], ['Satchel', '🎒'], ['Biscuit Tin', '🍪'], ['Upside-Down Umbrella', '☂️'], ['Big Ideas Notebook', '📓'], ['Compass', '🧭']],
   heffalump: [['Leafy Cover', '🍂'], ['Rope Net', '🕸️'], ['Trap Map', '📜'], ['Pickaxe', '⛏️'], ['Woozle Tracker', '🐾'], ['Heffalump Lookout', '🔦']],
   bridge: [['Poohsticks Pile', '🥢'], ['Fishing Rod', '🎣'], ['Stepping Stones', '🪨'], ['Rope Railing', '🪢'], ['River Dock', '⚓'], ['Life Ring', '🛟']],
+  floody: [['Oars', '🚣'], ['Bottle Messages', '🍾'], ['Rain Barrel', '🛢️'], ['Lily Pads', '🪷'], ['Paddle Steamer', '🚢'], ['Rainbow', '🌈']],
+  galleons: [['Thinking Stone', '🪨'], ['Picnic Hamper', '🧺'], ['Wishing Well', '⛲'], ['Wildflower Ring', '🌼'], ['Starlight Lanterns', '🏮'], ['Enchanted Oak', '🌳']],
+  camp: [['Sleeping Bags', '🛏️'], ['Kettle', '🫖'], ['Expotition Map', '🗺️'], ['Compass Post', '🧭'], ['Camp Songs', '🎵'], ['North Pole Sign', '🪧']],
+  pines: [['Footprint Path', '🐾'], ['Pine Cone Pile', '🌰'], ['Giant Honey Pot', '🍯'], ['Snowy Branches', '❄️'], ['Trunk Shower', '🚿'], ['Heffalump Hammock', '🛏️']],
 };
 
 /** The six add-ons for a home (business id or 'pooh'), with costs worked out. */
@@ -221,8 +230,8 @@ export const COMB_DIVISOR = 1e9; // combs = floor(5 * (allTime / COMB_DIVISOR) ^
 export type BalloonKind = 'lucky' | 'frenzy' | 'swarm';
 export const BALLOONS: Record<BalloonKind, { weight: number; title: string; secs: number; mult: number }> = {
   lucky: { weight: 50, title: 'Lucky Honey!', secs: 0, mult: 0 },
-  frenzy: { weight: 35, title: 'Bee Frenzy! ×7 honey', secs: 30, mult: 7 },
-  swarm: { weight: 15, title: 'Bee Swarm! ×50 taps', secs: 12, mult: 50 },
+  frenzy: { weight: 35, title: 'Bee Frenzy! ×3 honey', secs: 20, mult: 3 },
+  swarm: { weight: 15, title: 'Bee Swarm! ×8 taps', secs: 10, mult: 8 },
 };
 
 export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🧒', '🐞', '🐝', '🐘'];
@@ -235,7 +244,7 @@ export const QUICK_PHRASES = [
 // ---------- the map (endless levels) ----------
 
 // Every home can be upgraded forever. Each level costs a bit more than the last
-// and adds +4% honey; every 5th level also gives ×1.5 and adds something new
+// and adds +3% honey; every 5th level also gives ×1.35 and adds something new
 // to the home's picture on the map (a new "look").
 export const LEVEL_STEP = 5;
 const LOOK_NAMES = ['Just as it was', 'Spruced Up', 'Cosy', 'Bustling', 'Splendid', 'Legendary'];
@@ -245,19 +254,19 @@ export const lookName = (level: number) => {
   return look < LOOK_NAMES.length ? LOOK_NAMES[look] : `Legendary ${roman(look - LOOK_NAMES.length + 2)}`;
 };
 
-export const buildingCost = (baseCost: number, level: number) => baseCost * 8 * 1.6 ** level;
-export const buildingMult = (level: number) => 1.04 ** level * 1.5 ** lookOf(level);
+export const buildingCost = (baseCost: number, level: number) => baseCost * 20 * 1.8 ** level;
+export const buildingMult = (level: number) => 1.03 ** level * 1.35 ** lookOf(level);
 
-// Pooh's own house is where the honey pot lives: each level adds +1 honey per
-// tap, and every 5th level gives taps ×1.5.
+// Pooh's own house is where the honey pot lives: each level adds +½ honey per
+// tap, and every 5th level gives taps ×1.3.
 export const POOH_HOUSE = {
   id: 'pooh',
   name: "Pooh Bear's House",
   emoji: '🍯',
   blurb: 'Under the name of Mr. Sanders. Where the honey pot lives.',
 };
-export const poohCost = (level: number) => 15 * 1.5 ** level;
-export const poohTapMult = (level: number) => (1 + level) * 1.5 ** lookOf(level);
+export const poohCost = (level: number) => 15 * 1.7 ** level;
+export const poohTapMult = (level: number) => (1 + 0.5 * level) * 1.3 ** lookOf(level);
 
 /** What each new look adds to a home's picture on the map (every 5 levels). */
 export const LEVEL_PERKS: Record<string, string[]> = {
@@ -272,4 +281,8 @@ export const LEVEL_PERKS: Record<string, string[]> = {
   works: ['A swing', 'A flag', 'A treehouse platform', 'A lookout', 'A telescope'],
   heffalump: ['A ladder', 'A jar of honey bait', 'Lanterns', 'A mine cart', 'Heaps of honey'],
   bridge: ['A honey barge', 'Lanterns', 'Another barge', 'Flags', 'A whole fleet'],
+  floody: ['A honey boat', 'Dock lanterns', 'A second boat', 'Rope bunting', 'A sailboat'],
+  galleons: ['A picnic blanket', 'A ring of stones', 'A kite', 'Twinkling lights', 'A golden glow'],
+  camp: ['A second tent', 'A lantern', 'A map table', 'A flagpole', 'A telescope'],
+  pines: ['Honey pots', 'Hives in the pines', 'More pines', 'Lanterns', 'A golden glow'],
 };

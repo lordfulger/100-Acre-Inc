@@ -480,7 +480,7 @@ export function catchBalloon(s: GameState, now: number, rand = Math.random) {
   s.stats.balloons++;
   const def = BALLOONS[kind];
   if (kind === 'lucky') {
-    const amount = Math.max(d.tapValue * 30, Math.min(s.honey * 0.15, d.hps * 900)) * d.balloonPower;
+    const amount = Math.max(d.tapValue * 20, Math.min(s.honey * 0.1, d.hps * 300)) * d.balloonPower;
     earn(s, amount);
     return { kind, title: def.title, amount };
   }

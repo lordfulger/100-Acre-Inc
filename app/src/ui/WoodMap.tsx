@@ -11,7 +11,7 @@ import { nativeDriver } from './kit';
 import { Portrait, portraitFor } from './Portrait';
 
 export const MAP_W = 600;
-export const MAP_H = 820;
+export const MAP_H = 1060;
 export const HAND = 'PatrickHand_400Regular';
 
 // Where each home stands (centre of its base).
@@ -27,6 +27,11 @@ export const PLACES: Record<string, { x: number; y: number }> = {
   haycorn: { x: 70, y: 492 },
   thistle: { x: 505, y: 505 },
   bridge: { x: 318, y: 640 },
+  // Further into the wood.
+  pines: { x: 492, y: 700 },
+  floody: { x: 470, y: 830 },
+  galleons: { x: 130, y: 930 },
+  camp: { x: 360, y: 990 },
 };
 
 const INK = '#4B3A26';
@@ -523,9 +528,134 @@ function BridgeArt({ lv }: { lv: number }) {
   );
 }
 
+function FloodyDock({ lv }: { lv: number }) {
+  const Boat = ({ x, y, sail }: { x: number; y: number; sail?: boolean }) => (
+    <G transform={`translate(${x},${y})`}>
+      {sail && <Polygon points="0,-30 0,-6 16,-8" fill="#F4E8C8" stroke={INK} strokeWidth={0.8} />}
+      {sail && <Line x1={0} y1={-32} x2={0} y2={-4} stroke={INK} strokeWidth={1} />}
+      <Path d="M-14 -4 L14 -4 L9 4 L-9 4 Z" fill={TRUNK} stroke={INK} strokeWidth={0.8} />
+      {!sail && <Pot x={2} y={-4} s={0.8} />}
+    </G>
+  );
+  return (
+    <G>
+      <Ellipse cx={0} cy={-2} rx={62} ry={17} fill={WATER} stroke={WATER_EDGE} strokeWidth={1.2} />
+      <Ellipse cx={-14} cy={-4} rx={30} ry={6} fill="#C3DCEA" opacity={0.7} />
+      <Rect x={-58} y={-14} width={46} height={8} fill="#B48A5E" stroke={INK} strokeWidth={0.9} />
+      {[-52, -42, -32, -22].map((x) => <Line key={x} x1={x} y1={-14} x2={x} y2={-6} stroke={INK} strokeWidth={0.5} />)}
+      {[-56, -16].map((x) => <Rect key={x} x={x - 1.5} y={-26} width={3} height={22} fill={TRUNK} stroke={INK} strokeWidth={0.5} />)}
+      {lv >= 1 && <Boat x={18} y={-4} />}
+      {lv >= 2 && [-56, -16].map((x) => <Rect key={x} x={x - 3} y={-34} width={6} height={7} rx={1} fill={GOLD} stroke={INK} strokeWidth={0.5} />)}
+      {lv >= 3 && <Boat x={-6} y={8} />}
+      {lv >= 4 && <Bunting x1={-56} y1={-26} x2={-16} y2={-26} n={5} />}
+      {lv >= 5 && <Boat x={42} y={0} sail />}
+    </G>
+  );
+}
+
+function GalleonsLap({ lv }: { lv: number }) {
+  return (
+    <G>
+      {lv >= 5 && <Glow r={60} />}
+      <Ellipse cx={0} cy={-4} rx={60} ry={20} fill="#C7D98F" stroke={INK} strokeWidth={1} />
+      <Ellipse cx={0} cy={-6} rx={30} ry={9} fill="#E3EDB8" />
+      {[[-48, -6, 0.7], [-30, -20, 0.6], [30, -20, 0.6], [48, -6, 0.7], [0, -26, 0.55]].map(([x, y, sc], i) => <Tree key={i} x={x} y={y} s={sc} dark={i % 2 === 0} />)}
+      {lv >= 1 && (
+        <G transform="translate(-8,-8)">
+          <Rect x={-10} y={-4} width={20} height={9} fill="#E9F0F7" stroke={INK} strokeWidth={0.5} />
+          {[-5, 0, 5].map((x) => <Line key={x} x1={x} y1={-4} x2={x} y2={5} stroke="#5A8FD6" strokeWidth={1.2} />)}
+          <Pot x={13} y={4} s={0.7} />
+        </G>
+      )}
+      {lv >= 2 && [[-22, 2], [-12, 6], [12, 6], [22, 2]].map(([x, y], i) => <Ellipse key={i} cx={x} cy={y} rx={3.5} ry={2.5} fill="#C9C2B5" stroke={INK} strokeWidth={0.5} />)}
+      {lv >= 3 && (
+        <G>
+          <Path d="M10 -6 Q20 -30 26 -52" stroke={INK} strokeWidth={0.6} fill="none" />
+          <Polygon points="26,-62 33,-52 26,-42 19,-52" fill="#E46A8C" stroke={INK} strokeWidth={0.6} />
+        </G>
+      )}
+      {lv >= 4 && Array.from({ length: 9 }, (_, i) => {
+        const a = Math.PI * (0.1 + (0.8 * i) / 8);
+        return <Circle key={i} cx={-Math.cos(a) * 44} cy={-14 - Math.sin(a) * 16} r={1.8} fill={['#F2C14E', '#E46A8C', '#5A8FD6'][i % 3]} />;
+      })}
+    </G>
+  );
+}
+
+function ExpoCamp({ lv }: { lv: number }) {
+  const Tent = ({ x, s: sc = 1 }: { x: number; s?: number }) => (
+    <G transform={`translate(${x},0) scale(${sc})`}>
+      <Polygon points="-22,0 0,-34 22,0" fill="#E8C27A" stroke={INK} strokeWidth={1} />
+      <Polygon points="-5,0 0,-14 5,0" fill="#8A6440" stroke={INK} strokeWidth={0.6} />
+      <Line x1={0} y1={-34} x2={0} y2={-40} stroke={INK} strokeWidth={1} />
+    </G>
+  );
+  return (
+    <G>
+      <Ellipse cx={0} cy={2} rx={56} ry={10} fill="#DCE6B4" />
+      <Tent x={-12} />
+      {lv >= 1 && <Tent x={-44} s={0.7} />}
+      <G transform="translate(26,0)">
+        <Line x1={-8} y1={0} x2={8} y2={-4} stroke={TRUNK} strokeWidth={2.5} />
+        <Line x1={-8} y1={-4} x2={8} y2={0} stroke={TRUNK} strokeWidth={2.5} />
+        <Path d="M-5 -3 Q0 -18 5 -3 Z" fill="#F08A3C" />
+        <Path d="M-2 -3 Q0 -11 2 -3 Z" fill={GOLD} />
+      </G>
+      {lv >= 2 && (
+        <G>
+          <Line x1={44} y1={2} x2={44} y2={-26} stroke={TRUNK} strokeWidth={1.4} />
+          <Rect x={41} y={-32} width={6} height={7} rx={1} fill={GOLD} stroke={INK} strokeWidth={0.5} />
+        </G>
+      )}
+      {lv >= 3 && (
+        <G>
+          <Rect x={8} y={-14} width={16} height={3} fill={TRUNK} />
+          <Line x1={10} y1={-11} x2={10} y2={0} stroke={TRUNK} strokeWidth={1.2} /><Line x1={22} y1={-11} x2={22} y2={0} stroke={TRUNK} strokeWidth={1.2} />
+          <Rect x={10} y={-18} width={12} height={4} fill="#F4E8C8" stroke={INK} strokeWidth={0.4} />
+        </G>
+      )}
+      {lv >= 4 && (
+        <G>
+          <Line x1={-60} y1={2} x2={-60} y2={-50} stroke={INK} strokeWidth={1} />
+          <Polygon points="-60,-50 -46,-46 -60,-42" fill="#C8553D" stroke={INK} strokeWidth={0.5} />
+        </G>
+      )}
+      {lv >= 5 && (
+        <G>
+          <Line x1={52} y1={2} x2={58} y2={-14} stroke={INK} strokeWidth={0.8} /><Line x1={64} y1={2} x2={58} y2={-14} stroke={INK} strokeWidth={0.8} />
+          <Line x1={54} y1={-12} x2={70} y2={-24} stroke="#B88A00" strokeWidth={3} strokeLinecap="round" />
+        </G>
+      )}
+    </G>
+  );
+}
+
+function HeffalumpPines({ lv }: { lv: number }) {
+  return (
+    <G>
+      {lv >= 5 && <Glow r={60} />}
+      {lv >= 3 && <G><PineTree x={-50} y={-2} s={0.75} /><PineTree x={52} y={0} s={0.7} /></G>}
+      <PineTree x={-26} y={-4} s={1.05} />
+      <PineTree x={4} y={-8} s={1.2} />
+      <PineTree x={30} y={-2} s={0.95} />
+      {/* Big round footprints: something very large walks here. */}
+      {[[-30, 8], [-12, 4], [8, 9], [26, 5]].map(([x, y], i) => <Ellipse key={i} cx={x} cy={y} rx={6} ry={3.5} fill="#B9B2A6" opacity={0.8} />)}
+      {lv >= 1 && <G><Pot x={-40} y={6} s={1.1} /><Pot x={42} y={7} s={1} /></G>}
+      {lv >= 2 && <G><Hive x={-18} y={-30} s={0.7} /><Hive x={14} y={-40} s={0.7} /></G>}
+      {lv >= 4 && [-38, 40].map((x) => (
+        <G key={x}>
+          <Line x1={x} y1={4} x2={x} y2={-22} stroke={TRUNK} strokeWidth={1.4} />
+          <Rect x={x - 3} y={-28} width={6} height={7} rx={1} fill={GOLD} stroke={INK} strokeWidth={0.5} />
+        </G>
+      ))}
+    </G>
+  );
+}
+
 const ART: Record<string, (p: { lv: number }) => React.ReactElement> = {
   pooh: PoohHouse, beetree: BeeTreeArt, haycorn: PigletHouse, garden: RabbitFarm, oak: OwlHouse, kitchen: KangaHouse,
   thistle: EeyorePlace, ranch: TiggerHill, works: RobinHouse, heffalump: HeffalumpTrap, bridge: BridgeArt,
+  floody: FloodyDock, galleons: GalleonsLap, camp: ExpoCamp, pines: HeffalumpPines,
 };
 
 // ---------- the land ----------
@@ -533,10 +663,11 @@ const ART: Record<string, (p: { lv: number }) => React.ReactElement> = {
 const RIVERS = [
   'M548 0 C540 40 575 70 560 110 C548 150 520 165 470 178 C410 192 360 172 300 196 C275 206 262 215 255 232',
   'M0 205 C60 198 110 212 150 218 C190 224 225 222 255 232',
-  'M255 232 C262 280 250 320 262 360 C272 400 250 450 230 480 C210 510 240 540 285 560 C330 580 325 610 318 640 C310 690 288 740 320 820',
+  'M255 232 C262 280 250 320 262 360 C272 400 250 450 230 480 C210 510 240 540 285 560 C330 580 325 610 318 640 C310 690 288 740 320 820 C340 880 290 930 300 980 C305 1010 330 1040 340 1060',
   'M600 420 C560 422 520 428 470 438 C420 450 400 470 370 490 C340 510 300 530 285 560',
   'M0 528 C60 532 120 522 160 506 C190 496 210 490 230 480',
-  'M0 722 C60 712 120 738 170 760 C200 772 230 790 240 820',
+  'M0 722 C60 712 120 738 170 760 C200 772 230 790 240 820 C250 850 280 870 312 880',
+  'M600 860 C560 850 530 845 500 840',
 ];
 
 const PATHS = [
@@ -544,6 +675,7 @@ const PATHS = [
   'M330 95 C370 110 400 130 445 145', 'M168 392 C130 430 100 460 70 492', 'M72 300 C180 300 260 290 365 272',
   'M365 272 C420 280 480 285 535 292', 'M365 272 C400 320 430 360 455 400', 'M455 405 C470 440 490 470 505 505',
   'M168 392 C220 470 260 560 300 630', 'M505 512 C440 560 380 600 330 638',
+  'M330 645 C400 660 450 680 492 700', 'M330 650 C390 720 430 790 470 830', 'M310 650 C250 760 180 850 130 930', 'M140 935 C200 965 280 985 360 990',
 ];
 
 const FOREST: [number, number, number][] = [
@@ -557,12 +689,14 @@ const FOREST: [number, number, number][] = [
   [156, 694, 1.05], [186, 700, 1.0], [214, 690, 0.95], [390, 730, 1.0], [418, 740, 1.05], [446, 736, 1.0],
   // scattered
   [30, 380, 0.8], [190, 560, 0.85], [420, 560, 0.8], [575, 560, 0.85], [560, 220, 0.75], [180, 40, 0.7],
-  [205, 36, 0.75], [230, 42, 0.7], [380, 50, 0.8], [405, 56, 0.75], [570, 690, 0.9], [540, 760, 0.85], [30, 780, 0.8],
+  [205, 36, 0.75], [230, 42, 0.7], [380, 50, 0.8], [405, 56, 0.75], [570, 690, 0.9], [560, 760, 0.85], [30, 780, 0.8],
+  // further into the wood
+  [40, 880, 0.9], [230, 900, 0.85], [250, 940, 0.8], [440, 920, 0.95], [470, 950, 1.0], [500, 925, 0.9], [560, 960, 0.9], [580, 1000, 0.85],
+  [60, 1010, 0.9], [100, 1030, 0.85], [200, 1030, 0.8], [470, 1030, 0.85], [540, 1035, 0.9], [20, 960, 0.8],
 ];
 
 const PINES: [number, number][] = [
   [158, 296], [172, 290], [186, 298], [200, 288], [214, 296], [228, 292],
-  [450, 650], [466, 642], [482, 652], [498, 640], [514, 650], [530, 644], [474, 672], [500, 674],
 ];
 
 function Land() {
@@ -571,14 +705,14 @@ function Land() {
       <Rect x={0} y={0} width={MAP_W} height={MAP_H} fill="#F4ECD3" />
       {[
         [150, 120, 160, 90], [420, 110, 170, 100], [300, 300, 260, 120], [100, 450, 140, 110], [480, 470, 150, 110],
-        [300, 560, 220, 80], [150, 680, 180, 100], [460, 700, 180, 110],
+        [300, 560, 220, 80], [150, 680, 180, 100], [460, 700, 180, 110], [140, 930, 170, 90], [380, 990, 200, 80],
       ].map(([cx, cy, rx, ry], i) => (
         <Ellipse key={i} cx={cx} cy={cy} rx={rx} ry={ry} fill="#DCE6B4" opacity={0.75} />
       ))}
       {/* Boggy places */}
       <Ellipse cx={60} cy={555} rx={70} ry={30} fill="#B9CFC0" opacity={0.6} />
       <Ellipse cx={520} cy={530} rx={80} ry={28} fill="#B9CFC0" opacity={0.6} />
-      <Ellipse cx={470} cy={790} rx={90} ry={30} fill="#B9CFC0" opacity={0.6} />
+      <Ellipse cx={470} cy={840} rx={95} ry={30} fill="#B9CFC0" opacity={0.6} />
       {/* Sandy pit where Roo plays */}
       <Path d="M150 120 C170 100 250 100 268 118 C280 132 250 150 200 148 C165 147 140 138 150 120 Z" fill={SAND} stroke="#C9A64B" strokeWidth={1} strokeDasharray="2,2" />
       {[170, 190, 214, 240, 252].map((x, i) => <Circle key={x} cx={x} cy={124 + (i % 2) * 10} r={1.2} fill="#C9A64B" />)}
@@ -628,8 +762,8 @@ const LABELS: { text: string; x: number; y: number; size?: number; w?: number }[
   { text: 'WHERE THE WOOZLE WASNT', x: 168, y: 478, size: 9, w: 80 },
   { text: 'FLOODY PLACE', x: 56, y: 560, size: 12, w: 70 },
   { text: 'RATHER BOGGY AND SAD', x: 505, y: 568, size: 10 },
-  { text: 'PINE TREES', x: 492, y: 690, size: 11 },
-  { text: 'FLOODY PLACE', x: 470, y: 786, size: 12 },
+  { text: 'FURTHER INTO THE WOOD', x: 300, y: 880, size: 11, w: 130 },
+  { text: 'NORTH POLE (PROBABLY)', x: 520, y: 1000, size: 9, w: 90 },
 ];
 
 function Pulse({ children }: { children: React.ReactNode }) {
