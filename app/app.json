@@ -30,7 +30,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "serverUrl": ""
+      "serverUrl": "wss://one00-acre-inc.onrender.com"
     },
     "plugins": [
       [
