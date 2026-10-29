@@ -10,14 +10,17 @@ import { play } from '../audio/sound';
 
 export function WhatsNew() {
   const { s, act, net, wood } = useGame();
-  const news = NEWS[NEWS.length - 1];
-  const close = () => { play('pop'); act((g) => { g.newsSeen = news.v; }); };
+  // Everything not seen yet, oldest first, in case a note or two was missed.
+  const unseen = NEWS.filter((n) => n.v > s.newsSeen);
+  const title = unseen.length === 1 ? unseen[0].title : "What's new in the wood";
+  const items = unseen.flatMap((n) => n.items);
+  const close = () => { play('pop'); act((g) => { g.newsSeen = NEWS[NEWS.length - 1].v; }); };
   return (
     <View style={styles.scrim}>
       <View style={styles.card}>
-        <Text style={styles.title}>{news.title}</Text>
+        <Text style={styles.title}>{title}</Text>
         <ScrollView style={{ flexShrink: 1 }}>
-          {news.items.map(([emoji, title, text]) => (
+          {items.map(([emoji, title, text]) => (
             <View key={title} style={styles.item}>
               <Text style={styles.emoji}>{emoji}</Text>
               <View style={{ flex: 1 }}>

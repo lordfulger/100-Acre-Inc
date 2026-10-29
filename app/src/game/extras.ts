@@ -208,6 +208,37 @@ export function thankVisitor(s: GameState, now: number) {
   return honey;
 }
 
+// ---------- map secrets and treats ----------
+
+// Little things hidden around the map. Each gives honey the first time it's found,
+// then stays on the map. Spots are in map coordinates, clear of the homes' tap areas.
+export type Secret = { id: string; x: number; y: number; emoji: string; text: string };
+export const SECRETS: Secret[] = [
+  { id: 'woozle', x: 168, y: 470, emoji: '🐾', text: 'Two Woozles… no, three! Oh. They were your own footprints all along.' },
+  { id: 'heffalump', x: 235, y: 170, emoji: '🐘', text: 'Something came by the Sandy Pit. Look at the size of those footprints! A Heffalump?' },
+  { id: 'tail', x: 560, y: 560, emoji: '🎀', text: "A bit of ribbon on a thistle. Not Eeyore's tail, but he'd like it." },
+  { id: 'pole', x: 580, y: 165, emoji: '🍯', text: 'Someone left a pot of honey on the way to the North Pole. Probably Pooh. Possibly on purpose.' },
+  { id: 'boots', x: 210, y: 124, emoji: '🥾', text: "Christopher Robin's boot, half buried in the Sandy Pit." },
+  { id: 'small', x: 455, y: 210, emoji: '🐞', text: 'Small, hiding under a leaf. Everybody has been looking for him.' },
+  { id: 'frog', x: 566, y: 100, emoji: '🐸', text: 'A frog sunning itself on the Big Stones and Rox.' },
+  { id: 'bottle', x: 40, y: 575, emoji: '🍾', text: "A message in a bottle: \"HELP! PIGLET (ME)\". Don't worry, it's an old one." },
+];
+
+export function findSecret(s: GameState, id: string, now: number) {
+  if (s.secrets.includes(id) || !SECRETS.some((x) => x.id === id)) return 0;
+  s.secrets.push(id);
+  const honey = prize(s, now, 5);
+  earn(s, honey);
+  return honey;
+}
+
+/** A little honey for poking the bees or catching the river stick (the map limits how often). */
+export function mapTreat(s: GameState, now: number, taps: number) {
+  const honey = derive(s, now).tapValue * taps;
+  earn(s, honey);
+  return honey;
+}
+
 // ---------- trophies ----------
 
 export type Trophy = { id: string; name: string; emoji: string; test: (s: GameState) => boolean };
@@ -244,6 +275,7 @@ export const TROPHIES: Trophy[] = [
   t('hearts', '❤️', 'Best friends with someone (10 hearts)', (s) => Object.values(s.friends).some((f) => f.hearts >= 10)),
   t('cosy', '🛋️', 'A home with every spot decorated', (s) => Object.values(s.rooms).some((r) => r.length >= ROOM_SLOTS)),
   t('project3', '🔨', 'Built 3 shared projects', (s) => s.projects.length >= 3),
+  t('secrets', '🔍', 'Found every secret on the map', (s) => SECRETS.every((x) => s.secrets.includes(x.id))),
   t('album', '📖', 'Every card in the album', (s) => ALBUM.every((c) => s.album.includes(c.id))),
 ];
 

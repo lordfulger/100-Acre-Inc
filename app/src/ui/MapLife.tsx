@@ -9,6 +9,7 @@ import { GameState } from '../game/engine';
 import { nativeDriver } from './kit';
 import { Portrait } from './Portrait';
 import { HAND, MAP_H, MAP_W, PLACES } from './WoodMap';
+import { MapAlive } from './MapAlive';
 
 // Open spots on the map for holiday decorations.
 const HOLIDAY_SPOTS: [number, number][] = [
@@ -79,6 +80,7 @@ export function MapLife({ s, width, now }: { s: GameState; width: number; now: n
           </View>
         );
       })}
+      <MapAlive k={k} now={now} />
       <React.Fragment key={walkKey}>
         {walkers.map((w, i) => <Wanderer key={w.home} home={w.home} to={w.to} k={k} delay={i * 7_000} />)}
       </React.Fragment>

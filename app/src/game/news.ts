@@ -17,6 +17,16 @@ export const NEWS: News[] = [
       ['🛋️', 'Inside the homes', 'After 15 naps the doors open: decorate each room and chat with whoever lives there.'],
     ],
   },
+  {
+    v: 2,
+    title: 'The wood comes alive',
+    items: [
+      ['🌙', 'Day and night', 'The map follows the real time of day: golden evenings, lights in the windows, and fireflies after dark.'],
+      ['🐝', 'Busy bees', 'Bees buzz round the Bee Tree. Give them a tap.'],
+      ['🥢', 'Something on the river', 'Now and then a stick floats down the river. Catch it if you can!'],
+      ['✨', 'Secrets', 'Eight little secrets are hidden around the map, each marked by a faint sparkle. Can you find them all?'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;
