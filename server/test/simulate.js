@@ -1,0 +1,103 @@
+// End-to-end check: boots the server on a spare port, connects two players to
+// the same wood, and exercises chat, gifts, hugs and a full co-op Expotition.
+import { spawn } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import assert from 'node:assert/strict';
+import WebSocket from 'ws';
+
+const PORT = 3999;
+const server = spawn(process.execPath, ['src/index.js'], {
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: mkdtempSync(join(tmpdir(), 'honey-')) },
+  stdio: ['ignore', 'pipe', 'inherit'],
+});
+await new Promise((ok) => server.stdout.on('data', (d) => String(d).includes('listening') && ok()));
+
+function player(secret, name, avatar) {
+  const ws = new WebSocket(`ws://localhost:${PORT}`);
+  const inbox = [];
+  const waiters = [];
+  ws.on('message', (raw) => {
+    const msg = JSON.parse(raw);
+    inbox.push(msg);
+    for (const w of [...waiters]) if (w.match(msg)) { waiters.splice(waiters.indexOf(w), 1); w.ok(msg); }
+  });
+  const p = {
+    ws, inbox,
+    send: (m) => ws.send(JSON.stringify(m)),
+    wait: (match, ms = 2000) => {
+      const found = inbox.find(match);
+      if (found) { inbox.splice(inbox.indexOf(found), 1); return Promise.resolve(found); }
+      return new Promise((ok, fail) => {
+        const w = { match, ok: (m) => { inbox.splice(inbox.indexOf(m), 1); ok(m); } };
+        waiters.push(w);
+        setTimeout(() => fail(new Error(`${name} timed out waiting`)), ms);
+      });
+    },
+  };
+  ws.on('open', () => p.send({ t: 'hello', secret, name, avatar, room: 'hunny' }));
+  return p;
+}
+
+try {
+  const a = player('a'.repeat(32), 'Pooh', '🐻');
+  const wa = await a.wait((m) => m.t === 'welcome');
+  assert.equal(wa.room, 'HUNNY');
+  const b = player('b'.repeat(32), 'Piglet', '🐷');
+  const wb = await b.wait((m) => m.t === 'welcome');
+  assert.equal(wb.roster.length, 2);
+  console.log('✓ both players joined room', wb.room);
+
+  a.send({ t: 'stats', stats: { hps: 10, honey: 500, allTime: 1000, buildings: { owned: { garden: 12, 'x y': 3 }, levels: { garden: 2 }, managed: { garden: true } } } });
+  b.send({ t: 'stats', stats: { hps: 5, honey: 200, allTime: 400 } });
+  await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.hps === 10);
+  const pooh = (await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.buildings)).roster.find((r) => r.name === 'Pooh');
+  assert.deepEqual(pooh.stats.buildings, { owned: { garden: 12 }, levels: { garden: 2 }, managed: { garden: true } });
+  console.log('✓ live stats and maps shared');
+
+  a.send({ t: 'chat', text: 'Hallo Piglet!' });
+  await b.wait((m) => m.t === 'chat' && m.msg.text === 'Hallo Piglet!');
+  console.log('✓ chat delivered');
+
+  b.send({ t: 'gift', to: wa.you, amount: 123 });
+  const gift = await a.wait((m) => m.t === 'gift');
+  assert.equal(gift.amount, 123);
+  a.send({ t: 'hug', to: wb.you });
+  await b.wait((m) => m.t === 'hug' && m.name === 'Pooh');
+  a.send({ t: 'hug', to: wb.you });
+  await a.wait((m) => m.t === 'error' && /rest/.test(m.text));
+  console.log('✓ gifts and hugs (with cooldown)');
+
+  a.send({ t: 'startContract', id: 'tail' });
+  const c = await b.wait((m) => m.t === 'contract' && m.contract.status === 'active');
+  assert.equal(c.contract.goal, 15 * 600 > 5000 ? 15 * 600 : 5000);
+  a.send({ t: 'contribute', amount: c.contract.goal * 0.3 });
+  const r1 = await b.wait((m) => m.t === 'reward' && m.tier === 0);
+  assert.equal(r1.combs, 1);
+  b.send({ t: 'contribute', amount: c.contract.goal });
+  const r3 = await a.wait((m) => m.t === 'reward' && m.tier === 2);
+  assert.ok(r3.boost);
+  await a.wait((m) => m.t === 'contract' && m.contract.status === 'complete');
+  console.log('✓ co-op Expotition completes and rewards both players');
+
+  // Rewards/gifts queue for players who are offline.
+  b.ws.close();
+  await a.wait((m) => m.t === 'roster' && !m.roster.find((r) => r.name === 'Piglet').online);
+  a.send({ t: 'gift', to: wb.you, amount: 77 });
+  await new Promise((r) => setTimeout(r, 100));
+  const b2 = player('b'.repeat(32), 'Piglet', '🐷');
+  await b2.wait((m) => m.t === 'welcome');
+  const late = await b2.wait((m) => m.t === 'gift');
+  assert.equal(late.amount, 77);
+  console.log('✓ offline gifts delivered on return');
+
+  console.log('\nAll multiplayer checks passed 🍯');
+  process.exitCode = 0;
+} catch (err) {
+  console.error('✗', err);
+  process.exitCode = 1;
+} finally {
+  server.kill();
+  setTimeout(() => process.exit(), 100);
+}

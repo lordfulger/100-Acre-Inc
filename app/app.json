@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "The Hundred Acre Wood",
+    "slug": "hundred-acre-honey-tycoon",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFF7E3",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hundredacre.honeytycoon",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.hundredacre.honeytycoon",
+      "adaptiveIcon": {
+        "backgroundColor": "#F6B93B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "serverUrl": ""
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}

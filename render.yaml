@@ -1,0 +1,11 @@
+# Render blueprint for the multiplayer server (free plan).
+# In Render: New → Blueprint → pick this repository.
+services:
+  - type: web
+    name: hundred-acre-wood
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
