@@ -10,7 +10,7 @@ import { playTap } from '../audio/sound';
 
 type Pop = { id: number; x: number; text: string; anim: Animated.Value };
 let popId = 0;
-const HUNNY = require('../../assets/art/hunny.png');
+const HUNNY = require('../../assets/art/hunny-pot.png');
 
 function HoneyPot() {
   const { act, s, d } = useGame();
