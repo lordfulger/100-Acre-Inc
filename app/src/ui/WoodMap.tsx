@@ -122,6 +122,25 @@ const Bunting = ({ x1, y1, x2, y2, n = 6 }: { x1: number; y1: number; x2: number
   );
 };
 
+/** A painted board with hand-lettered words, squeezed to fit whatever font the phone has. */
+const Sign = ({ x, y, w, lines }: { x: number; y: number; w: number; lines: string[] }) => {
+  const lineH = 5.6;
+  const h = lines.length * lineH + 3.4;
+  return (
+    <G>
+      <Rect x={x} y={y} width={w} height={h} fill="#F4E8C8" stroke={INK} strokeWidth={0.7} />
+      {lines.map((text, i) => (
+        <SvgText
+          key={i} x={x + w / 2} y={y + 6 + i * lineH} fontSize={5.6} fill={INK} textAnchor="middle" fontFamily={HAND}
+          textLength={w - 3} lengthAdjust="spacingAndGlyphs"
+        >
+          {text}
+        </SvgText>
+      ))}
+    </G>
+  );
+};
+
 const Glow = ({ r }: { r: number }) => <Circle cx={0} cy={-r * 0.6} r={r} fill={GOLD} opacity={0.22} />;
 
 // ---------- the homes ----------
@@ -134,8 +153,7 @@ function PoohHouse({ lv }: { lv: number }) {
       <Canopy x={0} y={-72} r={30} />
       <Path d="M-8 0 L-8 -20 Q0 -30 8 -20 L8 0 Z" fill="#C98B3E" stroke={INK} strokeWidth={1} />
       <Circle cx={5} cy={-10} r={1.2} fill={INK} />
-      <Rect x={-15} y={-38} width={30} height={9} fill="#F4E8C8" stroke={INK} strokeWidth={0.7} />
-      <SvgText x={0} y={-31.5} fontSize={5.8} fill={INK} textAnchor="middle" fontWeight="bold">MR SANDERS</SvgText>
+      <Sign x={-15} y={-38} w={30} lines={['MR SANDERS']} />
       {Array.from({ length: Math.min(6, 1 + lv) }, (_, i) => <Pot key={i} x={14 + i * 8} y={0} s={0.85} />)}
       {lv >= 2 && (
         <G>
@@ -197,8 +215,7 @@ function PigletHouse({ lv }: { lv: number }) {
       <Line x1={0} y1={-20} x2={0} y2={-4} stroke={INK} strokeWidth={0.6} />
       <Line x1={24} y1={0} x2={24} y2={-22} stroke={TRUNK} strokeWidth={2} />
       <G transform="rotate(-8 30 -20)">
-        <Rect x={16} y={-26} width={30} height={9} fill="#F4E8C8" stroke={INK} strokeWidth={0.7} />
-        <SvgText x={31} y={-19.5} fontSize={5} fill={INK} textAnchor="middle" fontWeight="bold">TRESPASSERS W</SvgText>
+        <Sign x={16} y={-26} w={32} lines={['TRESPASSERS W']} />
       </G>
       {lv >= 4 && (
         <G>
@@ -268,8 +285,8 @@ function OwlHouse({ lv }: { lv: number }) {
       <Path d="M-18 0 Q-14 -40 -12 -66 L12 -66 Q14 -40 18 0 Z" fill="#7A5A3A" stroke={INK} strokeWidth={1.2} />
       <Canopy x={0} y={-86} r={32} dark />
       <Path d="M-7 0 L-7 -18 Q0 -25 7 -18 L7 0 Z" fill="#6E4C2E" stroke={INK} strokeWidth={0.9} />
-      <Rect x={-14} y={-34} width={28} height={8} fill="#F4E8C8" stroke={INK} strokeWidth={0.6} />
-      <SvgText x={0} y={-28.3} fontSize={5.4} fill={INK} textAnchor="middle" fontWeight="bold">PLES RING</SvgText>
+      {/* Owl's notice, spelt the way Christopher Robin wrote it. */}
+      <Sign x={-15} y={-40} w={30} lines={['PLES RING IF AN', 'RNSER IS REQIRD']} />
       <Line x1={10} y1={-24} x2={10} y2={-12} stroke={INK} strokeWidth={0.6} />
       <Circle cx={10} cy={-11} r={1.6} fill={GOLD} stroke={INK} strokeWidth={0.4} />
       <Ellipse cx={-2} cy={-52} rx={6} ry={7} fill={lv >= 4 ? '#F8E7A8' : '#3A2A1A'} stroke={INK} strokeWidth={0.8} />
@@ -792,8 +809,10 @@ function Land() {
         <Line x1={0} y1={-28} x2={0} y2={28} stroke={INK} strokeWidth={1} />
         <Line x1={-28} y1={0} x2={28} y2={0} stroke={INK} strokeWidth={1} />
         <Path d="M-4 -4 Q0 -14 4 -4 Q14 0 4 4 Q0 14 -4 4 Q-14 0 -4 -4 Z" fill="none" stroke={INK} strokeWidth={1} />
-        <SvgText x={0} y={-31} fontSize={9} fill={INK} textAnchor="middle">P</SvgText>
-        <SvgText x={0} y={38} fontSize={9} fill={INK} textAnchor="middle">N</SvgText>
+        <SvgText x={0} y={-31} fontSize={9} fill={INK} textAnchor="middle">N</SvgText>
+        <SvgText x={0} y={38} fontSize={9} fill={INK} textAnchor="middle">S</SvgText>
+        <SvgText x={34} y={3} fontSize={9} fill={INK} textAnchor="middle">E</SvgText>
+        <SvgText x={-34} y={3} fontSize={9} fill={INK} textAnchor="middle">W</SvgText>
       </G>
       {FOREST.map(([x, y, s], i) => <Tree key={`t${i}`} x={x} y={y} s={s} dark={i % 3 === 0} />)}
       {PINES.map(([x, y], i) => <PineTree key={`pn${i}`} x={x} y={y} s={0.9} />)}
