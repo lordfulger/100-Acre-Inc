@@ -49,13 +49,17 @@ Every character has an original drawn portrait. To use your own pictures instead
 
 ## Play anywhere (deploy the server)
 
-To play away from home, host `server/` anywhere that runs Node and supports WebSockets (Render, Railway, Fly.io…). On Render, create a Web Service with root directory `server`, build `npm install` and start `npm start`. Then put its address in `app/app.json`:
+One free Render service runs both the multiplayer server and the web version of the game. Push this repository to GitHub, then in Render choose **New → Blueprint** and pick it; `render.yaml` does the rest. Render gives you an address like `https://hundred-acre-wood.onrender.com`.
 
-```json
-"extra": { "serverUrl": "wss://your-server.onrender.com" }
-```
+- **iPhone (no App Store, no Apple account):** open that address in Safari → Share → **Add to Home Screen**. It gets the honey-pot icon and opens full-screen like an app.
+- **Android APK:** put the address in `app/app.json` before building, so the installed app finds the server:
+  ```json
+  "extra": { "serverUrl": "wss://hundred-acre-wood.onrender.com" }
+  ```
 
-Rooms are saved to `server/data/rooms.json`. Progress lives on each phone, so losing server data only resets chat and Expotitions.
+Free Render services sleep after 15 minutes without players; the first connection afterwards takes about a minute. Rooms are saved to `server/data/rooms.json`, which the free plan resets on restart. Progress lives on each phone, so that only resets chat and Expotitions.
+
+To try the hosted version locally: `cd app && npm run build:web`, then `cd server && npm start` and open http://localhost:3001.
 
 ## Install it as a real app
 
