@@ -19,7 +19,7 @@ function JoinCard() {
     <Card>
       <Text style={styles.big}>🌳 Find your wood</Text>
       <Text style={styles.body}>
-        Make up a secret code for the two of you (like <Text style={{ fontWeight: '900' }}>HUNNYPOT</Text>) and both enter it. You'll share Expotitions, hugs, gifts and chat.
+        Make up a secret code (like <Text style={{ fontWeight: '900' }}>HUNNYPOT</Text>) and share it with your friends. Everyone who enters it joins the same wood to share Expotitions, hugs, gifts and chat.
       </Text>
       <TextInput
         value={room}
@@ -97,7 +97,7 @@ function ContractCard({ c, def }: { c: Contract; def: ContractDef }) {
     <Card style={{ borderColor: c.status === 'complete' ? C.green : C.border }}>
       <Text style={styles.big}>{def.emoji} {def.name}</Text>
       <Text style={styles.small}>
-        {c.status === 'complete' ? '🏆 Complete! Well done, you two.' : c.status === 'expired' ? '⌛ Ended' : `⏳ ${fmtTime(left)} left${eta < left ? ' · on track! 🎉' : eta < Infinity ? ` · need to speed up!` : ''}`}
+        {c.status === 'complete' ? '🏆 Complete! Well done, everyone.' : c.status === 'expired' ? '⌛ Ended' : `⏳ ${fmtTime(left)} left${eta < left ? ' · on track! 🎉' : eta < Infinity ? ` · need to speed up!` : ''}`}
       </Text>
       <View style={{ marginVertical: 8 }}>
         <Bar value={c.progress / c.goal} color={C.green} height={18} marks={net.tiers.slice(0, -1)} />
@@ -130,7 +130,7 @@ function Expotitions() {
       {c && def && <ContractCard c={c} def={def} />}
       {!active && (
         <Card>
-          <Text style={styles.body}>Team up: all honey you both make counts toward the goal. Every tier pays Golden Honeycombs to everyone, and finishing gives ×2 honey for 20 minutes.</Text>
+          <Text style={styles.body}>Team up: all the honey everyone makes counts toward the goal. Every tier pays Golden Honeycombs to everyone, and finishing gives ×2 honey for 20 minutes.</Text>
           {net.contracts.map((x) => (
             <View key={x.id} style={styles.contractRow}>
               <Text style={{ fontSize: 26, marginRight: 8 }}>{x.emoji}</Text>
@@ -225,7 +225,7 @@ export function WoodScreen() {
           <Text style={[styles.small, { marginTop: -6, marginBottom: 8 }]}>Room code: {net.room}</Text>
           <NotifyCard />
           {others.length === 0 && (
-            <Card><Text style={styles.body}>It's just you here so far. Tell your favourite person the code <Text style={{ fontWeight: '900' }}>{net.room}</Text> 💛</Text></Card>
+            <Card><Text style={styles.body}>It's just you here so far. Tell your friends the code <Text style={{ fontWeight: '900' }}>{net.room}</Text> 💛</Text></Card>
           )}
           {others.map((m) => <MemberCard key={m.id} m={m} me={false} onVisit={() => setVisiting(m.id)} />)}
           {me && <MemberCard m={me} me onVisit={() => {}} />}
