@@ -29,7 +29,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "portraits": "node scripts/portraits.js",
-    "prestart": "node scripts/portraits.js"
+    "prestart": "node scripts/portraits.js",
+    "build:web": "node scripts/portraits.js && expo export --platform web --output-dir ../server/public"
   },
   "private": true
 }

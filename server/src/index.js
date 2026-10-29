@@ -6,8 +6,8 @@
 
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync, statSync, createReadStream } from 'node:fs';
+import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 
@@ -177,12 +177,38 @@ setInterval(() => {
 
 // ---------- connections ----------
 
+// The web version of the game (built into server/public by `npm run build:web` in app/)
+// is served from here too, so a phone can open it in the browser and add it to its home screen.
+const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
+const TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json',
+  '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.ttf': 'font/ttf',
+  '.svg': 'image/svg+xml', '.webp': 'image/webp', '.map': 'application/json',
+};
+
+function serveStatic(req, res) {
+  const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let file = normalize(join(PUBLIC_DIR, urlPath));
+  if (!file.startsWith(PUBLIC_DIR)) return false; // no escaping the folder
+  if (!existsSync(file) || statSync(file).isDirectory()) file = join(PUBLIC_DIR, 'index.html');
+  if (!existsSync(file)) return false;
+  const hashed = urlPath.startsWith('/_expo/');
+  res.writeHead(200, {
+    'content-type': TYPES[extname(file).toLowerCase()] || 'application/octet-stream',
+    // Bundles have content hashes in their names; everything else should refresh promptly.
+    'cache-control': hashed ? 'public, max-age=31536000, immutable' : 'no-cache',
+  });
+  createReadStream(file).pipe(res);
+  return true;
+}
+
 const http = createServer((req, res) => {
   if (req.url === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true, rooms: Object.keys(rooms).length }));
     return;
   }
+  if (req.method === 'GET' && serveStatic(req, res)) return;
   res.writeHead(200, { 'content-type': 'text/plain' });
   res.end('Hundred Acre Honey Tycoon server is buzzing. Connect with WebSocket.');
 });

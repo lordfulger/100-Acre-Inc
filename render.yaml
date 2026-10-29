@@ -1,11 +1,11 @@
-# Render blueprint for the multiplayer server (free plan).
+# Render blueprint: one free service that hosts both the multiplayer server
+# and the web version of the game (for adding to an iPhone home screen).
 # In Render: New → Blueprint → pick this repository.
 services:
   - type: web
     name: hundred-acre-wood
     runtime: node
-    rootDir: server
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm ci --prefix app && npm run build:web --prefix app && npm ci --prefix server
+    startCommand: npm start --prefix server
     healthCheckPath: /health

@@ -32,7 +32,13 @@ const configuredServerUrl = () => (Constants.expoConfig?.extra as { serverUrl?: 
 export function defaultServerUrl() {
   const extra = configuredServerUrl();
   if (extra) return extra;
-  if (Platform.OS === 'web' && typeof window !== 'undefined') return `ws://${window.location.hostname}:3001`;
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const { protocol, hostname, host, port } = window.location;
+    // In development the page comes from Metro (:8081) and the game server is on :3001;
+    // when the game server hosts the web app itself, it's the same address.
+    if (port === '8081') return `ws://${hostname}:3001`;
+    return `${protocol === 'https:' ? 'wss' : 'ws'}://${host}`;
+  }
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
   return `ws://${host || 'localhost'}:3001`;
 }
