@@ -239,7 +239,7 @@ export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', 
 
 export const QUICK_PHRASES = [
   'Hallo! 👋', 'Oh bother.', 'Time for a little something? 🍯', 'Join the Expotition! 🧭',
-  'Thank you for the honey! 💛', 'I caught a balloon! 🎈', 'Bouncy bouncy! 🐯', 'Love you 💕', 'Night night 😴',
+  'Thank you for the honey! 💛', 'I caught a balloon! 🎈', 'Bouncy bouncy! 🐯', "You're the best! 💛", 'Night night 😴',
 ];
 
 // ---------- the map (endless levels) ----------

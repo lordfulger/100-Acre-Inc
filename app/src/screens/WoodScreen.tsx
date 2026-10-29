@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { QUICK_PHRASES, varietyAt } from '../game/catalog';
 import { ALBUM } from '../game/album';
 import { fmt, fmtTime, timeAgo } from '../game/format';
@@ -9,9 +9,35 @@ import { HAND, WoodMap } from '../ui/WoodMap';
 import { Portrait } from '../ui/Portrait';
 import { Letters, NotifyCard, Projects } from '../ui/Together';
 
+/** A room code from an invite link (…/?wood=CODE), if the game was opened from one. */
+function invitedCode() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return '';
+  return (new URLSearchParams(window.location.search).get('wood') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+}
+
+/** A fresh code that's easy to read out (no 0/O or 1/I). */
+function newCode() {
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => letters[Math.floor(Math.random() * letters.length)]).join('');
+}
+
+/** Shares a link that opens the game with the wood's code filled in. */
+async function invite(room: string, toast: (t: string) => void) {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return toast(`Tell your friends the code ${room}`);
+  const url = `${window.location.origin}/?wood=${room}`;
+  const text = `Come and make honey with me in the Hundred Acre Wood! Our wood's code is ${room}.`;
+  try {
+    if (navigator.share) await navigator.share({ title: '100 Acre Inc', text, url });
+    else { await navigator.clipboard.writeText(`${text} ${url}`); toast('📋 Invite link copied. Paste it to your friends!'); }
+  } catch (e: any) {
+    // Closing the share sheet isn't a problem; anything else, show the link to copy by hand.
+    if (e?.name !== 'AbortError') toast(`📨 Send your friends this link: ${url}`);
+  }
+}
+
 function JoinCard() {
   const { s, net, wood } = useGame();
-  const [room, setRoom] = useState(s.profile.room || '');
+  const [room, setRoom] = useState(s.profile.room || invitedCode());
   const [server, setServer] = useState(s.profile.server);
   const [advanced, setAdvanced] = useState(false);
   const connecting = net.status === 'connecting';
@@ -30,6 +56,7 @@ function JoinCard() {
         autoCorrect={false}
         style={[styles.input, styles.codeInput]}
       />
+      <Pressable onPress={() => setRoom(newCode())}><Text style={styles.link}>🎲 Make up a new code for me</Text></Pressable>
       {advanced && (
         <TextInput value={server} onChangeText={setServer} autoCapitalize="none" autoCorrect={false} style={styles.input} placeholder="ws://192.168.1.10:3001" placeholderTextColor={C.faint} />
       )}
@@ -47,8 +74,11 @@ function JoinCard() {
 }
 
 function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () => void }) {
-  const { s, wood } = useGame();
+  const { s, net, wood } = useGame();
   const [giving, setGiving] = useState(false);
+  const [more, setMore] = useState(false);
+  const blocked = s.blocked.includes(m.id);
+  const iLookAfter = net.roster.some((r) => r.id === net.you && r.owner);
   const variety = varietyAt(m.stats.variety || 0);
   return (
     <Card style={[styles.member, me && { borderColor: variety.deep }]}>
@@ -58,16 +88,26 @@ function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () =>
           <View style={[styles.dot, { backgroundColor: m.online ? C.green : C.faint }]} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.memberName}>{m.name}{me ? ' (you)' : ''}</Text>
+          <Text style={styles.memberName}>{m.name}{me ? ' (you)' : ''}{m.owner ? ' 🗝️' : ''}{blocked ? ' · 🚫 blocked' : ''}</Text>
           <Text style={styles.small}>{m.online ? '🟢 in the wood now' : `💤 ${timeAgo(m.lastSeen)}`} · {variety.emoji} {variety.name}</Text>
           <Text style={styles.memberStats}>🍯 {fmt(m.stats.hps || 0)}/s  ·  🏦 {fmt(m.stats.honey || 0)}  ·  ✨ {fmt(m.stats.combs || 0)}  ·  📖 {m.stats.cards || 1}/{ALBUM.length}  ·  🏅 {m.stats.trophies || 0}</Text>
         </View>
       </View>
-      {!me && (
+      {!me && !blocked && (
         <View style={styles.memberActions}>
           <Button small label="💕 Hug" color={C.pink} onPress={() => wood.hug(m.id)} style={{ flex: 1 }} />
           <Button small label="🎁 Honey" color={C.blue} onPress={() => setGiving((g) => !g)} style={{ flex: 1 }} />
           <Button small label="🗺️ Visit" color={C.green} disabled={!m.stats.buildings} onPress={onVisit} style={{ flex: 1 }} />
+        </View>
+      )}
+      {!me && (
+        <Pressable onPress={() => setMore((x) => !x)} hitSlop={8}><Text style={[styles.small, { textAlign: 'right', marginTop: 6 }]}>{more ? 'Less ▲' : 'More ▼'}</Text></Pressable>
+      )}
+      {!me && more && (
+        <View style={styles.memberActions}>
+          <Button small outline color={C.soft} label={blocked ? 'Unblock' : '🚫 Block'} onPress={() => wood.block(m.id, !blocked)} style={{ flex: 1 }} />
+          {iLookAfter && <Button small outline color={C.blue} label="🗝️ Hand over" onPress={() => wood.makeOwner(m.id)} style={{ flex: 1 }} />}
+          {iLookAfter && <Button small outline color={C.red} label="Remove" onPress={() => wood.remove(m.id)} style={{ flex: 1 }} />}
         </View>
       )}
       {giving && (
@@ -151,7 +191,8 @@ function Chat() {
   const { net, wood } = useGame();
   const [text, setText] = useState('');
   const send = (t: string) => { wood.chat(t); setText(''); };
-  const msgs = net.chat.slice(-30).reverse();
+  const { s } = useGame();
+  const msgs = net.chat.filter((m) => !m.from || !s.blocked.includes(m.from)).slice(-30).reverse();
   return (
     <>
       <Section title="💬 Chatter" />
@@ -163,7 +204,7 @@ function Chat() {
         </ScrollView>
         <View style={styles.chatRow}>
           <TextInput
-            value={text} onChangeText={setText} placeholder="Say something sweet…" placeholderTextColor={C.faint}
+            value={text} onChangeText={setText} placeholder="Say something nice…" placeholderTextColor={C.faint}
             style={[styles.input, { flex: 1, marginTop: 0 }]} maxLength={140} onSubmitEditing={() => send(text)} returnKeyType="send"
           />
           <Button small label="Send" disabled={!text.trim()} onPress={() => send(text)} style={{ marginLeft: 8 }} />
@@ -202,7 +243,7 @@ function Visit({ m, onClose }: { m: Member; onClose: () => void }) {
 }
 
 export function WoodScreen() {
-  const { net, wood } = useGame();
+  const { net, wood, toast } = useGame();
   const [visiting, setVisiting] = useState<string | null>(null);
   const visited = net.roster.find((m) => m.id === visiting);
   const online = net.status === 'online';
@@ -222,7 +263,10 @@ export function WoodScreen() {
             title="🌳 The Hundred Acre Wood"
             right={<Pressable onPress={wood.leave}><Text style={styles.link}>Leave</Text></Pressable>}
           />
-          <Text style={[styles.small, { marginTop: -6, marginBottom: 8 }]}>Room code: {net.room}</Text>
+          <View style={styles.codeRow}>
+            <Text style={[styles.small, { flex: 1 }]}>Room code: <Text style={{ fontWeight: '900', color: C.ink }}>{net.room}</Text> · up to 8 friends</Text>
+            <Button small label="📨 Invite friends" onPress={() => invite(net.room!, toast)} />
+          </View>
           <NotifyCard />
           {others.length === 0 && (
             <Card><Text style={styles.body}>It's just you here so far. Tell your friends the code <Text style={{ fontWeight: '900' }}>{net.room}</Text> 💛</Text></Card>
@@ -243,6 +287,7 @@ export function WoodScreen() {
 
 const styles = StyleSheet.create({
   list: { padding: 12, paddingBottom: 40 },
+  codeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: -6, marginBottom: 10 },
   visit: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.bg, zIndex: 30 },
   visitHead: { flexDirection: 'row', alignItems: 'center', padding: 12 },
   visitTitle: { flex: 1, fontFamily: HAND, fontSize: 22, color: C.ink },

@@ -203,6 +203,7 @@ function broadcast(room, msg, exceptPid) {
 function roster(room) {
   return Object.entries(room.members).map(([id, m]) => ({
     id, name: m.name, avatar: m.avatar, online: isOnline(room.code, id), lastSeen: m.lastSeen, stats: m.stats || {}, notify: !!m.push,
+    owner: id === room.owner,
   }));
 }
 
@@ -409,6 +410,7 @@ wss.on('connection', (ws) => {
       if (!msg.secret || String(msg.secret).length < 16) return send(ws, { t: 'error', text: 'Missing player secret.' });
       const id = publicId(msg.secret);
       const r = getRoom(code);
+      if ((r.barred || []).includes(id)) return send(ws, { t: 'error', text: "You can't join this wood." });
       if (!r.members[id] && Object.keys(r.members).length >= MAX_MEMBERS) {
         return send(ws, { t: 'error', text: `That wood is full (${MAX_MEMBERS} friends max).` });
       }
@@ -420,6 +422,8 @@ wss.on('connection', (ws) => {
         lastSeen: Date.now(),
       };
       room = r; pid = id;
+      // The first one into a wood looks after it (woods from before this get whoever comes first).
+      if (!r.owner || !r.members[r.owner]) r.owner = id;
       const key = `${code}:${id}`;
       if (!sockets.has(key)) sockets.set(key, new Set());
       sockets.get(key).add(ws);
@@ -441,6 +445,7 @@ wss.on('connection', (ws) => {
 
     if (!room) return send(ws, { t: 'error', text: 'Say hello first.' });
     const me = room.members[pid];
+    if (!me) return; // removed from the wood a moment ago
     me.lastSeen = Date.now();
 
     switch (msg.t) {
@@ -582,6 +587,51 @@ wss.on('connection', (ws) => {
         delete me.push;
         markDirty();
         break;
+      case 'remove': {
+        // Only whoever looks after the wood can ask someone to leave; they can't come back.
+        const who = String(msg.who || '');
+        if (pid !== room.owner) return send(ws, { t: 'error', text: 'Only whoever looks after this wood can do that.' });
+        if (!room.members[who] || who === pid) return;
+        const name = room.members[who].name;
+        room.barred = [...(room.barred || []), who].slice(-100);
+        delete room.members[who];
+        delete room.inbox[who];
+        for (const sock of sockets.get(`${room.code}:${who}`) || []) { send(sock, { t: 'removed' }); sock.close(); }
+        sockets.delete(`${room.code}:${who}`);
+        markDirty();
+        broadcast(room, { t: 'roster', roster: roster(room) });
+        system(room, `${name} has left the wood.`);
+        break;
+      }
+      case 'leave': {
+        // Leaving for real: the spot is freed, and the wood keeps what it built
+        // for those still in it. When the last one leaves, the wood is gone.
+        const name = me.name;
+        delete room.members[pid];
+        delete room.inbox[pid];
+        sockets.delete(`${room.code}:${pid}`);
+        const left = Object.keys(room.members);
+        if (!left.length) {
+          delete rooms[room.code];
+        } else {
+          if (room.owner === pid) room.owner = left[0];
+          broadcast(room, { t: 'roster', roster: roster(room) });
+          system(room, `${name} has left the wood.`);
+        }
+        markDirty();
+        room = null;
+        ws.close();
+        break;
+      }
+      case 'makeOwner': {
+        const who = String(msg.who || '');
+        if (pid !== room.owner || !room.members[who]) return;
+        room.owner = who;
+        markDirty();
+        broadcast(room, { t: 'roster', roster: roster(room) });
+        system(room, `${room.members[who].name} looks after the wood now.`);
+        break;
+      }
       case 'ping':
         send(ws, { t: 'pong', at: Date.now() });
         break;

@@ -22,6 +22,8 @@ export type Member = {
   id: string; name: string; avatar: string; online: boolean; lastSeen: number;
   /** Has phone notifications on, so can be reached when not in the wood. */
   notify?: boolean;
+  /** Looks after the wood: can ask someone to leave. */
+  owner?: boolean;
   stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; trophies?: number; buildings?: MapView };
 };
 export type ChatMsg = { id: string; from?: string; name?: string; avatar?: string; text: string; at: number; system?: boolean };
@@ -107,6 +109,11 @@ type Ctx = {
     letter: (to: string, text: string, amount: number) => void;
     /** Asks the phone for permission and turns notifications on. */
     notifications: () => void;
+    /** Ignore (or stop ignoring) someone: their chat, hugs, gifts, letters and challenges. */
+    block: (id: string, on: boolean) => void;
+    /** For whoever looks after the wood: ask someone to leave for good, or hand the wood over. */
+    remove: (id: string) => void;
+    makeOwner: (id: string) => void;
   };
   sticks: Sticks | null;
   stickApi: {
@@ -276,6 +283,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     client.onMessage = (m) => {
       const s = sRef.current!;
       const now = Date.now();
+      const from = m.from ?? m.letter?.from;
+      if (from && s.blocked.includes(from)) {
+        if (m.t === 'stickInvite') client.send({ t: 'stickAnswer', id: m.id, yes: false });
+        if (['gift', 'hug', 'letter', 'stickInvite', 'balloon'].includes(m.t)) return;
+      }
       switch (m.t) {
         case 'welcome':
           giftsPending.current = 0;
@@ -288,8 +300,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           if (m.pushKey && pushAllowed()) {
             subscribe(m.pushKey, false).then((sub) => { if (sub) client.send({ t: 'push', sub }); }).catch(() => {});
           }
-          // Projects built in this wood count for everyone in it, even ones finished before you joined.
-          for (const id of m.built || []) if (!s.projects.includes(id)) s.projects.push(id);
+          // Project bonuses belong to the wood you're in: exactly what it has built, even before you joined.
+          s.projects = [...(m.built || [])];
           setSticks(null);
           if (m.contract?.status !== 'active') s.pendingContribution = 0;
           sendStats();
@@ -330,6 +342,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
           s.stats.giftsSent++;
           toast('🎁 Gift delivered!');
+          break;
+        case 'removed':
+          client.close(); // no reconnecting to a wood we were asked to leave
+          s.profile.room = '';
+          s.projects = [];
+          save();
+          setNet(emptyNet);
+          toast('🚪 You were asked to leave that wood.');
           break;
         case 'hugSent':
           s.stats.hugsSent++;
@@ -491,8 +511,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       save();
     },
     leave: () => {
+      // Tell the wood we've gone (if it can hear us), then drop its project bonuses.
+      client.send({ t: 'leave' });
       client.close();
       s.profile.room = '';
+      s.projects = [];
       setNet(emptyNet);
       save();
     },
@@ -511,6 +534,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (client.send({ t: 'donate', amount })) giftsPending.current += amount;
       else toast('Oh bother: not connected to the wood right now.');
     },
+    block: (id, on) => {
+      act((g) => { g.blocked = on ? [...new Set([...g.blocked, id])] : g.blocked.filter((x) => x !== id); });
+      toast(on ? "🚫 Blocked. You won't see their messages or get anything from them." : 'Unblocked.');
+    },
+    remove: (id) => { client.send({ t: 'remove', who: id }); },
+    makeOwner: (id) => { client.send({ t: 'makeOwner', who: id }); },
     notifications: async () => {
       if (needsHomeScreen()) { toast('📱 On iPhone, first add the game to your Home Screen (Share → Add to Home Screen), then open it from there.'); return; }
       if (!pushSupported()) { toast("Oh bother: this browser can't show notifications."); return; }
@@ -553,6 +582,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     fresh.chatSeen = s.chatSeen;
     fresh.trophies = [...s.trophies];
     fresh.newsSeen = s.newsSeen;
+    fresh.blocked = [...s.blocked];
     sRef.current = fresh;
     save();
     setWelcomeBack(null);

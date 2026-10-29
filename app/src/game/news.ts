@@ -27,6 +27,16 @@ export const NEWS: News[] = [
       ['✨', 'Secrets', 'Eight little secrets are hidden around the map, each marked by a faint sparkle. Can you find them all?'],
     ],
   },
+  {
+    v: 3,
+    title: 'Friends in the wood',
+    items: [
+      ['📨', 'Invite friends', 'Up to 8 friends can share a wood. Tap Invite friends on the Friends tab to send a link that fills in your code.'],
+      ['🗝️', 'Looking after the wood', 'Whoever started the wood can hand it over, or ask someone to leave.'],
+      ['🔨', 'Projects belong to the wood', "A wood's projects raise honey for everyone in it. Leave, and the bonus stays behind with the wood until its last friend leaves."],
+      ['🚫', 'Block', "Under More on someone's card. You won't see their chat or get anything from them."],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;

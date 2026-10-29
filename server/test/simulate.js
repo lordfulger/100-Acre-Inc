@@ -14,7 +14,7 @@ const server = spawn(process.execPath, ['src/index.js'], {
 });
 await new Promise((ok) => server.stdout.on('data', (d) => String(d).includes('listening') && ok()));
 
-function player(secret, name, avatar) {
+function player(secret, name, avatar, room = 'hunny') {
   const ws = new WebSocket(`ws://localhost:${PORT}`);
   const inbox = [];
   const waiters = [];
@@ -36,7 +36,7 @@ function player(secret, name, avatar) {
       });
     },
   };
-  ws.on('open', () => p.send({ t: 'hello', secret, name, avatar, room: 'hunny' }));
+  ws.on('open', () => p.send({ t: 'hello', secret, name, avatar, room }));
   return p;
 }
 
@@ -141,6 +141,38 @@ try {
   const waiting = await b3.wait((m) => m.t === 'stickInvite');
   assert.equal(waiting.name, 'Pooh');
   console.log('✓ notifications sign-up, and challenges reach a friend who was away');
+
+  // Whoever came first looks after the wood, and can ask someone to leave for good.
+  const latest = (await a.wait((m) => m.t === 'roster' && m.roster.some((r) => r.name === 'Piglet' && r.online))).roster;
+  assert.equal(latest.find((r) => r.name === 'Pooh').owner, true);
+  b3.send({ t: 'remove', who: wa.you });
+  await b3.wait((m) => m.t === 'error' && /looks after/.test(m.text));
+  a.send({ t: 'remove', who: wb.you });
+  await b3.wait((m) => m.t === 'removed');
+  await a.wait((m) => m.t === 'roster' && !m.roster.some((r) => r.name === 'Piglet'));
+  const b4 = player('b'.repeat(32), 'Piglet', '🐷');
+  await b4.wait((m) => m.t === 'error' && /can't join/.test(m.text));
+  console.log('✓ the wood keeper can remove someone, who then cannot come back');
+
+  // Leaving for real: the wood keeps its projects for whoever is still there; the last one out disbands it.
+  const c1 = player('c'.repeat(32), 'Owl', '🦉', 'nest');
+  const wc1 = await c1.wait((m) => m.t === 'welcome');
+  const c2 = player('d'.repeat(32), 'Kanga', '🦘', 'nest');
+  await c2.wait((m) => m.t === 'welcome');
+  c1.send({ t: 'donate', amount: wc1.project.goal });
+  await c2.wait((m) => m.t === 'projectDone');
+  c1.send({ t: 'leave' });
+  const after = await c2.wait((m) => m.t === 'roster' && m.roster.length === 1);
+  assert.equal(after.roster[0].owner, true, 'the keeper role passes on');
+  const c3 = player('c'.repeat(32), 'Owl', '🦉', 'nest');
+  assert.deepEqual((await c3.wait((m) => m.t === 'welcome')).built, ['eeyore'], 'the wood keeps what it built');
+  c3.send({ t: 'leave' });
+  c2.send({ t: 'leave' });
+  await new Promise((ok) => setTimeout(ok, 200));
+  const c4 = player('c'.repeat(32), 'Owl', '🦉', 'nest');
+  const fresh = await c4.wait((m) => m.t === 'welcome');
+  assert.deepEqual([fresh.built, fresh.roster.length], [[], 1], 'the last one out disbands the wood');
+  console.log('✓ leaving frees the spot; the wood keeps its projects until the last one leaves');
 
   console.log('\nAll multiplayer checks passed 🍯');
   process.exitCode = 0;
