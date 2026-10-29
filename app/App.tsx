@@ -14,6 +14,7 @@ import { WoodScreen } from './src/screens/WoodScreen';
 import { GameProvider, useGame } from './src/state/GameContext';
 import { Header } from './src/ui/Header';
 import { C } from './src/ui/kit';
+import { startMusic } from './src/audio/sound';
 import { CloudConflict } from './src/ui/CloudCard';
 import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
 
@@ -25,6 +26,10 @@ const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: 'wood', label: 'Friends', emoji: '💕' },
   { id: 'nap', label: 'Nap', emoji: '😴' },
 ];
+
+// Phones and browsers only allow music to start after the first tap.
+let musicStarted = false;
+const musicOnFirstTouch = () => { if (!musicStarted) { musicStarted = true; startMusic(); } };
 
 function Game() {
   const { s, net } = useGame();
@@ -44,7 +49,7 @@ function Game() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']} onTouchStart={musicOnFirstTouch}>
       <StatusBar style="dark" />
       <Header />
       <View style={{ flex: 1 }}>

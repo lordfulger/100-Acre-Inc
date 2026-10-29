@@ -5,6 +5,8 @@ import { buyVariety, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
+import { SoundCard } from '../ui/SoundCard';
+import { play } from '../audio/sound';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
 
 export function NapScreen() {
@@ -44,7 +46,7 @@ export function NapScreen() {
             <Text style={[styles.body, { flex: 1 }]}>Next: <Text style={{ fontWeight: '900' }}>{next.emoji} {next.name}</Text> (×{next.mult})</Text>
             <Button
               label="Discover" sub={fmt(varietyCost(s, s.variety + 1))} color={next.deep} disabled={s.honey < varietyCost(s, s.variety + 1)}
-              onPress={() => { if (act((g) => buyVariety(g))) { buzz('success'); toast(`${next.emoji} You discovered ${next.name}!`); } }}
+              onPress={() => { if (act((g) => buyVariety(g))) { buzz('success'); play('upgrade'); toast(`${next.emoji} You discovered ${next.name}!`); } }}
             />
           </View>
         ) : <Text style={styles.body}>👑 You've found the finest honey in all the wood.</Text>}
@@ -71,12 +73,16 @@ export function NapScreen() {
           onPress={() => {
             if (!confirm) return setConfirm(true);
             const got = act((g, t) => nap(g, t));
+            if (got) play('nap');
             setConfirm(false);
             if (got) toast(`😴 Zzz… you woke up with ${fmt(got)} Golden Honeycombs!`);
           }}
         />
         <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
       </Card>
+
+      <Section title="🔊 Sound" />
+      <SoundCard />
 
       <Section title="☁️ Cloud save" />
       <CloudCard />

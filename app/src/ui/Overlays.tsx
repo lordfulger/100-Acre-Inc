@@ -6,6 +6,8 @@ import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Button, buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
+import { play } from '../audio/sound';
+import { say } from '../audio/voices';
 
 // Golden balloons drift up the screen now and then. Catch one for a bonus —
 // and your partner gets a little shared joy too.
@@ -43,6 +45,8 @@ export function BalloonLayer() {
     buzz('success');
     const g = gameRef.current;
     const r = g.act((s, now) => catchBalloon(s, now));
+    play('balloon');
+    if (Math.random() < 0.5) say('pooh', 'balloon');
     g.toast(r.kind === 'lucky' ? `🎈 Lucky Honey! +${fmt(r.amount)}` : `🎈 ${r.title}`);
     g.wood.balloon();
   };
@@ -87,7 +91,7 @@ export function WelcomeBack() {
         <Text style={styles.title}>Welcome back, {s.profile.name}!</Text>
         <Text style={styles.body}>While you were away for {fmtTime(welcomeBack.seconds)}, your managers made</Text>
         <Text style={styles.amount}>{fmt(welcomeBack.earned)} honey</Text>
-        <Button label="Lovely!" onPress={dismissWelcome} />
+        <Button label="Lovely!" onPress={() => { dismissWelcome(); say('pooh', 'hello'); }} />
       </View>
     </View>
   );

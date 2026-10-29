@@ -5,6 +5,7 @@ import { buyResearch, researchNext } from '../game/engine';
 import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Button, buzz, C, Card, Section } from '../ui/kit';
+import { play } from '../audio/sound';
 
 const SECTION_EMOJI: Record<string, string> = { Honey: '🍯', Taps: '👆', Balloons: '🎈', Helpers: '🧑‍🌾', Friends: '💕' };
 
@@ -36,7 +37,7 @@ export function ShopScreen() {
                   {n.maxed ? (
                     <Text style={styles.maxed}>Maxed!</Text>
                   ) : (
-                    <Button label="Buy" sub={fmt(n.cost)} disabled={s.honey < n.cost} onPress={() => { if (act((g) => buyResearch(g, r.id))) buzz('success'); }} />
+                    <Button label="Buy" sub={fmt(n.cost)} disabled={s.honey < n.cost} onPress={() => { if (act((g) => buyResearch(g, r.id))) { buzz('success'); play('buy'); } }} />
                   )}
                 </Card>
               );

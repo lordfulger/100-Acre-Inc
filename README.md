@@ -61,6 +61,12 @@ Free Render services sleep after 15 minutes without players; the first connectio
 
 To try the hosted version locally: `cd app && npm run build:web`, then `cd server && npm start` and open http://localhost:3001.
 
+## Music, sounds and voices
+
+Everything you hear is original and made in code: `npm run sounds` (in `app/`) rebuilds `assets/sounds/` from `scripts/make-sounds.js`, including the background music, "Honey on the Hill" (a music-box waltz), and the tap, buy, hire, upgrade, balloon, hug, gift and nap sounds.
+
+Characters speak short original lines when you hire them, when their home gets a new look, and when hugs or balloons arrive. They use the phone's built-in voice, pitched and paced for each character, unless you record your own: drop clips like `pooh-1.m4a` into `app/assets/voices/` (see the README there). Music, sound effects and voices each have a switch on the **Nap** tab.
+
 ## Cloud saves (Google sign-in)
 
 On the **Nap** tab, *Sign in with Google* backs the game up to the cloud (every minute and whenever the app goes to the background) and brings it back on any phone. If a phone has less progress than the cloud, the game asks which save to keep instead of overwriting.

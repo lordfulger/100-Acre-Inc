@@ -6,18 +6,21 @@ import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
+import { play } from '../audio/sound';
 
 type Pop = { id: number; x: number; text: string; anim: Animated.Value };
 let popId = 0;
 
 function HoneyPot() {
-  const { act, s } = useGame();
+  const { act, s, d } = useGame();
   const scale = useRef(new Animated.Value(1)).current;
   const [pops, setPops] = useState<Pop[]>([]);
   const v = varietyAt(s.variety);
 
   const onTap = () => {
+    const before = d.tapValue;
     const value = act((st, now) => tap(st, now));
+    play(value > before * 1.5 ? 'lucky' : 'tap');
     buzz();
     scale.setValue(0.86);
     Animated.spring(scale, { toValue: 1, friction: 3, tension: 160, useNativeDriver: nativeDriver }).start();

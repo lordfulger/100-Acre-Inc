@@ -5,7 +5,9 @@ import { buyBiz, BuyMode, cycleProgress, hireManager, managerCost, quote, startC
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, Card } from '../ui/kit';
-import { Portrait } from '../ui/Portrait';
+import { Portrait, portraitFor } from '../ui/Portrait';
+import { play } from '../audio/sound';
+import { say } from '../audio/voices';
 
 const MODES: BuyMode[] = [1, 10, 100, 'max'];
 
@@ -28,7 +30,7 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
           <Text style={styles.name}>{b.name}</Text>
           <Text style={styles.blurb} numberOfLines={2}>{b.blurb}</Text>
         </View>
-        <Button label="Unlock" sub={fmt(q.cost)} disabled={!canBuy} onPress={() => act((g, t) => buyBiz(g, b.id, mode, t))} />
+        <Button label="Unlock" sub={fmt(q.cost)} disabled={!canBuy} onPress={() => { if (act((g, t) => buyBiz(g, b.id, mode, t))) play('buy'); }} />
       </Card>
     );
   }
@@ -62,14 +64,14 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
           label={`×${q.n}`}
           sub={fmt(q.cost)}
           disabled={!canBuy}
-          onPress={() => act((g, t) => buyBiz(g, b.id, mode, t))}
+          onPress={() => { if (act((g, t) => buyBiz(g, b.id, mode, t))) play('buy'); }}
           style={{ minWidth: 76 }}
         />
       </View>
       {!st.managed && (
         <Pressable
           disabled={s.honey < managerCost(s, b)}
-          onPress={() => { if (act((g, t) => hireManager(g, b.id, t))) buzz('success'); }}
+          onPress={() => { if (act((g, t) => hireManager(g, b.id, t))) { buzz('success'); play('hire'); say(portraitFor(b.manager.emoji), 'hire'); } }}
           style={[styles.hire, s.honey >= managerCost(s, b) && { backgroundColor: '#FFE9B0', borderColor: v.deep }]}
         >
           <Text style={[styles.hireText, s.honey < managerCost(s, b) && { color: C.faint }]}>

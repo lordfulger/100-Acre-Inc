@@ -22,6 +22,7 @@ export type GameState = {
   research: Record<string, number>; // Rabbit's General Store item levels
   levels: Record<string, number>; // building levels on the map (business ids + 'pooh')
   addons: string[]; // add-ons bought, as `${home}:${index}`
+  settings: { music: boolean; sfx: boolean; voices: boolean };
   boosts: Boost[];
   lastTick: number;
   pendingContribution: number; // honey earned but not yet reported to the co-op Expotition
@@ -71,7 +72,7 @@ export function newGame(now: number): GameState {
   biz.beetree.owned = 1;
   return {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
-    biz, research: {}, levels: {}, addons: [], boosts: [], lastTick: now, pendingContribution: 0,
+    biz, research: {}, levels: {}, addons: [], settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
   };
@@ -92,6 +93,7 @@ export function migrate(raw: any, now: number): GameState {
     ...base, ...raw,
     stats: { ...base.stats, ...raw.stats },
     profile: { ...base.profile, ...raw.profile },
+    settings: { ...base.settings, ...raw.settings },
     biz: { ...base.biz },
   };
   for (const b of BUSINESSES) s.biz[b.id] = { ...freshBiz(), ...(raw.biz?.[b.id] || {}) };

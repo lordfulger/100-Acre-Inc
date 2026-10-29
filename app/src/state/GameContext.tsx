@@ -4,7 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, receiveGift, tick } from '../game/engine';
 import { fmt } from '../game/format';
+import { applySoundSettings, play } from '../audio/sound';
+import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
+import { portraitFor } from '../ui/Portrait';
 import { NetStatus, WoodClient } from '../net/WoodClient';
 
 const SAVE_KEY = 'hundred-acre-honey-tycoon/save/v1';
@@ -196,11 +199,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         case 'contract': setNet((n) => ({ ...n, contract: m.contract })); break;
         case 'gift':
           receiveGift(s, m.amount * derive(s, now).giftMult);
+          play('gift');
           toast(`🎁 ${m.avatar} ${m.name} sent you ${fmt(m.amount)} honey!`);
           break;
         case 'hug':
           addBoost(s, 'profit', 2, derive(s, now).hugSecs, `Hug from ${m.name}`, now);
           s.stats.hugsGot++;
+          play('hug');
+          say(portraitFor(m.avatar), 'hug');
           setHearts((h) => h + 1);
           toast(`💕 ${m.avatar} ${m.name} sent you a big hug! ×2 honey for ${derive(s, now).hugSecs}s`);
           break;
@@ -306,6 +312,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   if (!ready || !sRef.current) return null;
   const s = sRef.current;
+  applySoundSettings(s.settings);
   const now = Date.now();
 
   const wood: Ctx['wood'] = {
