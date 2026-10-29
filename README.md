@@ -1,4 +1,4 @@
-# 🍯 The Hundred Acre Wood
+# 🍯 100 Acre Inc
 
 A co-op idle tycoon for two (or up to 8) friends, set in the Hundred Acre Wood. It runs on iOS and Android from one codebase (Expo / React Native), and there's no end to it: every kind of upgrade keeps going forever, getting a little pricier each step.
 
@@ -49,12 +49,12 @@ Every character has an original drawn portrait. To use your own pictures instead
 
 ## Play anywhere (deploy the server)
 
-One free Render service runs both the multiplayer server and the web version of the game. Push this repository to GitHub, then in Render choose **New → Blueprint** and pick it; `render.yaml` does the rest. Render gives you an address like `https://hundred-acre-wood.onrender.com`.
+One free Render service runs both the multiplayer server and the web version of the game. Push this repository to GitHub, then in Render choose **New → Blueprint** and pick it; `render.yaml` does the rest. Render gives you an address like `https://100-acre-inc.onrender.com`.
 
 - **iPhone (no App Store, no Apple account):** open that address in Safari → Share → **Add to Home Screen**. It gets the honey-pot icon and opens full-screen like an app.
 - **Android APK:** put the address in `app/app.json` before building, so the installed app finds the server:
   ```json
-  "extra": { "serverUrl": "wss://hundred-acre-wood.onrender.com" }
+  "extra": { "serverUrl": "wss://100-acre-inc.onrender.com" }
   ```
 
 Free Render services sleep after 15 minutes without players; the first connection afterwards takes about a minute. Rooms are saved to `server/data/rooms.json`, which the free plan resets on restart. Progress lives on each phone, so that only resets chat and Expotitions.

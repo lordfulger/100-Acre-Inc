@@ -101,7 +101,7 @@ export function Onboarding() {
     <View style={styles.scrim}>
       <View style={styles.modal}>
         <Text style={{ fontSize: 50, textAlign: 'center' }}>🌳🍯🐝</Text>
-        <Text style={styles.title}>The Hundred Acre Wood</Text>
+        <Text style={styles.title}>100 Acre Inc</Text>
         <Text style={styles.body}>Build a honey empire in the Hundred Acre Wood — with a friend. What shall we call you?</Text>
         <TextInput
           value={name} onChangeText={(t) => setName(t.slice(0, 16))} placeholder="Your name" placeholderTextColor={C.faint}

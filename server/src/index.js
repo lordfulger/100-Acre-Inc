@@ -1,4 +1,4 @@
-// Hundred Acre Honey Tycoon — multiplayer relay server.
+// 100 Acre Inc — multiplayer relay server.
 //
 // The economy runs on each phone (so it is smooth and works offline). This
 // server links friends together in a shared "wood" (room): live roster, chat,
@@ -210,7 +210,7 @@ const http = createServer((req, res) => {
   }
   if (req.method === 'GET' && serveStatic(req, res)) return;
   res.writeHead(200, { 'content-type': 'text/plain' });
-  res.end('Hundred Acre Honey Tycoon server is buzzing. Connect with WebSocket.');
+  res.end('100 Acre Inc server is buzzing. Connect with WebSocket.');
 });
 
 const wss = new WebSocketServer({ server: http, maxPayload: 16 * 1024 });
@@ -350,5 +350,5 @@ setInterval(() => {
 }, 30_000).unref();
 
 http.listen(PORT, () => {
-  console.log(`🍯 Honey Tycoon server listening on port ${PORT}`);
+  console.log(`🍯 100 Acre Inc server listening on port ${PORT}`);
 });

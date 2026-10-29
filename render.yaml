@@ -3,7 +3,7 @@
 # In Render: New → Blueprint → pick this repository.
 services:
   - type: web
-    name: hundred-acre-wood
+    name: 100-acre-inc
     runtime: node
     plan: free
     buildCommand: npm ci --prefix app && npm run build:web --prefix app && npm ci --prefix server

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "The Hundred Acre Wood",
-    "slug": "hundred-acre-honey-tycoon",
+    "name": "100 Acre Inc",
+    "slug": "100-acre-inc",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,7 +9,7 @@
     "backgroundColor": "#FFF7E3",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hundredacre.honeytycoon",
+      "bundleIdentifier": "com.onehundredacre.inc",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
@@ -17,7 +17,7 @@
       }
     },
     "android": {
-      "package": "com.hundredacre.honeytycoon",
+      "package": "com.onehundredacre.inc",
       "adaptiveIcon": {
         "backgroundColor": "#F6B93B",
         "foregroundImage": "./assets/android-icon-foreground.png",
