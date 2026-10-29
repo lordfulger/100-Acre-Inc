@@ -8,6 +8,7 @@ import {
 } from './catalog';
 import { ALBUM_BY_ID, albumMult } from './album';
 import { bumpEvent, projectMult, seasonAt } from './calendar';
+import { NEWS_VERSION } from './news';
 
 export type BizState = { owned: number; managed: boolean; running: boolean; cycleStart: number };
 export type Boost = { id: string; kind: 'profit' | 'tap'; mult: number; until: number; label: string };
@@ -37,6 +38,7 @@ export type GameState = {
   eventsWon: string[];
   projects: string[]; // shared projects finished in your wood (each adds honey)
   letters: Letter[];
+  newsSeen: number; // the newest "What's new" note already shown
   settings: { music: boolean; sfx: boolean; voices: boolean };
   boosts: Boost[];
   lastTick: number;
@@ -94,7 +96,7 @@ export function newGame(now: number): GameState {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
     trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
-    events: {}, eventsWon: [], projects: [], letters: [],
+    events: {}, eventsWon: [], projects: [], letters: [], newsSeen: NEWS_VERSION,
     settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0 },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
@@ -165,6 +167,8 @@ export function migrate(raw: any, now: number): GameState {
   s.events = obj(raw.events);
   s.visitor = { ...base.visitor, ...obj(raw.visitor) };
   s.letters = Array.isArray(raw.letters) ? raw.letters.slice(0, 30) : [];
+  // Saves from before the notes existed haven't seen any.
+  s.newsSeen = Number.isFinite(raw.newsSeen) ? raw.newsSeen : 0;
   // A save from a phone whose clock was ahead (or this phone's clock going back)
   // would leave times in the future, and businesses would stall until they came round.
   if (!(s.lastTick <= now)) s.lastTick = now;

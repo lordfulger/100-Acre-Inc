@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync, statSyn
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import webpush from 'web-push';
 import { handleCloud, loadRooms, roomsInCloud, storeRooms } from './cloud.js';
 
 const PORT = Number(process.env.PORT || 3001);
@@ -47,7 +48,7 @@ export function projectDef(n) {
 }
 const LETTER_MAX = 280;
 const STICK_DROP_MS = 20_000;
-const STICK_INVITE_MS = 60_000;
+const STICK_INVITE_MS = 90_000;
 const FINAL_BOOST = { mult: 2, secs: 20 * 60 };
 
 // ---------- persistence ----------
@@ -75,6 +76,40 @@ if (cloudRooms) {
   }
 }
 
+// ---------- phone notifications (web push) ----------
+
+// The keys that sign notifications are made once and kept with the rooms (under a
+// name no room code can have), unless they're set in the environment.
+const KEYS = '_pushKeys';
+const madeKeys = !rooms[KEYS];
+if (madeKeys) rooms[KEYS] = process.env.VAPID_PUBLIC_KEY
+  ? { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY }
+  : webpush.generateVAPIDKeys();
+const pushKeys = rooms[KEYS];
+webpush.setVapidDetails(process.env.RENDER_EXTERNAL_URL || 'https://one00-acre-inc.onrender.com', pushKeys.publicKey, pushKeys.privateKey);
+const isRoom = (code) => code !== KEYS;
+
+/** A phone's notification address, checked enough to be safe to keep and use. */
+function cleanSub(sub) {
+  if (!sub || typeof sub !== 'object') return null;
+  const { endpoint, keys } = sub;
+  if (typeof endpoint !== 'string' || !/^https:\/\/[^\s]{10,600}$/.test(endpoint)) return null;
+  if (!keys || typeof keys.p256dh !== 'string' || typeof keys.auth !== 'string' || keys.p256dh.length > 200 || keys.auth.length > 100) return null;
+  return { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } };
+}
+
+/** Sends a notification to a player's phone. The phone only shows it when the game isn't on screen. */
+function notify(room, pid, title, body, tag) {
+  const m = room.members[pid];
+  if (!m?.push) return;
+  // A bad address can make the library throw straight away rather than fail later.
+  Promise.resolve().then(() => webpush.sendNotification(m.push, JSON.stringify({ title, body, tag }), { TTL: 6 * 3600 })).catch((err) => {
+    // Gone: the phone turned notifications off or the app was removed.
+    if (err.statusCode === 404 || err.statusCode === 410) { delete m.push; markDirty(); }
+    else console.error('Push failed:', err.statusCode || err.message);
+  });
+}
+
 let dirty = false;
 let saving = null;
 function markDirty() { dirty = true; }
@@ -96,6 +131,8 @@ async function save() {
     .finally(() => { saving = null; });
   return saving;
 }
+// New notification keys are saved straight away, or phones would lose them on a restart.
+if (madeKeys) markDirty();
 setInterval(save, 5_000).unref();
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, async () => { dirty = true; await saving; await save(); process.exit(0); });
@@ -161,7 +198,7 @@ function broadcast(room, msg, exceptPid) {
 
 function roster(room) {
   return Object.entries(room.members).map(([id, m]) => ({
-    id, name: m.name, avatar: m.avatar, online: isOnline(room.code, id), lastSeen: m.lastSeen, stats: m.stats || {},
+    id, name: m.name, avatar: m.avatar, online: isOnline(room.code, id), lastSeen: m.lastSeen, stats: m.stats || {}, notify: !!m.push,
   }));
 }
 
@@ -205,7 +242,10 @@ function contribute(room, pid, amount) {
     system(room, final
       ? `🏆 "${def.name}" complete! Everyone gets ${def.combs[tier]} Golden Honeycombs and ×${FINAL_BOOST.mult} honey for ${FINAL_BOOST.secs / 60} min!`
       : `⭐ Tier ${tier + 1} of "${def.name}" reached! +${def.combs[tier]} Golden Honeycombs each.`);
-    if (final) c.status = 'complete';
+    if (final) {
+      c.status = 'complete';
+      for (const member of Object.keys(room.members)) notify(room, member, `🏆 ${def.name} complete!`, 'Golden Honeycombs and double honey for everyone.', 'expo');
+    }
   }
   markDirty();
   broadcast(room, { t: 'contract', contract: c });
@@ -213,7 +253,8 @@ function contribute(room, pid, amount) {
 
 setInterval(() => {
   const now = Date.now();
-  for (const room of Object.values(rooms)) {
+  for (const [code, room] of Object.entries(rooms)) {
+    if (!isRoom(code)) continue;
     const c = room.contract;
     if (c && c.status === 'active' && now > c.endsAt) {
       c.status = 'expired';
@@ -251,6 +292,7 @@ function donate(room, pid, amount) {
     room.project = null;
     for (const member of Object.keys(room.members)) sendTo(room, member, { t: 'projectDone', id: def.id, name: def.name, emoji: def.emoji }, { queue: true });
     system(room, `${def.emoji} You built "${def.name}" together! Everyone's honey is up for good.`);
+    for (const member of Object.keys(room.members)) notify(room, member, `${def.emoji} ${def.name} is built!`, "Everyone's honey is up for good.", 'project');
   }
   broadcast(room, { t: 'project', ...projectInfo(room) });
 }
@@ -332,7 +374,7 @@ const http = createServer(async (req, res) => {
   if (await handleCloud(req, res)) return;
   if (req.url === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, rooms: Object.keys(rooms).length }));
+    res.end(JSON.stringify({ ok: true, rooms: Object.keys(rooms).filter(isRoom).length }));
     return;
   }
   if (req.method === 'GET' && serveStatic(req, res)) return;
@@ -358,6 +400,7 @@ wss.on('connection', (ws) => {
 
     if (msg.t === 'hello') {
       const code = cleanCode(msg.room);
+      // (cleanCode only gives capitals and digits, so it can never be the keys' name.)
       if (code.length < 3) return send(ws, { t: 'error', text: 'Room codes need at least 3 letters or numbers.' });
       if (!msg.secret || String(msg.secret).length < 16) return send(ws, { t: 'error', text: 'Missing player secret.' });
       const id = publicId(msg.secret);
@@ -378,7 +421,13 @@ wss.on('connection', (ws) => {
       sockets.get(key).add(ws);
       markDirty();
 
-      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, ...projectInfo(r) });
+      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, ...projectInfo(r), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
+      for (const [raceId, race] of races) {
+        if (race.room === r && race.b === id && race.phase === 'invited') {
+          const from = r.members[race.a];
+          send(ws, { t: 'stickInvite', id: raceId, from: race.a, name: from?.name, avatar: from?.avatar });
+        }
+      }
       for (const queued of r.inbox[id] || []) send(ws, queued);
       delete r.inbox[id];
       broadcast(r, { t: 'roster', roster: roster(r) }, id);
@@ -415,6 +464,7 @@ wss.on('connection', (ws) => {
         const to = String(msg.to || '');
         if (!amount || !room.members[to] || to === pid) return;
         sendTo(room, to, { t: 'gift', from: pid, name: me.name, avatar: me.avatar, amount }, { queue: true });
+        notify(room, to, `🎁 ${me.name} sent you honey!`, 'Come and see how much.', 'gift');
         send(ws, { t: 'giftSent', to, amount });
         system(room, `🎁 ${me.name} sent ${room.members[to].name} a pot of honey!`);
         break;
@@ -425,6 +475,7 @@ wss.on('connection', (ws) => {
         if (Date.now() - lastHug < HUG_COOLDOWN_MS) return send(ws, { t: 'error', text: 'Hugs need a little rest between them.' });
         lastHug = Date.now();
         sendTo(room, to, { t: 'hug', from: pid, name: me.name, avatar: me.avatar }, { queue: true });
+        notify(room, to, `💕 ${me.name} sent you a big hug!`, 'Double honey while it lasts.', 'hug');
         send(ws, { t: 'hugSent', to });
         break;
       }
@@ -467,6 +518,7 @@ wss.on('connection', (ws) => {
         if (!room.members[to] || to === pid || !text) return;
         const letter = { id: `${Date.now()}-${pid}`, from: pid, name: me.name, avatar: me.avatar, text, amount, at: Date.now() };
         sendTo(room, to, { t: 'letter', letter }, { queue: true });
+        notify(room, to, `✉️ ${me.name} left you a letter`, amount ? 'With honey tucked inside.' : 'Open it in the Friends tab.', `letter-${letter.id}`);
         send(ws, { t: 'letterSent', amount });
         system(room, `✉️ ${me.name} left ${room.members[to].name} a letter${amount ? ' with honey tucked inside' : ''}.`);
         break;
@@ -474,7 +526,7 @@ wss.on('connection', (ws) => {
       case 'stickInvite': {
         const to = String(msg.to || '');
         if (!room.members[to] || to === pid) return;
-        if (!isOnline(room.code, to)) return send(ws, { t: 'error', text: `${room.members[to].name} isn't in the wood right now.` });
+        if (!isOnline(room.code, to) && !room.members[to].push) return send(ws, { t: 'error', text: `${room.members[to].name} isn't in the wood right now.` });
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const race = { room, a: pid, b: to, drops: {}, phase: 'invited' };
         race.timer = setTimeout(() => {
@@ -485,6 +537,7 @@ wss.on('connection', (ws) => {
         }, STICK_INVITE_MS);
         races.set(id, race);
         sendTo(room, to, { t: 'stickInvite', id, from: pid, name: me.name, avatar: me.avatar });
+        notify(room, to, `🥢 ${me.name} wants to play Poohsticks!`, 'Quick, come to the bridge.', 'sticks');
         send(ws, { t: 'stickWaiting', id, to, name: room.members[to].name, avatar: room.members[to].avatar });
         break;
       }
@@ -513,6 +566,18 @@ wss.on('connection', (ws) => {
         if (race.a in race.drops && race.b in race.drops) finishRace(id);
         break;
       }
+      case 'push': {
+        const sub = cleanSub(msg.sub);
+        if (!sub) return;
+        me.push = sub;
+        markDirty();
+        send(ws, { t: 'pushOn' });
+        break;
+      }
+      case 'pushOff':
+        delete me.push;
+        markDirty();
+        break;
       case 'ping':
         send(ws, { t: 'pong', at: Date.now() });
         break;

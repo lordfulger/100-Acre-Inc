@@ -12,11 +12,16 @@ import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
 import { portraitFor } from '../ui/Portrait';
 import { NetStatus, WoodClient } from '../net/WoodClient';
+import { needsHomeScreen, pushAllowed, pushSupported, registerWorker, subscribe } from '../net/push';
+
+registerWorker();
 
 const SAVE_KEY = 'hundred-acre-honey-tycoon/save/v1';
 
 export type Member = {
   id: string; name: string; avatar: string; online: boolean; lastSeen: number;
+  /** Has phone notifications on, so can be reached when not in the wood. */
+  notify?: boolean;
   stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; trophies?: number; buildings?: MapView };
 };
 export type ChatMsg = { id: string; from?: string; name?: string; avatar?: string; text: string; at: number; system?: boolean };
@@ -31,6 +36,8 @@ export type Net = {
   status: NetStatus; you: string | null; room: string | null; roster: Member[]; chat: ChatMsg[];
   contract: Contract | null; contracts: ContractDef[]; tiers: number[]; error: string | null;
   project: Project | null; projectDef: ProjectDef | null; built: string[];
+  /** The server's key for phone notifications, and whether this player has them on. */
+  pushKey: string | null; pushOn: boolean;
 };
 export type StickPlayer = { pid: string; name: string; avatar: string };
 export type StickRace = { sticks: (StickPlayer & { q: number; time: number })[]; winner: string; seed: number };
@@ -52,7 +59,7 @@ export type CloudState = {
 
 const emptyNet: Net = {
   status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null,
-  project: null, projectDef: null, built: [],
+  project: null, projectDef: null, built: [], pushKey: null, pushOn: false,
 };
 
 /** The online server baked into app.json (`extra.serverUrl`), if any. */
@@ -98,6 +105,8 @@ type Ctx = {
     balloon: () => void;
     donate: (amount: number) => void;
     letter: (to: string, text: string, amount: number) => void;
+    /** Asks the phone for permission and turns notifications on. */
+    notifications: () => void;
   };
   sticks: Sticks | null;
   stickApi: {
@@ -271,7 +280,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setNet((n) => ({
             ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null,
             project: m.project || null, projectDef: m.projectDef || null, built: m.built || [],
+            pushKey: m.pushKey || null, pushOn: !!m.pushOn,
           }));
+          // Already allowed on this phone: keep the server's copy of the address fresh.
+          if (m.pushKey && pushAllowed()) {
+            subscribe(m.pushKey, false).then((sub) => { if (sub) client.send({ t: 'push', sub }); }).catch(() => {});
+          }
           // Projects built in this wood count for everyone in it, even ones finished before you joined.
           for (const id of m.built || []) if (!s.projects.includes(id)) s.projects.push(id);
           setSticks(null);
@@ -320,6 +334,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           bumpEvent(s, 'hug', now);
           toast('💕 Hug sent!');
           break;
+        case 'pushOn': setNet((n) => ({ ...n, pushOn: true })); break;
         case 'project': setNet((n) => ({ ...n, project: m.project, projectDef: m.projectDef, built: m.built })); break;
         case 'projectDone':
           if (!s.projects.includes(m.id)) s.projects.push(m.id);
@@ -494,6 +509,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (client.send({ t: 'donate', amount })) giftsPending.current += amount;
       else toast('Oh bother: not connected to the wood right now.');
     },
+    notifications: async () => {
+      if (needsHomeScreen()) { toast('📱 On iPhone, first add the game to your Home Screen (Share → Add to Home Screen), then open it from there.'); return; }
+      if (!pushSupported()) { toast("Oh bother: this browser can't show notifications."); return; }
+      if (!net.pushKey) { toast('Oh bother: not connected to the wood right now.'); return; }
+      try {
+        const sub = await subscribe(net.pushKey, true);
+        if (!sub) { toast('🔕 Notifications are blocked. You can allow them in your browser settings.'); return; }
+        if (client.send({ t: 'push', sub })) toast("🔔 Notifications on! You'll hear about hugs, letters and Poohsticks.");
+      } catch {
+        toast('Oh bother: notifications could not be turned on.');
+      }
+    },
     letter: (to, text, amount) => {
       if (!text.trim() || amount < 0 || amount > s.honey - giftsPending.current) return;
       if (client.send({ t: 'letter', to, text: text.trim(), amount })) giftsPending.current += amount;
@@ -523,6 +550,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     fresh.albumNew = [...s.albumNew];
     fresh.chatSeen = s.chatSeen;
     fresh.trophies = [...s.trophies];
+    fresh.newsSeen = s.newsSeen;
     sRef.current = fresh;
     save();
     setWelcomeBack(null);

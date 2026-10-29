@@ -127,6 +127,21 @@ try {
   assert.equal(late.amount, 77);
   console.log('✓ offline gifts delivered on return');
 
+  // Notifications: a phone signs up, and can then be challenged while away.
+  assert.ok(wa.pushKey?.length > 60);
+  b2.send({ t: 'push', sub: { endpoint: 'not a url', keys: {} } });
+  b2.send({ t: 'push', sub: { endpoint: 'https://push.example.invalid/abc1234567', keys: { p256dh: 'x', auth: 'y' } } });
+  await b2.wait((m) => m.t === 'pushOn');
+  b2.ws.close();
+  await a.wait((m) => m.t === 'roster' && m.roster.some((r) => r.name === 'Piglet' && !r.online && r.notify));
+  a.send({ t: 'stickInvite', to: wb.you });
+  await a.wait((m) => m.t === 'stickWaiting');
+  const b3 = player('b'.repeat(32), 'Piglet', '🐷');
+  assert.equal((await b3.wait((m) => m.t === 'welcome')).pushOn, true);
+  const waiting = await b3.wait((m) => m.t === 'stickInvite');
+  assert.equal(waiting.name, 'Pooh');
+  console.log('✓ notifications sign-up, and challenges reach a friend who was away');
+
   console.log('\nAll multiplayer checks passed 🍯');
   process.exitCode = 0;
 } catch (err) {

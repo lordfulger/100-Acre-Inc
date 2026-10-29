@@ -7,6 +7,21 @@ import { fmt, timeAgo } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, Card, Section } from './kit';
 import { play } from '../audio/sound';
+import { pushSupported } from '../net/push';
+
+/** Turn on phone notifications, or a note that they're on. */
+export function NotifyCard() {
+  const { net, wood } = useGame();
+  if (!pushSupported()) return null;
+  if (net.pushOn) return <Text style={[styles.small, { marginBottom: 8 }]}>🔔 Notifications are on for this phone.</Text>;
+  return (
+    <Card style={{ borderColor: C.blue }}>
+      <Text style={styles.big}>🔔 Notifications</Text>
+      <Text style={styles.small}>Get a ping on this phone for hugs, honey, letters and Poohsticks challenges, even when the game is closed.</Text>
+      <Button label="Turn on notifications" color={C.blue} onPress={wood.notifications} style={{ marginTop: 8 }} />
+    </Card>
+  );
+}
 
 export function Projects() {
   const { s, net, wood } = useGame();

@@ -58,7 +58,8 @@ export function GamesScreen() {
   const { s, net, now, stickApi } = useGame();
   const [playing, setPlaying] = useState<GameId | null>(null);
   const event = activeEvent(now);
-  const friends = net.status === 'online' ? net.roster.filter((m) => m.id !== net.you && m.online) : [];
+  // Friends in the wood, or away but with notifications on (they get a ping).
+  const friends = net.status === 'online' ? net.roster.filter((m) => m.id !== net.you && (m.online || m.notify)) : [];
 
   return (
     <View style={{ flex: 1 }}>
@@ -111,7 +112,7 @@ export function GamesScreen() {
               ) : (
                 <Button label={ready ? 'Play' : `Ready in ${wait}m`} disabled={!ready} onPress={() => { play('pop'); setPlaying(id); }} style={{ marginTop: 8 }} />
               )}
-              {id === 'sticks' && friends.length === 0 && <Text style={styles.small}>When your friend is in the wood, you can race each other live.</Text>}
+              {id === 'sticks' && friends.length === 0 && <Text style={styles.small}>When your friend is in the wood (or has notifications on), you can race each other live.</Text>}
             </Card>
           );
         })}

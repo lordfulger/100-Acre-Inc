@@ -9,8 +9,11 @@
     "dev": "node --watch src/index.js",
     "test": "node test/simulate.js && node test/cloud.js && node test/rooms.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "web-push": "^3.6.7",
     "ws": "^8.18.0"
   }
 }

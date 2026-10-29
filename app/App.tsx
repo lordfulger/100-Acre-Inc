@@ -19,6 +19,8 @@ import { C } from './src/ui/kit';
 import { play, startMusic, unlockAudio } from './src/audio/sound';
 import { CloudConflict } from './src/ui/CloudCard';
 import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
+import { WhatsNew } from './src/ui/WhatsNew';
+import { NEWS_VERSION } from './src/game/news';
 
 type Tab = 'map' | 'hives' | 'shop' | 'games' | 'wood' | 'album' | 'nap';
 const TABS: { id: Tab; label: string; emoji: string }[] = [
@@ -42,7 +44,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 }
 
 function Game() {
-  const { s, net } = useGame();
+  const { s, net, welcomeBack } = useGame();
   const [tab, setTab] = useState<Tab>('map');
   const accent = varietyAt(s.variety).deep;
 
@@ -88,6 +90,7 @@ function Game() {
       <SticksLive />
       <CloudConflict />
       {!s.profile.name && <Onboarding />}
+      {s.profile.name && s.newsSeen < NEWS_VERSION && !welcomeBack && <WhatsNew />}
     </SafeAreaView>
   );
 }

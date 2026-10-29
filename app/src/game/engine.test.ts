@@ -115,7 +115,7 @@ function shop(s: GameState, t: number) {
     tick(s, now);
     shop(s, now);
     if (napCombsAvailable(s) >= Math.max(10, totalCombs(s))) nap(s, now);
-    if ((step + 1) % (perDay * Math.max(10, DAYS / 12)) === 0) {
+    if ((step + 1) % (perDay * Number(process.env.EVERY_DAYS || Math.max(10, DAYS / 12))) === 0) {
       const day = (step + 1) / perDay;
       lines.push(`day ${day}: ${fmt(derive(s, now).hps)}/s · all-time ${fmt(s.allTimeEarned)} · combs ${fmt(totalCombs(s))} · naps ${s.stats.naps} · ${varietyAt(s.variety).name} · Pooh Lv ${s.levels.pooh || 0}`);
       assert.ok(s.allTimeEarned > lastAllTime, `progress stalled by day ${day}`);

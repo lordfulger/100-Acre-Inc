@@ -7,7 +7,7 @@ import { Contract, ContractDef, Member, useGame } from '../state/GameContext';
 import { Bar, Button, C, Card, Section } from '../ui/kit';
 import { HAND, WoodMap } from '../ui/WoodMap';
 import { Portrait } from '../ui/Portrait';
-import { Letters, Projects } from '../ui/Together';
+import { Letters, NotifyCard, Projects } from '../ui/Together';
 
 function JoinCard() {
   const { s, net, wood } = useGame();
@@ -223,6 +223,7 @@ export function WoodScreen() {
             right={<Pressable onPress={wood.leave}><Text style={styles.link}>Leave</Text></Pressable>}
           />
           <Text style={[styles.small, { marginTop: -6, marginBottom: 8 }]}>Room code: {net.room}</Text>
+          <NotifyCard />
           {others.length === 0 && (
             <Card><Text style={styles.body}>It's just you here so far. Tell your favourite person the code <Text style={{ fontWeight: '900' }}>{net.room}</Text> 💛</Text></Card>
           )}

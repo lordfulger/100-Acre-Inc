@@ -81,7 +81,7 @@ export function checkDecor(s: GameState): Decor[] {
 // ---------- going inside homes ----------
 
 /** Homes open their doors once you've taken this many naps. */
-export const INTERIOR_NAPS = 10;
+export const INTERIOR_NAPS = 15;
 export const ROOM_SLOTS = 6;
 export const interiorsOpen = (s: GameState) => s.stats.naps >= INTERIOR_NAPS;
 export const homeOpen = (s: GameState, home: string) => interiorsOpen(s) && (home === POOH_HOUSE.id || s.biz[home]?.owned > 0);
