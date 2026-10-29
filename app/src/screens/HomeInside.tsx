@@ -14,6 +14,7 @@ import { Button, buzz, C } from '../ui/kit';
 import { Portrait } from '../ui/Portrait';
 import { HAND } from '../ui/WoodMap';
 import { ROOM_IMAGES } from '../ui/roomImages';
+import { DECOR_IMAGES } from '../ui/decorImages';
 import { play } from '../audio/sound';
 import { say } from '../audio/voices';
 
@@ -23,6 +24,13 @@ const WALLS: Record<string, string> = {
 };
 // Where each decoration stands in the room, as fractions of its width and height.
 const SLOTS: [number, number][] = [[0.12, 0.62], [0.86, 0.6], [0.3, 0.8], [0.7, 0.82], [0.1, 0.28], [0.88, 0.3]];
+
+/** A decoration's painting, or its emoji if it has none. */
+function DecorIcon({ id, size }: { id: string; size: number }) {
+  const img = DECOR_IMAGES[id];
+  if (img) return <Image source={img} style={{ width: size, height: size }} />;
+  return <Text style={{ fontSize: size * 0.75 }}>{DECOR_BY_ID[id]?.emoji}</Text>;
+}
 
 export function HomeInside({ id, onClose }: { id: string; onClose: () => void }) {
   const { s, act, toast, now } = useGame();
@@ -74,7 +82,7 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
               style={[styles.placed, { left: SLOTS[i][0] * w - 24, top: SLOTS[i][1] * h - 24 }]}
               accessibilityLabel={`Take down ${DECOR_BY_ID[d].name}`}
             >
-              <Text style={{ fontSize: 48 }}>{DECOR_BY_ID[d].emoji}</Text>
+              <DecorIcon id={d} size={60} />
             </Pressable>
           ))}
           <Pressable onPress={chat} style={[styles.resident, { left: w / 2 - 45, top: h * 0.42 }]} accessibilityLabel={`Talk to ${who.name}`}>
@@ -112,7 +120,7 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
                     onPress={() => { if (act((g) => placeDecor(g, id, d.id))) { buzz('success'); play('addon'); } }}
                     style={[styles.item, room.length >= ROOM_SLOTS && { opacity: 0.5 }]}
                   >
-                    <Text style={{ fontSize: 30 }}>{d.emoji}</Text>
+                    <DecorIcon id={d.id} size={44} />
                     <Text style={styles.itemName} numberOfLines={2}>{d.name}</Text>
                     <Text style={styles.itemSub}>{where ? `Move from ${where === 'pooh' ? "Pooh's" : BIZ_BY_ID[where].name}` : 'Put it up'}</Text>
                   </Pressable>
@@ -125,7 +133,7 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
             {store.length === 0 && <Text style={styles.note}>You've bought everything Rabbit has. Very Organised.</Text>}
             {store.map((d) => (
               <View key={d.id} style={styles.item}>
-                <Text style={{ fontSize: 30 }}>{d.emoji}</Text>
+                <DecorIcon id={d.id} size={44} />
                 <Text style={styles.itemName} numberOfLines={2}>{d.name}</Text>
                 <Button small label="Buy" sub={fmt(cost)} disabled={s.honey < cost} onPress={() => { if (act((g, t) => buyDecor(g, d.id, t))) { play('buy'); toast(`${d.emoji} ${d.name} bought! Put it up from Your things.`); } }} />
               </View>
