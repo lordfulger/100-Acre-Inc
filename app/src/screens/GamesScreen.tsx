@@ -1,31 +1,37 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { activeEvent, eventProgress } from '../game/calendar';
-import { finishGame, GAME_COOLDOWN_MIN, GameId, GAMES, gameReady } from '../game/extras';
+import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
+import { finishGame, GAME_COOLDOWN_MIN, GAME_IDS, GameId, gameOpen, GAMES, gameReady } from '../game/extras';
 import { fmt } from '../game/format';
 import { StickRace, useGame } from '../state/GameContext';
 import { Button, C, Card, Section } from '../ui/kit';
 import { HoneyDrip, Poohsticks, RabbitsGarden, WoozleTracks } from '../ui/Minigames';
+import { Balloons, BeeLine, Bounce, CountPots, OddOne, Pairs, River, Spelling, Stretch, Tail, Trap } from '../ui/HomeGames';
 import { Portrait } from '../ui/Portrait';
 import { play } from '../audio/sound';
 
 /** Seconds a stick takes: a good drop takes up to 4s off, and the river adds up to 3s of luck (same as the server). */
 const stickTime = (q: number) => 14 - 4 * q + Math.random() * 3;
 
-export function GamesScreen() {
-  const { s, act, toast, net, now, stickApi } = useGame();
-  const [playing, setPlaying] = useState<GameId | null>(null);
-  const [soloRace, setSoloRace] = useState<StickRace | null>(null);
-  const event = activeEvent(now);
-  const friends = net.status === 'online' ? net.roster.filter((m) => m.id !== net.you && m.online) : [];
+const SOLO: Partial<Record<GameId, React.ComponentType<{ onDone: (n: number) => void; onQuit: () => void }>>> = {
+  stretch: Stretch, drip: HoneyDrip, tracks: WoozleTracks, garden: RabbitsGarden, spelling: Spelling, bounce: Bounce, tail: Tail,
+  balloons: Balloons, count: CountPots, trap: Trap, river: River, pairs: Pairs, beeline: BeeLine, oddone: OddOne,
+};
+const homeName = (home: string) => (home === POOH_HOUSE.id ? POOH_HOUSE.name : BIZ_BY_ID[home].name);
 
-  const done = (id: GameId, score: number, won?: boolean) => {
-    setPlaying(null);
-    setSoloRace(null);
+/** Runs one game full-screen and pays out when it ends. Used by the Games tab and the map. */
+export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void }) {
+  const { s, act, toast } = useGame();
+  const [soloRace, setSoloRace] = useState<StickRace | null>(null);
+  const done = (score: number, won?: boolean) => {
+    onClose();
     const r = act((g, t) => finishGame(g, id, score, t, won));
     if (r.honey > 0) { play('fanfare'); toast(`${GAMES[id].emoji} ${r.newBest ? 'New best! ' : ''}+${fmt(r.honey)} honey`); }
     else toast(`${GAMES[id].emoji} ${r.newBest ? `New best: ${score}! ` : ''}${score || won ? 'Just for fun this time.' : 'Better luck next time!'}`);
   };
+  const Game = SOLO[id];
+  if (Game) return <Game onDone={(n) => done(n)} onQuit={onClose} />;
 
   const soloDrop = (q: number) => {
     const pooh = 0.3 + Math.random() * 0.55;
@@ -35,20 +41,47 @@ export function GamesScreen() {
     ];
     setSoloRace({ sticks, winner: sticks[0].time <= sticks[1].time ? 'me' : 'pooh', seed: Math.floor(Math.random() * 1e9) });
   };
+  return (
+    <Poohsticks
+      race={soloRace} you="me" dropped={false} waitingFor="Pooh" onDrop={soloDrop}
+      onFinish={() => { const won = soloRace?.winner === 'me'; done(won ? 1 : 0, won); }}
+      onQuit={onClose}
+    />
+  );
+}
+
+export function GamesScreen() {
+  const { s, net, now, stickApi } = useGame();
+  const [playing, setPlaying] = useState<GameId | null>(null);
+  const event = activeEvent(now);
+  const friends = net.status === 'online' ? net.roster.filter((m) => m.id !== net.you && m.online) : [];
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.list}>
         <Section title="🎲 Games in the Wood" />
-        <Text style={styles.note}>Each game pays a honey prize once every {GAME_COOLDOWN_MIN} minutes, bigger for better scores. In between, play just for fun.</Text>
+        <Text style={styles.note}>Every home has its own game. Each pays a honey prize once every {GAME_COOLDOWN_MIN} minutes, bigger for better scores. In between, play just for fun.</Text>
         {event?.kind === 'game' && !s.eventsWon.includes(event.id) && (
           <Card style={{ borderColor: C.green }}>
             <Text style={styles.name}>{event.emoji} {event.name}</Text>
             <Text style={styles.note}>{event.task}: {eventProgress(s, event, now)}/{event.goal}</Text>
           </Card>
         )}
-        {(Object.keys(GAMES) as GameId[]).map((id) => {
+        {GAME_IDS.map((id) => {
           const g = GAMES[id];
+          if (!gameOpen(s, id)) {
+            return (
+              <Card key={id} style={{ opacity: 0.6 }}>
+                <View style={styles.row}>
+                  <Text style={styles.emoji}>🔒</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.name}>{g.name}</Text>
+                    <Text style={styles.small}>Unlock {homeName(g.home)} on the map to play</Text>
+                  </View>
+                </View>
+              </Card>
+            );
+          }
           const ready = gameReady(s, id, now);
           const wait = Math.ceil((GAME_COOLDOWN_MIN * 60_000 - (now - (s.games[id]?.last || 0))) / 60_000);
           return (
@@ -57,6 +90,7 @@ export function GamesScreen() {
                 <Text style={styles.emoji}>{g.emoji}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{g.name}</Text>
+                  <Text style={styles.small}>{homeName(g.home)}</Text>
                   <Text style={styles.small}>
                     {ready ? '🍯 Prize ready' : `Prize again in ${wait}m`}{id !== 'sticks' && s.games[id]?.best ? ` · Best ${s.games[id].best}` : ''}{id === 'sticks' ? ` · ${s.stats.sticksWon} wins` : ''}
                   </Text>
@@ -78,16 +112,7 @@ export function GamesScreen() {
           );
         })}
       </ScrollView>
-      {playing === 'drip' && <HoneyDrip onDone={(n) => done('drip', n)} onQuit={() => setPlaying(null)} />}
-      {playing === 'tracks' && <WoozleTracks onDone={(n) => done('tracks', n)} onQuit={() => setPlaying(null)} />}
-      {playing === 'garden' && <RabbitsGarden onDone={(n) => done('garden', n)} onQuit={() => setPlaying(null)} />}
-      {playing === 'sticks' && (
-        <Poohsticks
-          race={soloRace} you="me" dropped={false} waitingFor="Pooh" onDrop={soloDrop}
-          onFinish={() => { const won = soloRace?.winner === 'me'; done('sticks', won ? 1 : 0, won); }}
-          onQuit={() => { setPlaying(null); setSoloRace(null); }}
-        />
-      )}
+      {playing && <GameRunner id={playing} onClose={() => setPlaying(null)} />}
     </View>
   );
 }

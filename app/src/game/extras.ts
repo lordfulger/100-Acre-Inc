@@ -253,15 +253,31 @@ export function checkTrophies(s: GameState): Trophy[] {
 
 // ---------- minigames ----------
 
-export type GameId = 'drip' | 'tracks' | 'garden' | 'sticks';
-export const GAMES: Record<GameId, { name: string; emoji: string; blurb: string; perPoint: number }> = {
-  sticks: { name: 'Poohsticks', emoji: '🥢', blurb: 'Drop your stick off the bridge and race it downstream. Play together live, or against Pooh.', perPoint: 0 },
-  drip: { name: 'Honey Drip', emoji: '🍯', blurb: 'Slide the pot to catch dripping honey. Golden drops are worth 3. Dodge the bees!', perPoint: 12 },
-  tracks: { name: 'Woozle Tracks', emoji: '🐾', blurb: 'Watch the footprints appear in the snow, then follow them in the same order.', perPoint: 50 },
-  garden: { name: "Rabbit's Garden", emoji: '🥕', blurb: "Pull up the vegetables as they pop up. Leave the Heffalumps alone!", perPoint: 12 },
-};
+/** Every home has its own game, played from the home on the map or the Games tab. */
+export const GAMES = {
+  stretch: { home: 'pooh', name: 'Stoutness Exercises', emoji: '🏋️', blurb: 'Stretch when the marker is in the green. Three wobbles and Pooh needs a sit-down.', perPoint: 40 },
+  drip: { home: 'beetree', name: 'Honey Drip', emoji: '🍯', blurb: 'Slide the pot to catch dripping honey. Golden drops are worth 3. Dodge the bees!', perPoint: 12 },
+  tracks: { home: 'haycorn', name: 'Woozle Tracks', emoji: '🐾', blurb: 'Watch the footprints appear in the snow, then follow them in the same order.', perPoint: 50 },
+  garden: { home: 'garden', name: "Rabbit's Garden", emoji: '🥕', blurb: 'Pull up the vegetables as they pop up. Leave the Heffalumps alone!', perPoint: 12 },
+  spelling: { home: 'oak', name: "Owl's Spelling Bee", emoji: '✏️', blurb: "Owl's spelling is Wobbly. Pick the word that's spelled right, as many as you can.", perPoint: 40 },
+  bounce: { home: 'kitchen', name: "Roo's Bounce", emoji: '🦘', blurb: 'Tap to make Roo jump over the stones. How far can he go?', perPoint: 30 },
+  tail: { home: 'thistle', name: "Find Eeyore's Tail", emoji: '🎀', blurb: 'Watch which thistle bush hides the tail while they shuffle, then pick it.', perPoint: 100 },
+  balloons: { home: 'ranch', name: "Tigger's Balloons", emoji: '🎈', blurb: 'Pop the balloons as they float up. Gold ones are worth 3. Not the bees!', perPoint: 17 },
+  count: { home: 'works', name: 'Counting Pots', emoji: '🔢', blurb: 'Christopher Robin flashes some honey pots. How many were there?', perPoint: 50 },
+  trap: { home: 'heffalump', name: 'Spring the Trap', emoji: '🕳️', blurb: 'Tap when the Heffalump is right over the pit. Three misses and it wanders off.', perPoint: 60 },
+  sticks: { home: 'bridge', name: 'Poohsticks', emoji: '🥢', blurb: 'Drop your stick off the bridge and race it downstream. Play together live, or against Pooh.', perPoint: 0 },
+  river: { home: 'floody', name: 'Down the Floody River', emoji: '🛶', blurb: 'Tap left or right to steer the boat. Collect honey pots, miss the logs.', perPoint: 30 },
+  pairs: { home: 'galleons', name: 'Galleons Pairs', emoji: '🃏', blurb: 'Turn over two cards at a time and find the matching friends.', perPoint: 50 },
+  beeline: { home: 'camp', name: 'Bee Line', emoji: '🐝', blurb: 'Tap the numbered bees in order, 1, 2, 3… Each round adds a bee.', perPoint: 20 },
+  oddone: { home: 'pines', name: 'Odd One Out', emoji: '🌲', blurb: "Something in the pines isn't quite like the rest. Find it, quick!", perPoint: 40 },
+} satisfies Record<string, { home: string; name: string; emoji: string; blurb: string; perPoint: number }>;
+export type GameId = keyof typeof GAMES;
+export const GAME_IDS = Object.keys(GAMES) as GameId[];
+export const gameForHome = (home: string) => GAME_IDS.find((id) => GAMES[id].home === home) || null;
+/** Every game except Pooh's needs its home unlocked first. */
+export const gameOpen = (s: GameState, id: GameId) => GAMES[id].home === POOH_HOUSE.id || s.biz[GAMES[id].home]?.owned > 0;
 /** Prizes come once every this many minutes per game; in between you can play for fun. */
-export const GAME_COOLDOWN_MIN = 15;
+export const GAME_COOLDOWN_MIN = 30;
 const MAX_PRIZE_MIN = 10;
 
 export const gameReady = (s: GameState, id: GameId, now: number) => now - (s.games[id]?.last || 0) >= GAME_COOLDOWN_MIN * 60_000;

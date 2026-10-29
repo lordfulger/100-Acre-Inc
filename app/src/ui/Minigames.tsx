@@ -10,7 +10,7 @@ import { play } from '../audio/sound';
 const FRAME_MS = 33;
 
 /** Re-renders every frame while `on`, and gives the time since it started. */
-function useFrames(on: boolean) {
+export function useFrames(on: boolean) {
   const [, setN] = useState(0);
   const start = useRef(Date.now());
   useEffect(() => {
@@ -22,7 +22,7 @@ function useFrames(on: boolean) {
   return (Date.now() - start.current) / 1000;
 }
 
-function Shell({ id, score, right, onQuit, children }: { id: GameId; score: string; right?: string; onQuit: () => void; children: React.ReactNode }) {
+export function Shell({ id, score, right, onQuit, children }: { id: GameId; score: string; right?: string; onQuit: () => void; children: React.ReactNode }) {
   const g = GAMES[id];
   return (
     <View style={styles.shell}>

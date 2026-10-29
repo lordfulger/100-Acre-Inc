@@ -10,7 +10,8 @@ import { Portrait, portraitFor } from '../ui/Portrait';
 import { HAND, HomeCloseUp, WoodMap } from '../ui/WoodMap';
 import { play, playLevel } from '../audio/sound';
 import { activeEvent, eventProgress, seasonAt, SEASONS, WEATHER_NAMES, weatherAt } from '../game/calendar';
-import { findThing, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
+import { findThing, gameForHome, GameId, GAMES, gameReady, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
+import { GameRunner } from './GamesScreen';
 import { MapLife, Weather } from '../ui/MapLife';
 import { HomeInside } from './HomeInside';
 import { say } from '../audio/voices';
@@ -97,7 +98,7 @@ function TopBar() {
   );
 }
 
-function BuildingSheet({ id, onClose, onEnter }: { id: string; onClose: () => void; onEnter: () => void }) {
+function BuildingSheet({ id, onClose, onEnter, onPlay }: { id: string; onClose: () => void; onEnter: () => void; onPlay: (g: GameId) => void }) {
   const { s, d, act, toast, now } = useGame();
   const isPooh = id === POOH_HOUSE.id;
   const b = isPooh ? null : BIZ_BY_ID[id];
@@ -135,6 +136,16 @@ function BuildingSheet({ id, onClose, onEnter }: { id: string; onClose: () => vo
       <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
       <CloseUp id={id} look={b && owned === 0 ? 0 : look} addons={s.addons} />
       <Finder id={id} />
+      {(() => {
+        const game = gameForHome(id);
+        if (!game || (b && owned === 0)) return null;
+        return (
+          <Button
+            label={`${GAMES[game].emoji} Play ${GAMES[game].name}`} sub={gameReady(s, game, now) ? '🍯 Prize ready' : 'Just for fun right now'}
+            color={C.blue} onPress={() => onPlay(game)} style={{ marginBottom: 6 }}
+          />
+        );
+      })()}
       {(!b || owned > 0) && (
         homeOpen(s, id)
           ? <Button label={`🚪 Go inside${s.rooms[id]?.length ? ` (${s.rooms[id].length} 🛋️)` : ''}`} color={C.pink} onPress={() => { play('pop'); onEnter(); }} style={{ marginBottom: 6 }} />
@@ -225,6 +236,7 @@ function Finder({ id }: { id: string }) {
 export function MapScreen() {
   const { s, now } = useGame();
   const [inside, setInside] = useState<string | null>(null);
+  const [game, setGame] = useState<GameId | null>(null);
   const [width, setWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
@@ -250,8 +262,9 @@ export function MapScreen() {
       )}
       <Weather now={now} />
       {!selected && <TopBar />}
-      {selected && <BuildingSheet id={selected} onClose={() => setSelected(null)} onEnter={() => setInside(selected)} />}
+      {selected && <BuildingSheet id={selected} onClose={() => setSelected(null)} onEnter={() => setInside(selected)} onPlay={setGame} />}
       {inside && <HomeInside id={inside} onClose={() => setInside(null)} />}
+      {game && <GameRunner id={game} onClose={() => setGame(null)} />}
     </View>
   );
 }
