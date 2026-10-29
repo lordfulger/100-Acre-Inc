@@ -60,10 +60,16 @@ function playFile(name: SoundName) {
 export function unlockAudio() {
   if (WEB) {
     Web.wake();
-    for (const name of Object.keys(SOUND_FILES) as SoundName[]) Web.load(name, SOUND_FILES[name]);
+    loadAll();
   }
   startMusic();
 }
+
+const loadAll = () => { for (const name of Object.keys(SOUND_FILES) as SoundName[]) Web.load(name, SOUND_FILES[name]); };
+
+// If the phone broke the audio engine and it had to be rebuilt, reload the sounds
+// (from the browser's cache, so it's quick) and pick the music back up.
+if (WEB) Web.setOnRebuilt(() => { loadAll(); if (started && appActive) startMusic(); });
 
 export function setAppActive(active: boolean) {
   if (active === appActive) return;
