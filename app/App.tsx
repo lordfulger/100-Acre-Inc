@@ -60,14 +60,6 @@ function Game() {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']} onTouchStart={musicOnFirstTouch}>
       <StatusBar style="dark" />
-      <Header />
-      <View style={{ flex: 1 }}>
-        {tab === 'map' && <MapScreen />}
-        {tab === 'hives' && <HivesScreen />}
-        {tab === 'shop' && <ShopScreen />}
-        {tab === 'wood' && <WoodScreen />}
-        {tab === 'nap' && <NapScreen />}
-      </View>
       <View style={styles.tabs}>
         {TABS.map((t) => (
           <Pressable key={t.id} onPress={() => { if (t.id !== tab) play('tick'); setTab(t.id); }} style={styles.tab} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }}>
@@ -78,6 +70,14 @@ function Game() {
           </Pressable>
         ))}
       </View>
+      <View style={{ flex: 1 }}>
+        {tab === 'map' && <MapScreen />}
+        {tab === 'hives' && <HivesScreen />}
+        {tab === 'shop' && <ShopScreen />}
+        {tab === 'wood' && <WoodScreen />}
+        {tab === 'nap' && <NapScreen />}
+      </View>
+      <Header />
       <BalloonLayer />
       <Toasts />
       <WelcomeBack />
@@ -101,7 +101,7 @@ export default function App() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  tabs: { flexDirection: 'row', borderTopWidth: 1.5, borderTopColor: C.border, backgroundColor: C.card, paddingTop: 6, paddingBottom: 4 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: C.border, backgroundColor: C.card, paddingTop: 6, paddingBottom: 4 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 2 },
   tabEmoji: { fontSize: 24 },
   tabLabel: { fontSize: 12, fontWeight: '800', color: C.soft, marginTop: 1 },

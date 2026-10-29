@@ -131,7 +131,7 @@ export function Onboarding() {
 
 const styles = StyleSheet.create({
   balloon: { alignItems: 'center' },
-  toasts: { position: 'absolute', top: 150, left: 16, right: 16, alignItems: 'center', zIndex: 50 },
+  toasts: { position: 'absolute', top: 76, left: 16, right: 16, alignItems: 'center', zIndex: 50 },
   toast: { backgroundColor: 'rgba(74,52,24,0.92)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, marginBottom: 6, maxWidth: 420 },
   toastText: { color: 'white', fontWeight: '800', fontSize: 14, textAlign: 'center' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(74,52,24,0.45)', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 },

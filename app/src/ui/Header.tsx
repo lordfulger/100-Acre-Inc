@@ -103,7 +103,6 @@ export function Header() {
   );
   return (
     <View style={[styles.header, { backgroundColor: v.color }]}>
-      <HoneyPot />
       <View style={styles.info}>
         <Text style={styles.honey} numberOfLines={1} adjustsFontSizeToFit>{fmt(s.honey)}</Text>
         <Text style={styles.unit}>{v.emoji} {v.name}</Text>
@@ -120,14 +119,15 @@ export function Header() {
           </View>
         )}
       </View>
+      <HoneyPot />
       <Hearts />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomLeftRadius: 26, borderBottomRightRadius: 26, zIndex: 10 },
-  potWrap: { width: 112, height: 112, marginRight: 12, zIndex: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderTopLeftRadius: 26, borderTopRightRadius: 26, zIndex: 10 },
+  potWrap: { width: 112, height: 112, marginLeft: 12, zIndex: 20 },
   pot: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: 'rgba(255,255,255,0.7)', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   potEmoji: { fontSize: 58 },
   potBear: { position: 'absolute', bottom: -2, right: -2 },
