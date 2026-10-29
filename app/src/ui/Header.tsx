@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { COMB_BONUS, varietyAt } from '../game/catalog';
 import { Boost, tap, totalCombs } from '../game/engine';
 import { fmt } from '../game/format';
@@ -10,6 +10,7 @@ import { playTap } from '../audio/sound';
 
 type Pop = { id: number; x: number; text: string; anim: Animated.Value };
 let popId = 0;
+const HUNNY = require('../../assets/art/hunny.png');
 
 function HoneyPot() {
   const { act, s, d } = useGame();
@@ -40,8 +41,8 @@ function HoneyPot() {
         accessibilityRole="button"
         accessibilityLabel="Tap the honey pot"
       >
-        <Animated.View style={[styles.pot, { backgroundColor: v.deep, transform: [{ scale }] }]}>
-          <Text style={styles.potEmoji}>🍯</Text>
+        <Animated.View style={[styles.pot, { backgroundColor: '#F6EEDC', borderColor: v.deep, transform: [{ scale }] }]}>
+          <Image source={HUNNY} style={styles.potArt} />
           <Portrait id="pooh" size={40} style={styles.potBear} />
         </Animated.View>
       </Pressable>
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderTopLeftRadius: 26, borderTopRightRadius: 26, zIndex: 10 },
   potWrap: { width: 112, height: 112, marginLeft: 12, zIndex: 20 },
   pot: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: 'rgba(255,255,255,0.7)', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  potEmoji: { fontSize: 58 },
+  potArt: { width: 100, height: 100, marginTop: -4 },
   potBear: { position: 'absolute', bottom: -2, right: -2 },
   pop: { position: 'absolute', top: 10, fontSize: 18, fontWeight: '900', color: 'white', textShadowColor: 'rgba(74,52,24,0.6)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   info: { flex: 1 },

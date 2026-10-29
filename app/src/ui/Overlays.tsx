@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Image, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { AVATARS } from '../game/catalog';
 import { catchBalloon } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
@@ -11,6 +11,8 @@ import { say } from '../audio/voices';
 
 // Golden balloons drift up the screen now and then. Catch one for a bonus —
 // and your partner gets a little shared joy too.
+const BALLOON = require('../../assets/art/balloon.png');
+
 export function BalloonLayer() {
   const game = useGame();
   const gameRef = useRef(game);
@@ -63,7 +65,7 @@ export function BalloonLayer() {
         }}
       >
         <Pressable onPress={pop} hitSlop={20} accessibilityLabel="Catch the balloon" style={styles.balloon}>
-          <Text style={{ fontSize: 60 }}>🎈</Text>
+          <Image source={BALLOON} style={styles.balloonArt} />
           <Portrait id="pooh" size={40} style={{ marginTop: -6 }} />
         </Pressable>
       </Animated.View>
@@ -131,6 +133,7 @@ export function Onboarding() {
 
 const styles = StyleSheet.create({
   balloon: { alignItems: 'center' },
+  balloonArt: { width: 110, height: 110, marginBottom: -26 },
   toasts: { position: 'absolute', top: 76, left: 16, right: 16, alignItems: 'center', zIndex: 50 },
   toast: { backgroundColor: 'rgba(74,52,24,0.92)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, marginBottom: 6, maxWidth: 420 },
   toastText: { color: 'white', fontWeight: '800', fontSize: 14, textAlign: 'center' },

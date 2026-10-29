@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { COMB_BONUS, varietyAt } from '../game/catalog';
 import { buyVariety, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
@@ -65,6 +65,7 @@ export function NapScreen() {
           Curl up for a nap and dream of honey. You start your businesses over, but wake with{' '}
           <Text style={{ fontWeight: '900' }}>Golden Honeycombs</Text> — each one adds +{COMB_BONUS * 100}% honey forever. Combs from Expotitions are kept too.
         </Text>
+        <Image source={require('../../assets/art/honeycomb.png')} style={styles.comb} />
         <View style={styles.stats}>
           <View style={styles.stat}><Text style={styles.statNum}>{fmt(combs)}</Text><Text style={styles.statLabel}>combs now</Text></View>
           <View style={styles.stat}><Text style={[styles.statNum, { color: C.green }]}>+{fmt(pending)}</Text><Text style={styles.statLabel}>if you nap</Text></View>
@@ -142,6 +143,7 @@ const styles = StyleSheet.create({
   big: { fontSize: 20, fontWeight: '900', color: C.ink },
   body: { color: C.ink, fontSize: 14, lineHeight: 20, marginTop: 4 },
   actionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
+  comb: { width: 96, height: 96, alignSelf: 'center', marginTop: 8 },
   stats: { flexDirection: 'row', marginVertical: 12 },
   stat: { flex: 1, alignItems: 'center' },
   statNum: { fontSize: 22, fontWeight: '900', color: C.ink },
