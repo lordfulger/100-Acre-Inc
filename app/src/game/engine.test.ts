@@ -8,6 +8,7 @@ import {
   nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, varietyCost,
 } from './engine';
 import { fmt, fmtTime } from './format';
+import { ALBUM, checkAlbum } from './album';
 
 let now = 1_700_000_000_000;
 
@@ -143,5 +144,26 @@ function shop(s: GameState, t: number) {
   assert.equal(s.variety, 2);
   assert.deepEqual(s.addons, [], 'nap resets add-ons');
   assert.equal(migrate(JSON.parse(JSON.stringify(s)), now).combsFromNaps, s.combsFromNaps);
+}
+// ---------- card album ----------
+{
+  const s = newGame(now);
+  assert.deepEqual(s.album, ['pooh'], 'Pooh is the first card');
+  assert.deepEqual(checkAlbum(s), [], 'nothing else at the start');
+  s.stats.taps = 500;
+  s.biz.haycorn.managed = true;
+  assert.deepEqual(checkAlbum(s).map((c) => c.id), ['hunny', 'piglet']);
+  assert.deepEqual(checkAlbum(s), [], 'cards are only found once');
+  const mult = derive(s, now).globalMult;
+  s.album.push('owl');
+  assert.ok(Math.abs(derive(s, now).globalMult / mult - 1.03 / 1.02) < 1e-9, 'each card adds +1% honey');
+  s.allTimeEarned = 1e15;
+  nap(s, now);
+  assert.ok(s.album.includes('piglet'), 'naps keep the album');
+  // Old saves get Pooh; junk and duplicates are dropped (the album adds honey).
+  assert.deepEqual(migrate({ ...JSON.parse(JSON.stringify(s)), album: undefined }, now).album, ['pooh']);
+  assert.deepEqual(migrate({ ...JSON.parse(JSON.stringify(s)), album: ['owl', 'owl', 'nope', 7], albumNew: ['owl', 'tigger'] }, now).album, ['owl']);
+  assert.deepEqual(migrate({ ...JSON.parse(JSON.stringify(s)), album: ['owl'], albumNew: ['owl', 'tigger'] }, now).albumNew, ['owl']);
+  assert.equal(new Set(ALBUM.map((c) => c.id)).size, ALBUM.length, 'card ids are unique');
 }
 console.log('All engine checks passed 🍯');

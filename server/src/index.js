@@ -291,7 +291,7 @@ wss.on('connection', (ws) => {
         const s = msg.stats || {};
         me.stats = {
           hps: num(s.hps), honey: num(s.honey), allTime: num(s.allTime), combs: num(s.combs),
-          variety: num(s.variety), naps: num(s.naps), buildings: cleanBuildings(s.buildings),
+          variety: num(s.variety), naps: num(s.naps), cards: num(s.cards), buildings: cleanBuildings(s.buildings),
         };
         if (s.name) me.name = cleanText(s.name, 16) || me.name;
         if (s.avatar) me.avatar = cleanText(s.avatar, 8) || me.avatar;

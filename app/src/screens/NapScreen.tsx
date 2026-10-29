@@ -121,7 +121,7 @@ export function NapScreen() {
         <Card>
           <Text style={styles.body}>
             Begin again from a single Bee Tree. This wipes your honey, homes, add-ons, store items, Golden Honeycombs and honey varieties
-            {s.profile.cloud ? ', including your cloud save' : ''}. Your name, character, room and settings stay.
+            {s.profile.cloud ? ', including your cloud save' : ''}. Your name, character, room, settings and card album stay.
           </Text>
           <Button
             style={{ marginTop: 10 }}

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, tick } from '../game/engine';
 import { fmt } from '../game/format';
+import { checkAlbum } from '../game/album';
 import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
@@ -14,7 +15,7 @@ const SAVE_KEY = 'hundred-acre-honey-tycoon/save/v1';
 
 export type Member = {
   id: string; name: string; avatar: string; online: boolean; lastSeen: number;
-  stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; buildings?: MapView };
+  stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; buildings?: MapView };
 };
 export type ChatMsg = { id: string; from?: string; name?: string; avatar?: string; text: string; at: number; system?: boolean };
 export type ContractDef = { id: string; name: string; emoji: string; minutes: number; goalSeconds: number; minGoal: number; combs: number[] };
@@ -157,7 +158,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     const loop = setInterval(() => {
-      tick(sRef.current!, Date.now());
+      const s = sRef.current!;
+      tick(s, Date.now());
+      const found = checkAlbum(s);
+      if (found.length) {
+        play('unlock');
+        toast(found.length === 1 ? `📖 New album card: ${found[0].name}!` : `📖 You found ${found.length} new album cards!`);
+      }
       rerender();
     }, 200);
     const autosave = setInterval(save, 5_000);
@@ -169,7 +176,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (off.earned > 0 && off.seconds > 60) setWelcomeBack(off);
     });
     return () => { clearInterval(loop); clearInterval(autosave); sub.remove(); save(); };
-  }, [ready, rerender, save]);
+  }, [ready, rerender, save, toast]);
 
   // ---------- multiplayer ----------
   const hello = useCallback(() => {
@@ -182,7 +189,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const d = derive(s, Date.now());
     client.send({
       t: 'stats',
-      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, variety: s.variety, naps: s.stats.naps, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s) },
+      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, variety: s.variety, naps: s.stats.naps, cards: s.album.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s) },
     });
   }, [client]);
 
@@ -356,6 +363,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const fresh = newGame(Date.now());
     fresh.profile = { ...s.profile };
     fresh.settings = { ...s.settings };
+    fresh.album = [...s.album];
+    fresh.albumNew = [...s.albumNew];
     sRef.current = fresh;
     save();
     setWelcomeBack(null);

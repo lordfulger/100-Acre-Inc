@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { QUICK_PHRASES, varietyAt } from '../game/catalog';
+import { ALBUM } from '../game/album';
 import { fmt, fmtTime, timeAgo } from '../game/format';
 import { Contract, ContractDef, Member, useGame } from '../state/GameContext';
 import { Bar, Button, C, Card, Section } from '../ui/kit';
@@ -58,7 +59,7 @@ function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () =>
         <View style={{ flex: 1 }}>
           <Text style={styles.memberName}>{m.name}{me ? ' (you)' : ''}</Text>
           <Text style={styles.small}>{m.online ? '🟢 in the wood now' : `💤 ${timeAgo(m.lastSeen)}`} · {variety.emoji} {variety.name}</Text>
-          <Text style={styles.memberStats}>🍯 {fmt(m.stats.hps || 0)}/s  ·  🏦 {fmt(m.stats.honey || 0)}  ·  ✨ {fmt(m.stats.combs || 0)}</Text>
+          <Text style={styles.memberStats}>🍯 {fmt(m.stats.hps || 0)}/s  ·  🏦 {fmt(m.stats.honey || 0)}  ·  ✨ {fmt(m.stats.combs || 0)}  ·  📖 {m.stats.cards || 1}/{ALBUM.length}</Text>
         </View>
       </View>
       {!me && (

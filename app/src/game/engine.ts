@@ -6,6 +6,7 @@ import {
   COMB_BONUS, COMB_DIVISOR, lookName, lookOf, milestonesReached, MIN_CYCLE, nextAllMilestone, nextMilestone,
   POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
 } from './catalog';
+import { ALBUM_BY_ID, albumMult } from './album';
 
 export type BizState = { owned: number; managed: boolean; running: boolean; cycleStart: number };
 export type Boost = { id: string; kind: 'profit' | 'tap'; mult: number; until: number; label: string };
@@ -22,6 +23,8 @@ export type GameState = {
   research: Record<string, number>; // Rabbit's General Store item levels
   levels: Record<string, number>; // building levels on the map (business ids + 'pooh')
   addons: string[]; // add-ons bought, as `${home}:${index}`
+  album: string[]; // album cards found (kept forever)
+  albumNew: string[]; // found but not looked at yet
   settings: { music: boolean; sfx: boolean; voices: boolean };
   boosts: Boost[];
   lastTick: number;
@@ -72,7 +75,7 @@ export function newGame(now: number): GameState {
   biz.beetree.owned = 1;
   return {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
-    biz, research: {}, levels: {}, addons: [], settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
+    biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
   };
@@ -122,6 +125,10 @@ export function migrate(raw: any, now: number): GameState {
   }
   delete (s as any).upgrades;
   s.addons = Array.isArray(raw.addons) ? raw.addons : [];
+  // Only real cards, each once (the album adds honey, so no duplicates).
+  const cards = (list: unknown) => (Array.isArray(list) ? [...new Set(list.filter((id) => typeof id === 'string' && id in ALBUM_BY_ID))] : []);
+  s.album = raw.album ? cards(raw.album) : ['pooh'];
+  s.albumNew = cards(raw.albumNew).filter((id) => s.album.includes(id));
   s.boosts = (raw.boosts || []).filter((b: Boost) => b.until > now);
   return s;
 }
@@ -209,7 +216,7 @@ export function derive(s: GameState, now: number): Derived {
 
   const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** allMilestonesReached(minOwned);
-  const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult;
+  const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album);
   const globalMult = baseMult * boostMult(s, 'profit', now);
 
   const biz: Record<string, BizInfo> = {};
