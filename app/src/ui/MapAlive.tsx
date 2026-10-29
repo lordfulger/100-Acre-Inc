@@ -3,7 +3,7 @@
 // Positions are in map coordinates (see PLACES in WoodMap), scaled by k.
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
-import { findSecret, mapTreat, SECRETS } from '../game/extras';
+import { findSecret, mapTreat, SECRETS, treatReady, treatWait } from '../game/extras';
 import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { nativeDriver } from './kit';
@@ -62,14 +62,12 @@ function Bee({ k, ms, r, phase }: { k: number; ms: number; r: number; phase: num
 }
 
 function BeeSwarm({ k }: { k: number }) {
-  const { act, toast } = useGame();
-  const last = useRef(0);
+  const { act, toast, save } = useGame();
   const poke = () => {
     play('buzz');
-    if (Date.now() - last.current < 45_000) return toast('🐝 Bzzz! (They are very busy.)');
-    last.current = Date.now();
-    const honey = act((g, t) => mapTreat(g, t, 10));
-    toast(`🐝 The bees buzz happily and share a little honey. +${fmt(honey)}`);
+    const honey = act((g, t) => mapTreat(g, 'bees', t));
+    if (honey) save();
+    toast(honey ? `🐝 The bees buzz happily and share a little honey. +${fmt(honey)}` : '🐝 Bzzz! (They are very busy.)');
   };
   return (
     <>
@@ -113,9 +111,9 @@ const RIVER: [number, number][] = [
 const RIVER_MS = 70_000;
 
 function RiverStick({ k }: { k: number }) {
-  const { act, toast } = useGame();
+  const { s, act, toast, save } = useGame();
   const v = useRef(new Animated.Value(0)).current;
-  const [caught, setCaught] = useState(false);
+  const [caught, setCaught] = useState(() => !treatReady(s, 'stick', Date.now()));
   useEffect(() => {
     if (caught) return;
     v.setValue(0);
@@ -125,16 +123,18 @@ function RiverStick({ k }: { k: number }) {
   }, [v, caught]);
   useEffect(() => {
     if (!caught) return;
-    const id = setTimeout(() => setCaught(false), 20_000); // a new stick comes along
+    // A new stick comes along once the last one's rest is over.
+    const id = setTimeout(() => setCaught(false), (treatWait(s, 'stick', Date.now()) + 1) * 1000);
     return () => clearTimeout(id);
-  }, [caught]);
+  }, [caught, s]);
   if (caught) return null;
   const input = RIVER.map((_, i) => i / (RIVER.length - 1));
   const catchIt = () => {
     setCaught(true);
     play('pop');
-    const honey = act((g, t) => mapTreat(g, t, 25));
-    toast(`🥢 You fished a Poohstick out of the river! +${fmt(honey)} honey`);
+    const honey = act((g, t) => mapTreat(g, 'stick', t));
+    if (honey) save();
+    if (honey) toast(`🥢 You fished a Poohstick out of the river! +${fmt(honey)} honey`);
   };
   return (
     <Animated.View

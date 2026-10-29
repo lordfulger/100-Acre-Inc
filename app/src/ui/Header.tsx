@@ -10,11 +10,89 @@ import { playTap } from '../audio/sound';
 
 type Pop = { id: number; x: number; text: string; anim: Animated.Value };
 let popId = 0;
-/** A drop of honey splashing out of the pot: flies `dx` sideways, rises `up`, then falls. */
-type Splash = { id: number; dx: number; up: number; size: number; gold: boolean; anim: Animated.Value };
+/**
+ * Honey sloshing out of the pot on a tap: a glob that swells up at the mouth, gooey
+ * blobs that stretch as they fly and squash when they land, and now and then a drip
+ * that oozes down the side. `dx`/`up` are a blob's flight; `side` is the drip's side.
+ */
+type Splash = { id: number; kind: 'glob' | 'blob' | 'drip'; dx: number; up: number; size: number; side: number; gold: boolean; anim: Animated.Value };
+const GOO_MS = { glob: 480, blob: 820, drip: 1300 };
 // Where the honey comes out (the pot's mouth, in the 112px button).
 const MOUTH = { x: 52, y: 18 };
 const HUNNY = require('../../assets/art/hunny-pot.png');
+
+/** A glossy piece of honey: amber with a golden middle, a darker rim and a shine. */
+function HoneyBody({ w, h, gold }: { w: number; h: number; gold: boolean }) {
+  return (
+    <View style={[styles.gooBody, { width: w, height: h, borderRadius: Math.min(w, h) / 2, backgroundColor: gold ? '#FFBE2E' : '#EE9A12', borderColor: gold ? '#B57406' : '#9A5806' }]}>
+      <View style={[styles.gooCore, { borderRadius: Math.min(w, h) / 2, backgroundColor: gold ? '#FFE07A' : '#FFC84A' }]} />
+      <View style={[styles.gooShine, { width: Math.max(3, w * 0.3), height: Math.max(3, h * 0.28), borderRadius: w }]} />
+    </View>
+  );
+}
+
+function Goo({ sp }: { sp: Splash }) {
+  const a = sp.anim;
+  if (sp.kind === 'glob') {
+    // Wells up at the mouth, wobbles, and sinks back in.
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.goo, {
+          left: MOUTH.x - sp.size / 2, top: MOUTH.y - sp.size * 0.45,
+          transform: [
+            { translateY: a.interpolate({ inputRange: [0, 0.35, 0.6, 1], outputRange: [4, -7, -4, 2] }) },
+            { scaleX: a.interpolate({ inputRange: [0, 0.35, 0.6, 1], outputRange: [0.4, 1.15, 0.95, 0.2] }) },
+            { scaleY: a.interpolate({ inputRange: [0, 0.35, 0.6, 1], outputRange: [0.3, 1.05, 1.1, 0.2] }) },
+          ],
+        }]}
+      >
+        <HoneyBody w={sp.size} h={sp.size * 0.8} gold={sp.gold} />
+      </Animated.View>
+    );
+  }
+  if (sp.kind === 'drip') {
+    // Oozes down the outside of the pot, stretches, then a drop lets go and falls.
+    const w = sp.size;
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.goo, {
+          left: MOUTH.x + sp.side * 24 - w / 2, top: MOUTH.y + 6,
+          opacity: a.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] }),
+          transform: [
+            { translateY: a.interpolate({ inputRange: [0, 0.6, 0.72, 1], outputRange: [0, 13, 18, 70] }) },
+            { scaleY: a.interpolate({ inputRange: [0, 0.6, 0.72, 0.8, 1], outputRange: [0.8, 3.4, 3.8, 1.3, 1.1] }) },
+            { scaleX: a.interpolate({ inputRange: [0, 0.6, 0.72, 0.8, 1], outputRange: [1, 0.8, 0.7, 1.05, 1] }) },
+          ],
+        }]}
+      >
+        <HoneyBody w={w} h={w} gold={sp.gold} />
+      </Animated.View>
+    );
+  }
+  // A blob: thrown up and out, stretched along its flight, then squashed flat as it lands.
+  const tilt = (Math.atan2(sp.dx, -sp.up) * 180) / Math.PI;
+  const fall = (Math.atan2(sp.dx, sp.up) * 180) / Math.PI;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.goo, {
+        left: MOUTH.x - sp.size / 2, top: MOUTH.y - sp.size / 2,
+        opacity: a.interpolate({ inputRange: [0, 0.82, 1], outputRange: [1, 1, 0] }),
+        transform: [
+          { translateX: a.interpolate({ inputRange: [0, 1], outputRange: [0, sp.dx] }) },
+          { translateY: a.interpolate({ inputRange: [0, 0.3, 0.45, 0.7, 0.85, 1], outputRange: [0, -sp.up * 0.9, -sp.up, -sp.up * 0.45, 46, 46] }) },
+          { rotate: a.interpolate({ inputRange: [0, 0.35, 0.55, 0.85, 1], outputRange: [`${tilt}deg`, `${tilt}deg`, `${(tilt + fall) / 2}deg`, `${fall}deg`, '0deg'] }) },
+          { scaleY: a.interpolate({ inputRange: [0, 0.15, 0.45, 0.85, 0.9, 1], outputRange: [0.5, 1.7, 1.05, 1.5, 0.45, 0.4] }) },
+          { scaleX: a.interpolate({ inputRange: [0, 0.15, 0.45, 0.85, 0.9, 1], outputRange: [0.5, 0.75, 1, 0.8, 1.6, 1.7] }) },
+        ],
+      }]}
+    >
+      <HoneyBody w={sp.size} h={sp.size} gold={sp.gold} />
+    </Animated.View>
+  );
+}
 
 function HoneyPot() {
   const { act, s, d } = useGame();
@@ -23,19 +101,20 @@ function HoneyPot() {
   const [splashes, setSplashes] = useState<Splash[]>([]);
 
   const splash = (lucky: boolean) => {
-    const drops: Splash[] = Array.from({ length: lucky ? 9 : 5 }, () => ({
-      id: ++popId,
-      dx: (Math.random() - 0.5) * (lucky ? 190 : 130),
-      up: 45 + Math.random() * (lucky ? 70 : 40),
-      size: (lucky ? 13 : 10) + Math.random() * 5,
-      gold: lucky,
-      anim: new Animated.Value(0),
-    }));
-    // Rapid tapping keeps it to a sensible number of drops on screen.
-    setSplashes((sp) => [...sp.slice(-30), ...drops]);
-    for (const drop of drops) {
-      Animated.timing(drop.anim, { toValue: 1, duration: 650 + Math.random() * 250, easing: Easing.linear, useNativeDriver: nativeDriver })
-        .start(() => setSplashes((sp) => sp.filter((x) => x.id !== drop.id)));
+    const make = (kind: Splash['kind'], extra: Partial<Splash> = {}): Splash => ({
+      id: ++popId, kind, dx: 0, up: 0, size: 0, side: 1, gold: lucky, anim: new Animated.Value(0), ...extra,
+    });
+    const goo: Splash[] = [make('glob', { size: lucky ? 32 : 26 })];
+    for (let i = 0; i < (lucky ? 6 : 3); i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      goo.push(make('blob', { dx: side * (18 + Math.random() * (lucky ? 70 : 50)), up: 40 + Math.random() * (lucky ? 55 : 35), size: (lucky ? 15 : 12) + Math.random() * 5 }));
+    }
+    if (lucky || Math.random() < 0.4) goo.push(make('drip', { side: Math.random() < 0.5 ? -1 : 1, size: 9 }));
+    // Rapid tapping keeps it to a sensible amount of honey on screen.
+    setSplashes((sp) => [...sp.slice(-24), ...goo]);
+    for (const g of goo) {
+      Animated.timing(g.anim, { toValue: 1, duration: GOO_MS[g.kind] * (0.9 + Math.random() * 0.2), easing: Easing.linear, useNativeDriver: nativeDriver })
+        .start(() => setSplashes((sp) => sp.filter((x) => x.id !== g.id)));
     }
   };
   const v = varietyAt(s.variety);
@@ -70,24 +149,7 @@ function HoneyPot() {
           <Portrait id="pooh" size={40} style={styles.potBear} />
         </Animated.View>
       </Pressable>
-      {splashes.map((sp) => (
-        <Animated.View
-          key={sp.id}
-          pointerEvents="none"
-          style={[styles.splash, {
-            left: MOUTH.x - sp.size / 2, top: MOUTH.y - sp.size / 2, width: sp.size, height: sp.size, borderRadius: sp.size / 2,
-            backgroundColor: sp.gold ? '#FFC93C' : '#E39A1E', borderColor: sp.gold ? '#9A5F06' : '#6E3F08',
-            opacity: sp.anim.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 1, 0] }),
-            transform: [
-              { translateX: sp.anim.interpolate({ inputRange: [0, 1], outputRange: [0, sp.dx] }) },
-              // Up in an arc, then down past the pot (a rough parabola).
-              { translateY: sp.anim.interpolate({ inputRange: [0, 0.3, 0.5, 0.75, 1], outputRange: [0, -sp.up * 0.85, -sp.up, -sp.up * 0.55, 50] }) },
-              { scale: sp.anim.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0.4, 1, 0.8] }) },
-              { rotate: '-45deg' },
-            ],
-          }]}
-        />
-      ))}
+      {splashes.map((sp) => <Goo key={sp.id} sp={sp} />)}
       {pops.map((p) => (
         <Animated.Text
           key={p.id}
@@ -170,8 +232,10 @@ export function Header() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderTopLeftRadius: 26, borderTopRightRadius: 26, zIndex: 10 },
-  // A teardrop: round with one sharp corner, turned so the point trails behind.
-  splash: { position: 'absolute', borderTopRightRadius: 1, borderWidth: 1.5, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
+  goo: { position: 'absolute' },
+  gooBody: { borderWidth: 1.5, overflow: 'hidden', shadowColor: '#5A3200', shadowOpacity: 0.3, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
+  gooCore: { position: 'absolute', left: '22%', right: '22%', top: '30%', bottom: '14%', opacity: 0.75 },
+  gooShine: { position: 'absolute', left: '18%', top: '14%', backgroundColor: 'rgba(255,255,255,0.85)' },
   potWrap: { width: 112, height: 112, marginLeft: 12, zIndex: 20 },
   pot: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: 'rgba(255,255,255,0.7)', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   potArt: { width: 100, height: 100, marginTop: -4 },

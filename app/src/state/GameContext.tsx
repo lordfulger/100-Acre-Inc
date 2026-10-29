@@ -316,6 +316,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           receiveGift(s, m.amount * derive(s, now).giftMult);
           play('gift');
           toast(`🎁 ${m.avatar} ${m.name} sent you ${fmt(m.amount)} honey!`);
+          save(); // the server has handed it over; don't lose it to a reload
           break;
         case 'hug':
           addBoost(s, 'profit', 2, derive(s, now).hugSecs, `Hug from ${m.name}`, now);
@@ -342,6 +343,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
           s.stats.giftsSent++;
           toast('🎁 Gift delivered!');
+          save(); // or reloading straight away would bring the honey back
           break;
         case 'removed':
           client.close(); // no reconnecting to a wood we were asked to leave
@@ -368,6 +370,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
           giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
           toast('🔨 Thank you for helping build!');
+          save();
           break;
         case 'letter': {
           const l = m.letter;
@@ -383,6 +386,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
           s.stats.lettersSent++;
           toast('✉️ Letter delivered!');
+          save();
           break;
         case 'stickInvite':
           if (sticksRef.current) { client.send({ t: 'stickAnswer', id: m.id, yes: false }); break; }
@@ -430,7 +434,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (n.status !== 'online') return;
       sendStats();
       if (n.contract?.status === 'active') {
-        if (s.pendingContribution > 0 && client.send({ t: 'contribute', amount: s.pendingContribution * derive(s, Date.now()).expoMult })) s.pendingContribution = 0;
+        if (s.pendingContribution > 0 && client.send({ t: 'contribute', amount: s.pendingContribution * derive(s, Date.now()).expoMult })) {
+          s.pendingContribution = 0;
+          save(); // a reload mustn't send the same honey twice
+        }
       } else {
         s.pendingContribution = 0;
       }

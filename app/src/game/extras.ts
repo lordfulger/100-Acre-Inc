@@ -232,9 +232,18 @@ export function findSecret(s: GameState, id: string, now: number) {
   return honey;
 }
 
-/** A little honey for poking the bees or catching the river stick (the map limits how often). */
-export function mapTreat(s: GameState, now: number, taps: number) {
-  const honey = derive(s, now).tapValue * taps;
+/** Little honey treats on the map: worth some taps, then a rest. The rest is kept in the save, so reloading doesn't skip it. */
+export const TREATS = { bees: { taps: 10, secs: 45 }, stick: { taps: 25, secs: 180 } };
+export type TreatKind = keyof typeof TREATS;
+export const treatReady = (s: GameState, kind: TreatKind, now: number) => now - (s.treats[kind] || 0) >= TREATS[kind].secs * 1000;
+/** Seconds until a treat is ready again. */
+export const treatWait = (s: GameState, kind: TreatKind, now: number) =>
+  Math.max(0, Math.ceil((TREATS[kind].secs * 1000 - (now - (s.treats[kind] || 0))) / 1000));
+
+export function mapTreat(s: GameState, kind: TreatKind, now: number) {
+  if (!treatReady(s, kind, now)) return 0;
+  s.treats[kind] = now;
+  const honey = derive(s, now).tapValue * TREATS[kind].taps;
   earn(s, honey);
   return honey;
 }
