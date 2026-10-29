@@ -134,7 +134,8 @@ export function Bounce({ onDone, onQuit }: GameProps) {
         <Pressable style={StyleSheet.absoluteFill} onPressIn={jump} />
         <Text pointerEvents="none" style={styles.hint}>{g.over ? 'Bump! Roo needs a cuddle.' : 'Tap anywhere to jump'}</Text>
         <View pointerEvents="none" style={[styles.ground, { top: h * 0.7 }]} />
-        <View pointerEvents="none" style={[styles.actor, { left: '12%', top: h * 0.7 - 60 - height * h * 0.32 }]}><Portrait id="roo" size={58} /></View>
+        {/* Mirrored: the portrait looks left, and Roo should face the stones coming from the right. */}
+        <View pointerEvents="none" style={[styles.actor, { left: '12%', top: h * 0.7 - 60 - height * h * 0.32, transform: [{ scaleX: -1 }] }]}><Portrait id="roo" size={58} /></View>
         {g.rocks.map((r, i) => <Text key={i} pointerEvents="none" style={[styles.actor, { left: `${r.x * 100}%`, top: h * 0.7 - 40, fontSize: 32 }]}>🪨</Text>)}
       </View>
     </Shell>
