@@ -13,11 +13,10 @@ import { say } from '../audio/voices';
 
 const ALL_IDS = [POOH_HOUSE.id, ...BUSINESSES.map((b) => b.id)];
 
-/** The home up close as it is now, and a peek at what its next look adds. */
-function CloseUp({ id, look, addons, peek }: { id: string; look: number; addons: string[]; peek: boolean }) {
+/** The home up close, big enough to see every detail. */
+function CloseUp({ id, look, addons }: { id: string; look: number; addons: string[] }) {
   const { width } = useWindowDimensions();
-  const size = Math.min(210, (Math.min(width, 520) - 60) * 0.6);
-  const next = peek ? perkFor(id, look) : null;
+  const size = Math.min(280, Math.min(width, 520) - 70);
   // A little pop when the home gets a new look.
   const pop = useRef(new Animated.Value(1)).current;
   const shown = useRef(look);
@@ -32,15 +31,6 @@ function CloseUp({ id, look, addons, peek }: { id: string; look: number; addons:
       <Animated.View style={[styles.closeUp, { transform: [{ scale: pop }] }]}>
         <HomeCloseUp id={id} look={look} addons={addons} size={size} />
       </Animated.View>
-      {next && (
-        <View style={styles.peek}>
-          <Text style={styles.peekLabel}>Next look</Text>
-          <View style={[styles.closeUp, { opacity: 0.85 }]}>
-            <HomeCloseUp id={id} look={look + 1} addons={addons} size={size * 0.55} />
-          </View>
-          <Text style={styles.peekLabel} numberOfLines={2}>{next}</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -81,7 +71,7 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
       </View>
 
       <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
-      <CloseUp id={id} look={b && owned === 0 ? 0 : look} addons={s.addons} peek={!(b && owned === 0)} />
+      <CloseUp id={id} look={b && owned === 0 ? 0 : look} addons={s.addons} />
       {b && owned === 0 ? (
         <View style={styles.row}>
           <Text style={[styles.info, { flex: 1 }]}>Nobody lives here yet. Unlock it to start making honey here!</Text>
@@ -186,8 +176,6 @@ const styles = StyleSheet.create({
   },
   closeUps: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 4 },
   closeUp: { backgroundColor: '#EEF4D8', borderRadius: 16, overflow: 'hidden', borderWidth: 1.5, borderColor: '#D9E3B8' },
-  peek: { alignItems: 'center', gap: 3, maxWidth: 130 },
-  peekLabel: { fontSize: 11, fontWeight: '800', color: C.soft, textAlign: 'center' },
   sheetHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   title: { fontFamily: HAND, fontSize: 24, color: C.ink },
   close: { fontSize: 20, color: C.soft, fontWeight: '900', paddingHorizontal: 4 },
