@@ -26,7 +26,7 @@ export type GameState = {
   lastTick: number;
   pendingContribution: number; // honey earned but not yet reported to the co-op Expotition
   stats: { taps: number; balloons: number; naps: number; hugsGot: number; giftsSent: number; startedAt: number };
-  profile: { name: string; avatar: string; secret: string; room: string; server: string };
+  profile: { name: string; avatar: string; secret: string; room: string; server: string; cloud?: { token: string; email: string } };
 };
 
 export type BizInfo = { cycle: number; perCycle: number; perSec: number; nextMilestone: number; mult: number };

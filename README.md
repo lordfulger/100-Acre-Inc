@@ -61,6 +61,20 @@ Free Render services sleep after 15 minutes without players; the first connectio
 
 To try the hosted version locally: `cd app && npm run build:web`, then `cd server && npm start` and open http://localhost:3001.
 
+## Cloud saves (Google sign-in)
+
+On the **Nap** tab, *Sign in with Google* backs the game up to the cloud (every minute and whenever the app goes to the background) and brings it back on any phone. If a phone has less progress than the cloud, the game asks which save to keep instead of overwriting.
+
+How it works: the game gets a one-time link code from the server and opens `/cloud/signin?code=…` in a browser; you sign in with Google's own button there; the game picks up the result. That works the same in the Android app, a browser, and an iPhone home-screen web app. Saves are stored in Supabase by the server (`server/src/cloud.js`).
+
+One-time setup:
+
+1. **Supabase** (free, supabase.com): create a project, open **SQL Editor**, paste `server/supabase.sql` and run it. Then **Project Settings → API keys**: copy the **Project URL** and a **secret** (service role) key.
+2. **Google login key** (free, console.cloud.google.com): create a project → **Google Auth Platform** → set up branding (app name, your email) → **Audience**: External, and add both your Gmail addresses as test users → **Clients → Create client → Web application**, with **Authorized JavaScript origin** `https://one00-acre-inc.onrender.com`. Copy the **Client ID**. (No redirect URI or client secret is needed.)
+3. **Render** → your service → **Environment**: add `GOOGLE_CLIENT_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, and `SESSION_SECRET` (click **Generate**). Save; Render restarts the server.
+
+Until those are set, the button says cloud saves aren't switched on yet. Locally, `FAKE_GOOGLE=1 SESSION_SECRET=x npm start` (in `server/`) runs with a pretend Google login and saves to `server/data/saves.json`; `npm test` covers the whole flow.
+
 ## Install it as a real app
 
 Builds run in Expo's cloud (`npm i -g eas-cli`, then `eas login` with a free Expo account):

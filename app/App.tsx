@@ -14,6 +14,7 @@ import { WoodScreen } from './src/screens/WoodScreen';
 import { GameProvider, useGame } from './src/state/GameContext';
 import { Header } from './src/ui/Header';
 import { C } from './src/ui/kit';
+import { CloudConflict } from './src/ui/CloudCard';
 import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
 
 type Tab = 'map' | 'hives' | 'shop' | 'wood' | 'nap';
@@ -66,6 +67,7 @@ function Game() {
       <BalloonLayer />
       <Toasts />
       <WelcomeBack />
+      <CloudConflict />
       {!s.profile.name && <Onboarding />}
     </SafeAreaView>
   );

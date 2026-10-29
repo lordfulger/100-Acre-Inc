@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, receiveGift, tick } from '../game/engine';
 import { fmt } from '../game/format';
+import * as Cloud from '../net/cloud';
 import { NetStatus, WoodClient } from '../net/WoodClient';
 
 const SAVE_KEY = 'hundred-acre-honey-tycoon/save/v1';
@@ -23,6 +24,15 @@ export type Net = {
   contract: Contract | null; contracts: ContractDef[]; tiers: number[]; error: string | null;
 };
 export type Toast = { id: number; text: string };
+
+/** Cloud save status. `conflict` is set when the cloud has further-along progress than this phone. */
+export type CloudState = {
+  phase: 'off' | 'signing-in' | 'on';
+  email?: string;
+  lastSaved?: number;
+  error?: string;
+  conflict?: { data: any; allTime: number; honey: number; savedAt: string };
+};
 
 const emptyNet: Net = { status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null };
 
@@ -64,6 +74,14 @@ type Ctx = {
     abandonContract: () => void;
     balloon: () => void;
   };
+  cloud: CloudState & {
+    signIn: () => void;
+    cancelSignIn: () => void;
+    signOut: () => void;
+    saveNow: () => void;
+    /** Settle a conflict: true = load the cloud save, false = keep this phone's and overwrite the cloud. */
+    resolve: (useCloud: boolean) => void;
+  };
 };
 
 const GameCtx = createContext<Ctx | null>(null);
@@ -84,6 +102,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [net, setNet] = useState<Net>(emptyNet);
   const netRef = useRef(net);
   netRef.current = net;
+  const [cloud, setCloud] = useState<CloudState>({ phase: 'off' });
+  const signInCancelled = useRef(false);
   const clientRef = useRef<WoodClient | null>(null);
   if (!clientRef.current) clientRef.current = new WoodClient();
   const client = clientRef.current;
@@ -227,6 +247,63 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, [ready, client, sendStats]);
 
+  // ---------- cloud save (Google) ----------
+
+  /** The save as uploaded: everything except this phone's sign-in. */
+  const snapshot = useCallback(() => {
+    const { cloud: _signIn, ...profile } = sRef.current!.profile;
+    return { ...sRef.current!, profile };
+  }, []);
+
+  const signedOut = useCallback(() => {
+    delete sRef.current!.profile.cloud;
+    save();
+    setCloud({ phase: 'off', error: 'Signed out. Please sign in again.' });
+  }, [save]);
+
+  const uploadNow = useCallback(async (force = false) => {
+    const s = sRef.current!;
+    if (!s.profile.cloud) return;
+    try {
+      const r = await Cloud.uploadCloud(s.profile.server, s.profile.cloud.token, snapshot(), force);
+      const c = r.conflict;
+      if (c) {
+        setCloud((x) => ({ ...x, conflict: { data: c.data, allTime: c.allTime, honey: c.data?.honey ?? 0, savedAt: c.updatedAt } }));
+      } else {
+        setCloud((x) => ({ ...x, lastSaved: Date.now(), error: undefined }));
+      }
+    } catch (e: any) {
+      if (e.message === 'signed-out') signedOut();
+      else setCloud((x) => ({ ...x, error: e.message }));
+    }
+  }, [snapshot, signedOut]);
+
+  /** Swap in a different save (the cloud copy) without losing this phone's sign-in or server address. */
+  const replaceState = useCallback((data: any) => {
+    const cur = sRef.current!;
+    const next = migrate(data, Date.now());
+    next.profile.cloud = cur.profile.cloud;
+    next.profile.server = cur.profile.server;
+    const off = applyOffline(next, Date.now());
+    if (off.earned > 0 && off.seconds > 60) setWelcomeBack(off);
+    sRef.current = next;
+    save();
+    client.close();
+    setNet(emptyNet);
+    if (next.profile.room && next.profile.name) { setNet({ ...emptyNet, status: 'connecting' }); client.connect(next.profile.server, hello); }
+    rerender();
+  }, [client, hello, save, rerender]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const c = sRef.current!.profile.cloud;
+    if (c) setCloud({ phase: 'on', email: c.email });
+    // Back up a minute after changes, and whenever the app goes to the background.
+    const id = setInterval(() => uploadNow(), 60_000);
+    const sub = AppState.addEventListener('change', (state) => { if (state !== 'active') uploadNow(); });
+    return () => { clearInterval(id); sub.remove(); };
+  }, [ready, uploadNow]);
+
   if (!ready || !sRef.current) return null;
   const s = sRef.current;
   const now = Date.now();
@@ -260,9 +337,43 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     balloon: () => { client.send({ t: 'balloon' }); },
   };
 
+  const cloudApi: Ctx['cloud'] = {
+    ...cloud,
+    signIn: async () => {
+      signInCancelled.current = false;
+      setCloud({ phase: 'signing-in' });
+      try {
+        const session = await Cloud.signIn(s.profile.server, () => signInCancelled.current);
+        sRef.current!.profile.cloud = session;
+        save();
+        setCloud({ phase: 'on', email: session.email });
+        toast(`☁️ Signed in as ${session.email}`);
+        // A save already in the cloud that's further along? Ask which to keep.
+        const existing = await Cloud.loadCloud(s.profile.server, session.token);
+        if (existing && existing.allTime > sRef.current!.allTimeEarned) {
+          setCloud((x) => ({ ...x, conflict: { data: existing.data, allTime: existing.allTime, honey: existing.data?.honey ?? 0, savedAt: existing.updatedAt } }));
+        } else {
+          await uploadNow(true);
+        }
+      } catch (e: any) {
+        setCloud({ phase: 'off', error: signInCancelled.current ? undefined : e.message });
+      }
+    },
+    cancelSignIn: () => { signInCancelled.current = true; setCloud({ phase: 'off' }); },
+    signOut: () => { delete s.profile.cloud; save(); setCloud({ phase: 'off' }); },
+    saveNow: () => { uploadNow(); },
+    resolve: (useCloud) => {
+      const c = cloud.conflict;
+      setCloud((x) => ({ ...x, conflict: undefined }));
+      if (!c) return;
+      if (useCloud) { replaceState(c.data); toast('☁️ Loaded your cloud save'); }
+      else uploadNow(true);
+    },
+  };
+
   return (
     <GameCtx.Provider value={{
-      s, d: derive(s, now), now, act, toast, toasts, welcomeBack, dismissWelcome: () => setWelcomeBack(null), hearts, net, wood,
+      s, d: derive(s, now), now, act, toast, toasts, welcomeBack, dismissWelcome: () => setWelcomeBack(null), hearts, net, wood, cloud: cloudApi,
     }}>
       {children}
     </GameCtx.Provider>

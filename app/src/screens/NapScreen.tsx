@@ -4,6 +4,7 @@ import { COMB_BONUS, varietyAt } from '../game/catalog';
 import { buyVariety, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
+import { CloudCard } from '../ui/CloudCard';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
 
 export function NapScreen() {
@@ -76,6 +77,9 @@ export function NapScreen() {
         />
         <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
       </Card>
+
+      <Section title="☁️ Cloud save" />
+      <CloudCard />
 
       <Section title="📜 Your story so far" />
       <Card>

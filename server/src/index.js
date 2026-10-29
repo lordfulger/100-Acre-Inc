@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync, statSyn
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { handleCloud } from './cloud.js';
 
 const PORT = Number(process.env.PORT || 3001);
 const DATA_DIR = process.env.DATA_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
@@ -203,7 +204,8 @@ function serveStatic(req, res) {
   return true;
 }
 
-const http = createServer((req, res) => {
+const http = createServer(async (req, res) => {
+  if (await handleCloud(req, res)) return;
   if (req.url === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true, rooms: Object.keys(rooms).length }));
