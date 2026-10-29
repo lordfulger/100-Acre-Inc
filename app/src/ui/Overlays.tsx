@@ -58,7 +58,9 @@ export function BalloonLayer() {
     const r = g.act((s, now) => catchBalloon(s, now));
     play('balloon');
     if (r.kind !== 'lucky') setTimeout(() => play('buzz'), 250);
-    g.toast(r.kind === 'lucky' ? `🎈 Lucky Honey! +${fmt(r.amount)}` : `🎈 ${r.title}`);
+    g.toast(r.kind === 'lucky'
+      ? `🎈 Lucky Honey! +${fmt(r.amount)}`
+      : `🎈 ${r.title} ×${fmt(r.mult)} ${r.kind === 'frenzy' ? 'honey' : 'taps'} for ${Math.round(r.secs)}s`);
     g.wood.balloon();
   };
   return (

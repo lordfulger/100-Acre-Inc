@@ -230,8 +230,9 @@ export const COMB_DIVISOR = 1e9; // combs = floor(5 * (allTime / COMB_DIVISOR) ^
 export type BalloonKind = 'lucky' | 'frenzy' | 'swarm';
 export const BALLOONS: Record<BalloonKind, { weight: number; title: string; secs: number; mult: number }> = {
   lucky: { weight: 50, title: 'Lucky Honey!', secs: 0, mult: 0 },
-  frenzy: { weight: 35, title: 'Bee Frenzy! ×3 honey', secs: 20, mult: 3 },
-  swarm: { weight: 15, title: 'Bee Swarm! ×8 taps', secs: 10, mult: 8 },
+  // The multiplier isn't in the title: store items make it bigger, and the boost chip shows the real one.
+  frenzy: { weight: 35, title: 'Bee Frenzy!', secs: 20, mult: 3 },
+  swarm: { weight: 15, title: 'Bee Swarm!', secs: 10, mult: 8 },
 };
 
 export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🐣', '🧒', '🐞', '🐝', '🐘', '🐇'];

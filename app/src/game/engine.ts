@@ -498,9 +498,10 @@ export function catchBalloon(s: GameState, now: number, rand = Math.random) {
   if (kind === 'lucky') {
     const amount = Math.max(d.tapValue * 20, Math.min(s.honey * 0.1, d.hps * 300)) * d.balloonPower;
     earn(s, amount);
-    return { kind, title: def.title, amount };
+    return { kind, title: def.title, amount, mult: 0, secs: 0 };
   }
   const mult = kind === 'frenzy' ? d.frenzyMult : d.swarmMult;
-  addBoost(s, kind === 'frenzy' ? 'profit' : 'tap', mult, def.secs * d.balloonPower, def.title, now);
-  return { kind, title: def.title, amount: 0 };
+  const secs = def.secs * d.balloonPower;
+  addBoost(s, kind === 'frenzy' ? 'profit' : 'tap', mult, secs, def.title, now);
+  return { kind, title: def.title, amount: 0, mult, secs };
 }
