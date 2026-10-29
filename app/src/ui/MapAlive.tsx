@@ -2,7 +2,7 @@
 // chimney smoke, a stick on the river, birds, fireflies, and hidden secrets.
 // Positions are in map coordinates (see PLACES in WoodMap), scaled by k.
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { findSecret, mapTreat, SECRETS, treatReady, treatWait } from '../game/extras';
 import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
@@ -33,8 +33,34 @@ function useLoop(ms: number, delay = 0) {
   return v;
 }
 
-function Speech({ text }: { text: string }) {
-  return <View style={styles.bubble}><Text style={styles.bubbleText}>{text}</Text></View>;
+const BUBBLE_W = 180;
+/** Bubbles for things closer than this to the top of the map hang below them, clear of the chips along the top. */
+export const TOP_ROOM = 150;
+const EDGE = 8;
+
+/**
+ * A speech bubble over a character or spot `anchor` wide. It starts centred above
+ * it and slides sideways if that would run it off the screen (homes near the edge,
+ * or the zoomed-in map). Near the top of the map it hangs `below` instead.
+ */
+export function Speech({ text, anchor, below }: { text: string; anchor: number; below?: boolean }) {
+  const ref = useRef<React.ComponentRef<typeof View>>(null);
+  const { width } = useWindowDimensions();
+  const [shift, setShift] = useState<number | null>(null);
+  const fit = () => ref.current?.measureInWindow((x, _y, w) => {
+    if (x < EDGE) setShift(EDGE - x);
+    else if (x + w > width - EDGE) setShift(width - EDGE - (x + w));
+    else setShift(0);
+  });
+  return (
+    <View
+      ref={ref}
+      onLayout={shift === null ? fit : undefined}
+      style={[styles.bubble, below ? styles.bubbleBelow : styles.bubbleAbove, { left: anchor / 2 - BUBBLE_W / 2, opacity: shift === null ? 0 : 1, transform: [{ translateX: shift ?? 0 }] }]}
+    >
+      <Text style={styles.bubbleText}>{text}</Text>
+    </View>
+  );
 }
 
 // ---------- bees round the Bee Tree ----------
@@ -255,7 +281,7 @@ function Secrets({ k }: { k: number }) {
         };
         return (
           <View key={x.id} style={[styles.abs, { left: x.x * k - size / 2, top: x.y * k - size / 2, width: size, height: size, zIndex: open === x.id ? 5 : 1 }]}>
-            {open === x.id && <Speech text={x.text} />}
+            {open === x.id && <Speech key={x.id} text={x.text} anchor={size} below={x.y * k < TOP_ROOM} />}
             <Pressable onPress={tap} style={styles.secret} accessibilityLabel={found ? x.text : 'Something sparkles here'}>
               {found
                 ? <Text style={{ fontSize: Math.max(13, 18 * k) }}>{x.emoji}</Text>
@@ -295,6 +321,8 @@ const styles = StyleSheet.create({
   lamp: { borderRadius: 2, backgroundColor: '#FFD866', borderWidth: 0.5, borderColor: '#C98A1E' },
   firefly: { position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFE87A', shadowColor: '#FFE87A', shadowOpacity: 1, shadowRadius: 6 },
   secret: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  bubble: { position: 'absolute', bottom: '100%', left: -70, width: 180, marginBottom: 2, backgroundColor: 'white', borderRadius: 12, padding: 8, borderWidth: 1.5, borderColor: '#D9C48E' },
+  bubbleAbove: { bottom: '100%', marginBottom: 4 },
+  bubbleBelow: { top: '100%', marginTop: 4 },
+  bubble: { position: 'absolute', width: BUBBLE_W, zIndex: 5, backgroundColor: 'white', borderRadius: 12, padding: 8, borderWidth: 1.5, borderColor: '#D9C48E' },
   bubbleText: { fontSize: 13, color: '#4B3A26', fontWeight: '600' },
 });

@@ -9,7 +9,7 @@ import { GameState } from '../game/engine';
 import { nativeDriver } from './kit';
 import { Portrait } from './Portrait';
 import { HAND, MAP_H, MAP_W, PLACES } from './WoodMap';
-import { MapAlive } from './MapAlive';
+import { MapAlive, Speech, TOP_ROOM } from './MapAlive';
 
 // Open spots on the map for holiday decorations.
 const HOLIDAY_SPOTS: [number, number][] = [
@@ -39,7 +39,7 @@ function Wanderer({ home, to, k, delay }: { home: string; to: string; k: number;
   const y = v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [(a.y + 14) * k - size, ((a.y + b.y) / 2 + 26) * k - size, (b.y + 14) * k - size] });
   return (
     <Animated.View style={[styles.wanderer, { transform: [{ translateX: x }, { translateY: y }] }]}>
-      {line && <View style={styles.bubble}><Text style={styles.bubbleText}>{line}</Text></View>}
+      {line && <Speech key={line} text={line} anchor={size} below={Math.min(a.y, b.y) * k < TOP_ROOM} />}
       <Pressable onPress={() => setLine(chatter(home))} hitSlop={10} accessibilityLabel={`Talk to ${who.name}`}>
         <Portrait id={who.portrait} size={size} />
       </Pressable>
@@ -141,7 +141,5 @@ const styles = StyleSheet.create({
   project: { position: 'absolute', width: 60, alignItems: 'center' },
   projectName: { fontFamily: HAND, color: '#4B3A26', textAlign: 'center', backgroundColor: 'rgba(255,250,232,0.85)', borderRadius: 6, paddingHorizontal: 3 },
   wanderer: { position: 'absolute', left: 0, top: 0, alignItems: 'center' },
-  bubble: { position: 'absolute', bottom: '100%', marginBottom: 4, width: 170, backgroundColor: 'white', borderRadius: 12, padding: 8, borderWidth: 1.5, borderColor: '#D9C48E', zIndex: 5 },
-  bubbleText: { fontSize: 13, color: '#4B3A26', fontWeight: '600' },
   flake: { position: 'absolute', top: 0, opacity: 0.8 },
 });
