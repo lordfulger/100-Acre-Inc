@@ -30,13 +30,18 @@ let appActive = true;
 let music: AudioPlayer | null = null;
 const pools: Partial<Record<SoundName, { players: AudioPlayer[]; next: number }>> = {};
 
-function nativePlay(name: SoundName) {
+function poolFor(name: SoundName) {
   let pool = pools[name];
   if (!pool) {
     pool = { players: [createAudioPlayer(SOUND_FILES[name]), createAudioPlayer(SOUND_FILES[name])], next: 0 };
     pool.players.forEach((p) => { p.volume = VOLUME[name] ?? DEFAULT_VOLUME; });
     pools[name] = pool;
   }
+  return pool;
+}
+
+function nativePlay(name: SoundName) {
+  const pool = poolFor(name);
   const p = pool.players[pool.next];
   pool.next = (pool.next + 1) % pool.players.length;
   p.seekTo(0).catch(() => {});
@@ -84,6 +89,18 @@ export function setAppActive(active: boolean) {
 }
 
 export const play = (name: Sfx) => playFile(name);
+
+/**
+ * Gets sounds ready ahead of time, so the first time one plays doesn't stall the
+ * game while its players are made (noticeable on older phones). On the web every
+ * sound is already loaded when audio unlocks.
+ */
+export function warmUp(names: Sfx[]) {
+  if (WEB) return;
+  for (const name of names) {
+    try { poolFor(name); } catch {}
+  }
+}
 
 // Each tap plays a random note from a pentatonic scale (never the same note twice
 // in a row). Any mix of these notes sounds pleasant together.

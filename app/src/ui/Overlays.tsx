@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { AVATARS } from '../game/catalog';
 import { catchBalloon } from '../game/engine';
@@ -6,7 +6,7 @@ import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Button, buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
-import { play } from '../audio/sound';
+import { play, warmUp } from '../audio/sound';
 
 // Golden balloons drift up the screen now and then. Catch one for a bonus —
 // and your partner gets a little shared joy too.
@@ -21,17 +21,27 @@ const StoryCard = ({ card, height }: { card: keyof typeof CARDS; height: number 
   <Image source={CARDS[card]} style={[styles.card, { height, width: height * 800 / 960 }]} />
 );
 
+type Balloon = { id: number; x: number; anim: Animated.Value };
+
 export function BalloonLayer() {
   const game = useGame();
   const gameRef = useRef(game);
   gameRef.current = game;
   const { height, width } = useWindowDimensions();
-  const [balloon, setBalloon] = useState<{ id: number; x: number; anim: Animated.Value } | null>(null);
+  const [balloon, setBalloon] = useState<Balloon | null>(null);
+  const balloonRef = useRef(balloon);
+  balloonRef.current = balloon;
   const nextAt = useRef(Date.now() + 25_000);
 
   const scheduleNext = () => {
     nextAt.current = Date.now() + (60_000 + Math.random() * 120_000) / gameRef.current.d.balloonRate;
   };
+
+  // Have the balloon's sounds ready before the first one floats by.
+  useEffect(() => {
+    const t = setTimeout(() => warmUp(['whoosh', 'balloon', 'buzz']), 3_000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (balloon) return;
@@ -48,40 +58,56 @@ export function BalloonLayer() {
     return () => clearInterval(id);
   }, [balloon, width]);
 
-  if (!balloon) return null;
-  const pop = () => {
-    balloon.anim.stopAnimation();
+  // The same function for the whole flight, so the balloon itself never needs redrawing.
+  const pop = useCallback(() => {
+    const b = balloonRef.current;
+    if (!b) return;
+    balloonRef.current = null;
+    b.anim.stopAnimation();
     setBalloon(null);
     scheduleNext();
     buzz('success');
+    play('balloon');
     const g = gameRef.current;
     const r = g.act((s, now) => catchBalloon(s, now));
-    play('balloon');
     if (r.kind !== 'lucky') setTimeout(() => play('buzz'), 250);
     g.toast(r.kind === 'lucky'
       ? `🎈 Lucky Honey! +${fmt(r.amount)}`
       : `🎈 ${r.title} ×${fmt(r.mult)} ${r.kind === 'frenzy' ? 'honey' : 'taps'} for ${Math.round(r.secs)}s`);
     g.wood.balloon();
-  };
+  }, []);
+
+  if (!balloon) return null;
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      <Animated.View
-        style={{
-          position: 'absolute', left: balloon.x, top: 0,
-          transform: [
-            { translateY: balloon.anim.interpolate({ inputRange: [0, 1], outputRange: [height, -160] }) },
-            { translateX: balloon.anim.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: [0, 28, 0, -28, 0] }) },
-          ],
-        }}
-      >
-        <Pressable onPress={pop} hitSlop={20} accessibilityLabel="Catch the balloon" style={styles.balloon}>
-          <Image source={BALLOON} style={styles.balloonArt} />
-          <Portrait id="pooh" size={40} style={{ marginTop: -6 }} />
-        </Pressable>
-      </Animated.View>
+      <FlyingBalloon key={balloon.id} x={balloon.x} anim={balloon.anim} height={height} onPop={pop} />
     </View>
   );
 }
+
+/**
+ * The balloon on its way up. The game updates several times a second; this only
+ * draws again if the screen changes size, and the flight itself runs natively.
+ */
+const FlyingBalloon = React.memo(function FlyingBalloon({ x, anim, height, onPop }: {
+  x: number; anim: Animated.Value; height: number; onPop: () => void;
+}) {
+  const flight = useMemo(() => ({
+    position: 'absolute' as const, left: x, top: 0,
+    transform: [
+      { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [height, -160] }) },
+      { translateX: anim.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: [0, 28, 0, -28, 0] }) },
+    ],
+  }), [x, anim, height]);
+  return (
+    <Animated.View style={flight}>
+      <Pressable onPress={onPop} hitSlop={20} accessibilityLabel="Catch the balloon" style={styles.balloon}>
+        <Image source={BALLOON} style={styles.balloonArt} />
+        <Portrait id="pooh" size={40} style={{ marginTop: -6 }} />
+      </Pressable>
+    </Animated.View>
+  );
+});
 
 export function Toasts() {
   const { toasts } = useGame();
