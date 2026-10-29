@@ -1,21 +1,21 @@
 import React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { play } from '../audio/sound';
-import { say } from '../audio/voices';
+import { hasRecordings, say } from '../audio/voices';
 import { useGame } from '../state/GameContext';
 import { C, Card } from './kit';
 
 const ROWS = [
   { key: 'music', label: '🎵 Music', hint: '"Honey on the Hill", a music-box waltz' },
-  { key: 'sfx', label: '🔔 Sound effects', hint: 'Taps, chimes, balloons and hugs' },
-  { key: 'voices', label: '🗣️ Character voices', hint: 'Lines when you hire, upgrade and get hugs' },
+  { key: 'sfx', label: '🔔 Sound effects', hint: 'Soft taps, chimes and pops' },
+  { key: 'voices', label: '🗣️ Your recorded voices', hint: 'Plays your clips from assets/voices' },
 ] as const;
 
 export function SoundCard() {
   const { s, act } = useGame();
   return (
     <Card>
-      {ROWS.map((r) => (
+      {ROWS.filter((r) => r.key !== 'voices' || hasRecordings()).map((r) => (
         <View key={r.key} style={styles.row}>
           <View style={{ flex: 1 }}>
             <Text style={styles.label}>{r.label}</Text>

@@ -4,8 +4,13 @@ import { AudioPlayer, createAudioPlayer } from 'expo-audio';
 export type Sfx = 'tap' | 'lucky' | 'buy' | 'hire' | 'upgrade' | 'balloon' | 'hug' | 'nap' | 'gift' | 'oops';
 export type SoundSettings = { music: boolean; sfx: boolean; voices: boolean };
 
-const FILES: Record<Sfx, number> = {
-  tap: require('../../assets/sounds/tap.wav'),
+// Taps rotate between three slightly different bloops so quick tapping sounds natural.
+const TAPS = [
+  require('../../assets/sounds/tap1.wav'),
+  require('../../assets/sounds/tap2.wav'),
+  require('../../assets/sounds/tap3.wav'),
+];
+const FILES: Record<Exclude<Sfx, 'tap'>, number> = {
   lucky: require('../../assets/sounds/lucky.wav'),
   buy: require('../../assets/sounds/buy.wav'),
   hire: require('../../assets/sounds/hire.wav'),
@@ -16,7 +21,9 @@ const FILES: Record<Sfx, number> = {
   gift: require('../../assets/sounds/gift.wav'),
   oops: require('../../assets/sounds/oops.wav'),
 };
-const VOLUME: Partial<Record<Sfx, number>> = { tap: 0.45, buy: 0.6, oops: 0.5 };
+// The files are already mastered quietly; these keep effects well under the music.
+const VOLUME: Partial<Record<Sfx, number>> = { tap: 0.5, lucky: 0.55, buy: 0.6, oops: 0.5 };
+const DEFAULT_VOLUME = 0.6;
 
 let settings: SoundSettings = { music: true, sfx: true, voices: true };
 let music: AudioPlayer | null = null;
@@ -28,8 +35,8 @@ function player(name: Sfx) {
   let pool = pools[name];
   if (!pool) {
     const size = name === 'tap' ? 4 : 2;
-    pool = { players: Array.from({ length: size }, () => createAudioPlayer(FILES[name])), next: 0 };
-    pool.players.forEach((p) => { p.volume = VOLUME[name] ?? 0.8; });
+    pool = { players: Array.from({ length: size }, (_, i) => createAudioPlayer(name === 'tap' ? TAPS[i % TAPS.length] : FILES[name])), next: 0 };
+    pool.players.forEach((p) => { p.volume = VOLUME[name] ?? DEFAULT_VOLUME; });
     pools[name] = pool;
   }
   const p = pool.players[pool.next];
@@ -54,7 +61,7 @@ export function startMusic() {
     if (!music) {
       music = createAudioPlayer(require('../../assets/sounds/music.wav'));
       music.loop = true;
-      music.volume = 0.3;
+      music.volume = 0.25;
     }
     music.play();
   } catch {}

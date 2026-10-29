@@ -65,7 +65,7 @@ To try the hosted version locally: `cd app && npm run build:web`, then `cd serve
 
 Everything you hear is original and made in code: `npm run sounds` (in `app/`) rebuilds `assets/sounds/` from `scripts/make-sounds.js`, including the background music, "Honey on the Hill" (a music-box waltz), and the tap, buy, hire, upgrade, balloon, hug, gift and nap sounds.
 
-Characters speak short original lines when you hire them, when their home gets a new look, and when hugs or balloons arrive. They use the phone's built-in voice, pitched and paced for each character, unless you record your own: drop clips like `pooh-1.m4a` into `app/assets/voices/` (see the README there). Music, sound effects and voices each have a switch on the **Nap** tab.
+Characters can speak in your own recorded voices: drop clips like `pooh-1.m4a` into `app/assets/voices/` (see the README there) and they play when you hire a character, when their home gets a new look, and when hugs or balloons arrive. Without recordings, characters stay quiet. Music, sound effects and voices each have a switch on the **Nap** tab.
 
 ## Cloud saves (Google sign-in)
 
