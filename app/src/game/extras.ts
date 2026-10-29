@@ -260,7 +260,7 @@ export const GAMES = {
   tracks: { home: 'haycorn', name: 'Woozle Tracks', emoji: '🐾', blurb: 'Watch the footprints appear in the snow, then follow them in the same order.', perPoint: 50 },
   garden: { home: 'garden', name: "Rabbit's Garden", emoji: '🥕', blurb: 'Pull up the vegetables as they pop up. Leave the Heffalumps alone!', perPoint: 12 },
   spelling: { home: 'oak', name: "Owl's Spelling Bee", emoji: '✏️', blurb: "Owl's spelling is Wobbly. Pick the word that's spelled right, as many as you can.", perPoint: 40 },
-  bounce: { home: 'kitchen', name: "Roo's Bounce", emoji: '🦘', blurb: 'Tap to make Roo jump over the stones. How far can he go?', perPoint: 30 },
+  bounce: { home: 'kitchen', name: "Roo's Bounce", emoji: '🪨', blurb: 'Tap to make Roo jump over the stones. How far can he go?', perPoint: 30 },
   tail: { home: 'thistle', name: "Find Eeyore's Tail", emoji: '🎀', blurb: 'Watch which thistle bush hides the tail while they shuffle, then pick it.', perPoint: 100 },
   balloons: { home: 'ranch', name: "Tigger's Balloons", emoji: '🎈', blurb: 'Pop the balloons as they float up. Gold ones are worth 3. Not the bees!', perPoint: 17 },
   count: { home: 'works', name: 'Counting Pots', emoji: '🔢', blurb: 'Christopher Robin flashes some honey pots. How many were there?', perPoint: 50 },

@@ -5,6 +5,7 @@ import { GameId, GAMES } from '../game/extras';
 import { StickRace } from '../state/GameContext';
 import { Button, buzz, C } from './kit';
 import { HAND } from './WoodMap';
+import { Portrait } from './Portrait';
 import { play } from '../audio/sound';
 
 const FRAME_MS = 33;
@@ -204,7 +205,7 @@ export function RabbitsGarden({ onDone, onQuit }: { onDone: (score: number) => v
       <View style={[styles.snow, { backgroundColor: '#C9DDA0' }]}>
         {g.holes.map((h, i) => (
           <Pressable key={i} onPressIn={() => pull(i)} style={[styles.cell, styles.hole]}>
-            <Text style={{ fontSize: 40 }}>{h ? h.kind : ''}</Text>
+            {h?.bad ? <Portrait id="heffalump" size={58} /> : <Text style={{ fontSize: 40 }}>{h ? h.kind : ''}</Text>}
           </Pressable>
         ))}
       </View>

@@ -4,6 +4,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, buzz, C } from './kit';
 import { Shell, useFrames } from './Minigames';
 import { HAND } from './WoodMap';
+import { Portrait, PortraitId } from './Portrait';
 import { play } from '../audio/sound';
 
 type GameProps = { onDone: (score: number) => void; onQuit: () => void };
@@ -45,7 +46,10 @@ export function Stretch({ onDone, onQuit }: GameProps) {
   return (
     <Shell id="stretch" score={`🏋️ ${g.score}`} right={lives(3 - g.misses)} onQuit={onQuit}>
       <View style={styles.center}>
-        <Text style={{ fontSize: 90 }}>{g.misses >= 3 ? '😮‍💨' : pos > 0.5 ? '🙆' : '🧘'}</Text>
+        {/* Pooh stretches up and squats down with the marker. */}
+        <View style={{ height: 130, justifyContent: 'flex-end', opacity: g.misses >= 3 ? 0.5 : 1, transform: [{ translateY: -pos * 18 }, { scaleY: 0.92 + pos * 0.14 }] }}>
+          <Portrait id="pooh" size={110} />
+        </View>
         <Text style={styles.prompt}>Up, down… and stretch when the marker's in the green!</Text>
         <View style={styles.meter}>
           <View style={[styles.zone, { left: `${g.zone * 100}%`, width: `${width * 100}%` }]} />
@@ -91,7 +95,7 @@ export function Spelling({ onDone, onQuit }: GameProps) {
   return (
     <Shell id="spelling" score={`✏️ ${score}`} right={`⏱ ${Math.ceil(left)}s`} onQuit={onQuit}>
       <View style={styles.center}>
-        <Text style={{ fontSize: 70 }}>🦉</Text>
+        <Portrait id="owl" size={90} />
         <Text style={styles.prompt}>“Which of these is spelled properly? I wrote all three.”</Text>
         {options.map((w) => (
           <Pressable key={w} onPress={() => answer(w)} style={styles.choice}><Text style={styles.choiceText}>{w}</Text></Pressable>
@@ -125,12 +129,12 @@ export function Bounce({ onDone, onQuit }: GameProps) {
   useFinish(g.over, g.score, onDone);
   const jump = () => { if (!g.over && t - g.jumpAt > 0.75) { g.jumpAt = t; play('tick'); } };
   return (
-    <Shell id="bounce" score={`🦘 ${g.score}`} onQuit={onQuit}>
+    <Shell id="bounce" score={`🪨 ${g.score}`} onQuit={onQuit}>
       <View style={[styles.field, { backgroundColor: '#E6F2D6' }]} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
         <Pressable style={StyleSheet.absoluteFill} onPressIn={jump} />
         <Text pointerEvents="none" style={styles.hint}>{g.over ? 'Bump! Roo needs a cuddle.' : 'Tap anywhere to jump'}</Text>
         <View pointerEvents="none" style={[styles.ground, { top: h * 0.7 }]} />
-        <Text pointerEvents="none" style={[styles.actor, { left: '14%', top: h * 0.7 - 56 - height * h * 0.32 }]}>🦘</Text>
+        <View pointerEvents="none" style={[styles.actor, { left: '12%', top: h * 0.7 - 60 - height * h * 0.32 }]}><Portrait id="roo" size={58} /></View>
         {g.rocks.map((r, i) => <Text key={i} pointerEvents="none" style={[styles.actor, { left: `${r.x * 100}%`, top: h * 0.7 - 40, fontSize: 32 }]}>🪨</Text>)}
       </View>
     </Shell>
@@ -186,7 +190,7 @@ export function Tail({ onDone, onQuit }: GameProps) {
   return (
     <Shell id="tail" score={`🎀 ${round - 1}`} onQuit={onQuit}>
       <View style={styles.center}>
-        <Text style={{ fontSize: 60 }}>🐴</Text>
+        <Portrait id="eeyore" size={84} />
         <Text style={styles.prompt}>
           {phase === 'show' ? 'The tail is under this bush. Keep your eye on it…' : phase === 'shuffle' ? 'Shuffling…' : phase === 'pick' ? 'Which bush has the tail?' : '“Oh well. It was a nice tail.”'}
         </Text>
@@ -242,7 +246,7 @@ export function Balloons({ onDone, onQuit }: GameProps) {
             <Text style={{ fontSize: 40 }}>{it.kind === 'bee' ? '🐝' : it.kind === 'gold' ? '🌟' : '🎈'}</Text>
           </Pressable>
         ))}
-        <Text style={[styles.actor, { bottom: 6, left: '44%', fontSize: 44 }]}>🐯</Text>
+        <View pointerEvents="none" style={[styles.actor, { bottom: 8, left: '50%', marginLeft: -28 }]}><Portrait id="tigger" size={56} /></View>
       </View>
     </Shell>
   );
@@ -282,7 +286,7 @@ export function CountPots({ onDone, onQuit }: GameProps) {
           {showing && round.spots.map((s) => (
             <Text key={s} style={[styles.potSpot, { left: `${(s % 5) * 19 + 3}%`, top: `${Math.floor(s / 5) * 24 + 3}%` }]}>🍯</Text>
           ))}
-          {!showing && <Text style={{ fontSize: 50, opacity: 0.4 }}>🧒</Text>}
+          {!showing && <View style={{ opacity: 0.5 }}><Portrait id="robin" size={80} /></View>}
         </View>
         <View style={styles.answers}>
           {round.options.map((n) => <Button key={n} label={String(n)} disabled={showing} onPress={() => answer(n)} style={{ flex: 1 }} />)}
@@ -319,7 +323,7 @@ export function Trap({ onDone, onQuit }: GameProps) {
         <Text style={styles.prompt}>{resting ? 'Caught one! (It just wanted the honey.)' : 'Spring the trap when the Heffalump is right over the pit!'}</Text>
         <View style={styles.track}>
           <View style={[styles.pit, { left: `${g.pit * 100}%` }]}><Text style={{ fontSize: 18 }}>🍯</Text></View>
-          <Text style={[styles.heff, { left: `${g.x * 100}%`, top: resting ? 38 : 0 }]}>🐘</Text>
+          <View style={[styles.heff, { left: `${g.x * 100}%`, top: resting ? 38 : 0 }]}><Portrait id="heffalump" size={64} /></View>
         </View>
         <Button label="Spring it!" onPress={spring} style={{ marginTop: 20, minWidth: 200 }} />
       </View>
@@ -375,7 +379,7 @@ export function River({ onDone, onQuit }: GameProps) {
 
 // ---------- Pooh & Piglet: Galleons Pairs ----------
 
-const FACES = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🐘', '🐝', '🧒'];
+const FACES: PortraitId[] = ['pooh', 'piglet', 'tigger', 'rabbit', 'owl', 'eeyore', 'kanga', 'roo', 'heffalump', 'robin'];
 const PAIRS_SECS = 75;
 
 export function Pairs({ onDone, onQuit }: GameProps) {
@@ -411,7 +415,7 @@ export function Pairs({ onDone, onQuit }: GameProps) {
           const shown = up.includes(i) || matched.includes(i);
           return (
             <Pressable key={i} onPress={() => flip(i)} style={[styles.card, shown && styles.cardUp, matched.includes(i) && { opacity: 0.45 }]}>
-              <Text style={{ fontSize: 34 }}>{shown ? f : '✨'}</Text>
+              {shown ? <Portrait id={f} size={58} /> : <Text style={{ fontSize: 34 }}>✨</Text>}
             </Pressable>
           );
         })}
@@ -518,7 +522,7 @@ const styles = StyleSheet.create({
   answers: { flexDirection: 'row', gap: 10, width: 320, maxWidth: '94%', marginTop: 16 },
   track: { width: 320, maxWidth: '94%', height: 110, marginTop: 30, borderBottomWidth: 4, borderBottomColor: '#8FB463' },
   pit: { position: 'absolute', bottom: -18, width: 70, height: 30, marginLeft: -35, borderRadius: 35, backgroundColor: '#6B4A2B', alignItems: 'center', justifyContent: 'center' },
-  heff: { position: 'absolute', fontSize: 58, marginLeft: -30 },
+  heff: { position: 'absolute', marginLeft: -32 },
   cards: { flexDirection: 'row', flexWrap: 'wrap', width: 320, maxWidth: '94%', alignSelf: 'center', gap: 8, justifyContent: 'center' },
   card: { width: '22%', aspectRatio: 0.8, borderRadius: 12, backgroundColor: '#D9B45A', borderWidth: 2, borderColor: '#B88A00', alignItems: 'center', justifyContent: 'center' },
   cardUp: { backgroundColor: '#FFF3D1' },
