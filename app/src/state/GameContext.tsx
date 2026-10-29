@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, receiveGift, tick } from '../game/engine';
+import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, tick } from '../game/engine';
 import { fmt } from '../game/format';
 import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
@@ -67,6 +67,8 @@ type Ctx = {
   dismissWelcome: () => void;
   hearts: number; // bumps when a hug arrives, for the heart burst animation
   net: Net;
+  /** Wipes all progress but keeps name, character, room, sound settings and Google sign-in. */
+  startOver: () => void;
   wood: {
     join: (room: string, server?: string) => void;
     leave: () => void;
@@ -350,6 +352,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     balloon: () => { client.send({ t: 'balloon' }); },
   };
 
+  const startOver = () => {
+    const fresh = newGame(Date.now());
+    fresh.profile = { ...s.profile };
+    fresh.settings = { ...s.settings };
+    sRef.current = fresh;
+    save();
+    setWelcomeBack(null);
+    rerender();
+    // Replace the cloud copy too, or the game would offer to bring the old progress back.
+    if (fresh.profile.cloud) uploadNow(true);
+    toast('🌱 A fresh start in the Hundred Acre Wood!');
+  };
+
   const cloudApi: Ctx['cloud'] = {
     ...cloud,
     signIn: async () => {
@@ -386,7 +401,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameCtx.Provider value={{
-      s, d: derive(s, now), now, act, toast, toasts, welcomeBack, dismissWelcome: () => setWelcomeBack(null), hearts, net, wood, cloud: cloudApi,
+      s, d: derive(s, now), now, act, toast, toasts, welcomeBack, dismissWelcome: () => setWelcomeBack(null), hearts, net, wood, cloud: cloudApi, startOver,
     }}>
       {children}
     </GameCtx.Provider>

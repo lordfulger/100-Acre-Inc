@@ -5,13 +5,20 @@ import { buyVariety, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
+import { ProfileCard } from '../ui/ProfileCard';
 import { SoundCard } from '../ui/SoundCard';
 import { play } from '../audio/sound';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
 
 export function NapScreen() {
-  const { s, act, toast, now } = useGame();
+  const { s, act, toast, now, startOver } = useGame();
   const [confirm, setConfirm] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  useEffect(() => {
+    if (!confirmReset) return;
+    const t = setTimeout(() => setConfirmReset(false), 5000);
+    return () => clearTimeout(t);
+  }, [confirmReset]);
   useEffect(() => {
     if (!confirm) return;
     const t = setTimeout(() => setConfirm(false), 4000);
@@ -81,6 +88,9 @@ export function NapScreen() {
         <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
       </Card>
 
+      <Section title="🧸 You" />
+      <ProfileCard />
+
       <Section title="🔊 Sound" />
       <SoundCard />
 
@@ -101,6 +111,25 @@ export function NapScreen() {
         ].map(([k, val]) => (
           <View key={k} style={styles.kv}><Text style={styles.k}>{k}</Text><Text style={styles.v}>{val}</Text></View>
         ))}
+      </Card>
+
+      <Section title="🌱 Start over" />
+      <Card>
+        <Text style={styles.body}>
+          Begin again from a single Bee Tree. This wipes your honey, homes, add-ons, store items, Golden Honeycombs and honey varieties
+          {s.profile.cloud ? ', including your cloud save' : ''}. Your name, character, room and settings stay.
+        </Text>
+        <Button
+          style={{ marginTop: 10 }}
+          color={C.red}
+          outline={!confirmReset}
+          label={confirmReset ? 'Tap again to wipe everything and start over' : 'Start over'}
+          onPress={() => {
+            if (!confirmReset) return setConfirmReset(true);
+            setConfirmReset(false);
+            startOver();
+          }}
+        />
       </Card>
     </ScrollView>
   );
