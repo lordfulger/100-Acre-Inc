@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const IDS = ['pooh', 'piglet', 'tigger', 'rabbit', 'owl', 'eeyore', 'kanga', 'robin', 'small', 'bee', 'woozle', 'heffalump'];
+const IDS = ['pooh', 'piglet', 'tigger', 'rabbit', 'owl', 'eeyore', 'kanga', 'robin', 'small', 'bee', 'woozle', 'heffalump', 'roo', 'poohpiglet', 'relations'];
 const dir = path.join(__dirname, '..', 'assets', 'portraits');
 const out = path.join(__dirname, '..', 'src', 'ui', 'portraitImages.ts');
 

@@ -25,8 +25,8 @@ export const BUSINESSES: Business[] = [
   { id: 'heffalump', name: 'The Heffalump Trap', emoji: '🕳️', blurb: 'A Very Deep Pit, baited with honey. No Heffalumps yet. Lots of honey.', baseCost: 4e10, growth: 1.18, cycle: 1_500, revenue: 8e9 / 2, manager: { name: 'Small', emoji: '🐞', cost: 5e12 * 3 } },
   { id: 'bridge', name: 'Poohsticks Bridge', emoji: '🌉', blurb: 'Honey barges float under the bridge all day, past the Floody Place.', baseCost: 8e11, growth: 1.18, cycle: 3_600, revenue: 1.3e11 / 2, manager: { name: 'The Woozles', emoji: '🐾', cost: 1e14 * 3 } },
   // Further into the wood (the south of the map).
-  { id: 'floody', name: 'The Floody Place', emoji: '🛶', blurb: 'Where the river spreads out. Honey boats bob at a wobbly little dock.', baseCost: 1.6e13, growth: 1.18, cycle: 7_200, revenue: 2.2e12 / 2, manager: { name: 'Roo', emoji: '🦘', cost: 2e15 * 3 } },
-  { id: 'galleons', name: 'Galleons Lap', emoji: '✨', blurb: 'An enchanted clearing on top of the wood, ringed with trees. You can see the whole world.', baseCost: 3.2e14, growth: 1.18, cycle: 14_400, revenue: 3.6e13 / 2, manager: { name: 'Pooh & Piglet', emoji: '🐷', cost: 4e16 * 3 } },
+  { id: 'floody', name: 'The Floody Place', emoji: '🛶', blurb: 'Where the river spreads out. Honey boats bob at a wobbly little dock.', baseCost: 1.6e13, growth: 1.18, cycle: 7_200, revenue: 2.2e12 / 2, manager: { name: 'Roo', emoji: '🐣', cost: 2e15 * 3 } },
+  { id: 'galleons', name: 'Galleons Lap', emoji: '✨', blurb: 'An enchanted clearing on top of the wood, ringed with trees. You can see the whole world.', baseCost: 3.2e14, growth: 1.18, cycle: 14_400, revenue: 3.6e13 / 2, manager: { name: 'Pooh & Piglet', emoji: '🐻🐷', cost: 4e16 * 3 } },
   { id: 'camp', name: 'Expotition Camp', emoji: '⛺', blurb: 'Base camp for finding the North Pole. Mostly used for honey breaks.', baseCost: 6.4e15, growth: 1.18, cycle: 28_800, revenue: 6e14 / 2, manager: { name: 'The Bees', emoji: '🐝', cost: 8e17 * 3 } },
   { id: 'pines', name: 'Heffalump Pines', emoji: '🌲', blurb: 'Big round footprints between the pines. Something very large likes honey too.', baseCost: 1.3e17, growth: 1.18, cycle: 57_600, revenue: 1e16 / 2, manager: { name: 'The Heffalump', emoji: '🐘', cost: 1.6e19 * 3 } },
 ];
@@ -234,7 +234,7 @@ export const BALLOONS: Record<BalloonKind, { weight: number; title: string; secs
   swarm: { weight: 15, title: 'Bee Swarm! ×8 taps', secs: 10, mult: 8 },
 };
 
-export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🧒', '🐞', '🐝', '🐘'];
+export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🐣', '🧒', '🐞', '🐝', '🐘', '🐇'];
 
 export const QUICK_PHRASES = [
   'Hallo! 👋', 'Oh bother.', 'Time for a little something? 🍯', 'Join the Expotition! 🧭',

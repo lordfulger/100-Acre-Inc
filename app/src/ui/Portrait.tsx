@@ -7,11 +7,13 @@ import { Image, StyleProp, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { PORTRAIT_IMAGES } from './portraitImages';
 
-export type PortraitId = 'pooh' | 'piglet' | 'tigger' | 'rabbit' | 'owl' | 'eeyore' | 'kanga' | 'robin' | 'small' | 'bee' | 'woozle' | 'heffalump';
+export type PortraitId = 'pooh' | 'piglet' | 'tigger' | 'rabbit' | 'owl' | 'eeyore' | 'kanga' | 'robin' | 'small' | 'bee' | 'woozle' | 'heffalump'
+  | 'roo' | 'poohpiglet' | 'relations';
 
 const BY_EMOJI: Record<string, PortraitId> = {
   '🐻': 'pooh', '🐷': 'piglet', '🐯': 'tigger', '🐰': 'rabbit', '🦉': 'owl', '🐴': 'eeyore',
   '🦘': 'kanga', '🧒': 'robin', '🐞': 'small', '🐝': 'bee', '🐾': 'woozle', '🐘': 'heffalump',
+  '🐣': 'roo', '🐻🐷': 'poohpiglet', '🐇': 'relations',
 };
 
 export const portraitFor = (emoji: string): PortraitId | null => BY_EMOJI[emoji] ?? null;
@@ -42,7 +44,10 @@ const Whiskers = ({ y = 66 }: { y?: number }) => (
   </G>
 );
 
-const ART: Record<PortraitId, () => React.ReactElement> = {
+// Until their own picture is added, these borrow the closest existing portrait.
+const STAND_IN: Partial<Record<PortraitId, PortraitId>> = { roo: 'kanga', poohpiglet: 'piglet', relations: 'rabbit' };
+
+const ART: Partial<Record<PortraitId, () => React.ReactElement>> = {
   heffalump: () => (
     <G>
       <Ellipse cx={24} cy={50} rx={16} ry={22} fill="#B8B4AE" {...sw} />
@@ -212,11 +217,12 @@ export function Portrait({ id, emoji, size, style, ring = '#FFF8E6' }: Props) {
   if (!pid) {
     return <View style={[frame, style]}><Text style={{ fontSize: size * 0.6 }}>{emoji}</Text></View>;
   }
-  const image = PORTRAIT_IMAGES[pid];
+  const stand = STAND_IN[pid];
+  const image = PORTRAIT_IMAGES[pid] ?? (stand && PORTRAIT_IMAGES[stand]);
   if (image) {
     return <View style={[frame, style]}><Image source={image} style={{ width: '100%', height: '100%' }} resizeMode="cover" /></View>;
   }
-  const Art = ART[pid];
+  const Art = (ART[pid] ?? (stand && ART[stand]))!;
   return (
     <View style={[frame, style]}>
       <Svg width="100%" height="100%" viewBox="0 0 100 100"><Art /></Svg>

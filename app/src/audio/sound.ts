@@ -93,9 +93,13 @@ export function playTap(lucky = false) {
 /** Home level-ups step up a scale (wrapping every 8 levels), so progress sounds like climbing. */
 export const playLevel = (level: number) => playFile(`level${level % 8}` as SoundName);
 
+// Characters without a tune of their own borrow a close one.
+const MOTIF_STAND_IN: Partial<Record<PortraitId, PortraitId>> = { roo: 'kanga', poohpiglet: 'pooh', relations: 'rabbit' };
+
 /** Each character's own little tune. */
 export function playMotif(who: PortraitId | null) {
-  if (who && `motif-${who}` in SOUND_FILES) playFile(`motif-${who}` as SoundName);
+  const id = who && (`motif-${who}` in SOUND_FILES ? who : MOTIF_STAND_IN[who]);
+  if (id) playFile(`motif-${id}` as SoundName);
 }
 
 /** Starts the background music (after the first tap). */
