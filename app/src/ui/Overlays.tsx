@@ -12,6 +12,15 @@ import { say } from '../audio/voices';
 // Golden balloons drift up the screen now and then. Catch one for a bonus —
 // and your partner gets a little shared joy too.
 const BALLOON = require('../../assets/art/balloon.png');
+// The framed story cards, shown at the game's big moments.
+const CARDS = {
+  hunny: require('../../assets/art/card-hunny.png'),
+  balloon: require('../../assets/art/card-balloon.png'),
+  honeycomb: require('../../assets/art/card-honeycomb.png'),
+};
+const StoryCard = ({ card, height }: { card: keyof typeof CARDS; height: number }) => (
+  <Image source={CARDS[card]} style={[styles.card, { height, width: height * 800 / 960 }]} />
+);
 
 export function BalloonLayer() {
   const game = useGame();
@@ -90,11 +99,26 @@ export function WelcomeBack() {
   return (
     <View style={styles.scrim}>
       <View style={styles.modal}>
-        <View style={{ alignItems: 'center' }}><Portrait id="pooh" size={84} /><Text style={{ fontSize: 28, marginTop: -16, marginLeft: 70 }}>💤</Text></View>
+        <StoryCard card="hunny" height={210} />
         <Text style={styles.title}>Welcome back, {s.profile.name}!</Text>
         <Text style={styles.body}>While you were away for {fmtTime(welcomeBack.seconds)}, your managers made</Text>
         <Text style={styles.amount}>{fmt(welcomeBack.earned)} honey</Text>
         <Button label="Lovely!" onPress={() => { dismissWelcome(); play('welcome'); }} />
+      </View>
+    </View>
+  );
+}
+
+/** Shown when you wake from a nap. */
+export function NapWake({ combs, onClose }: { combs: number; onClose: () => void }) {
+  return (
+    <View style={styles.scrim}>
+      <View style={styles.modal}>
+        <StoryCard card="honeycomb" height={240} />
+        <Text style={styles.title}>Zzz… good morning!</Text>
+        <Text style={styles.body}>You dreamed of honey and woke up with</Text>
+        <Text style={styles.amount}>{fmt(combs)} Golden Honeycombs</Text>
+        <Button label="Back to work!" onPress={onClose} />
       </View>
     </View>
   );
@@ -107,7 +131,7 @@ export function Onboarding() {
   return (
     <View style={styles.scrim}>
       <View style={styles.modal}>
-        <Text style={{ fontSize: 50, textAlign: 'center' }}>🌳🍯🐝</Text>
+        <StoryCard card="balloon" height={150} />
         <Text style={styles.title}>100 Acre Inc</Text>
         <Text style={styles.body}>Build a honey empire in the Hundred Acre Wood — with a friend. What shall we call you?</Text>
         <TextInput
@@ -132,6 +156,7 @@ export function Onboarding() {
 }
 
 const styles = StyleSheet.create({
+  card: { alignSelf: 'center', borderRadius: 6 },
   balloon: { alignItems: 'center' },
   balloonArt: { width: 110, height: 110, marginBottom: -26 },
   toasts: { position: 'absolute', top: 76, left: 16, right: 16, alignItems: 'center', zIndex: 50 },

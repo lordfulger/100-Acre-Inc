@@ -7,6 +7,7 @@ import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
 import { ProfileCard } from '../ui/ProfileCard';
 import { SoundCard } from '../ui/SoundCard';
+import { NapWake } from '../ui/Overlays';
 import { play } from '../audio/sound';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
 
@@ -14,6 +15,7 @@ export function NapScreen() {
   const { s, act, toast, now, startOver } = useGame();
   const [confirm, setConfirm] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [woke, setWoke] = useState(0);
   useEffect(() => {
     if (!confirmReset) return;
     const t = setTimeout(() => setConfirmReset(false), 5000);
@@ -36,103 +38,106 @@ export function NapScreen() {
   const newBonus = (combs + pending) * COMB_BONUS * 100;
 
   return (
-    <ScrollView contentContainerStyle={styles.list}>
-      <Section title="🌼 Honey Varieties" />
-      <Card style={{ borderColor: v.deep }}>
-        <View style={styles.varRow}>
-          {shown.map((i) => varietyAt(i)).map((x, k) => ({ x, i: first + k })).map(({ x, i }) => (
-            <View key={i} style={[styles.varDot, { backgroundColor: i <= s.variety ? x.color : '#EEE3C8', borderColor: i === s.variety ? C.ink : 'transparent' }]}>
-              <Text style={{ fontSize: 16, opacity: i <= s.variety ? 1 : 0.35 }}>{x.emoji}</Text>
-            </View>
-          ))}
-        </View>
-        <Text style={styles.big}>{v.emoji} {v.name}</Text>
-        <Text style={styles.body}>Everything you make is worth ×{v.mult}. Varieties are kept forever, even through naps.</Text>
-        {next ? (
-          <View style={styles.actionRow}>
-            <Text style={[styles.body, { flex: 1 }]}>Next: <Text style={{ fontWeight: '900' }}>{next.emoji} {next.name}</Text> (×{next.mult})</Text>
-            <Button
-              label="Discover" sub={fmt(varietyCost(s, s.variety + 1))} color={next.deep} disabled={s.honey < varietyCost(s, s.variety + 1)}
-              onPress={() => { if (act((g) => buyVariety(g))) { buzz('success'); play('magic'); toast(`${next.emoji} You discovered ${next.name}!`); } }}
-            />
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.list}>
+        <Section title="🌼 Honey Varieties" />
+        <Card style={{ borderColor: v.deep }}>
+          <View style={styles.varRow}>
+            {shown.map((i) => varietyAt(i)).map((x, k) => ({ x, i: first + k })).map(({ x, i }) => (
+              <View key={i} style={[styles.varDot, { backgroundColor: i <= s.variety ? x.color : '#EEE3C8', borderColor: i === s.variety ? C.ink : 'transparent' }]}>
+                <Text style={{ fontSize: 16, opacity: i <= s.variety ? 1 : 0.35 }}>{x.emoji}</Text>
+              </View>
+            ))}
           </View>
-        ) : <Text style={styles.body}>👑 You've found the finest honey in all the wood.</Text>}
-      </Card>
-
-      <Section title="😴 Pooh's Nap" />
-      <Card>
-        <Text style={styles.body}>
-          Curl up for a nap and dream of honey. You start your businesses over, but wake with{' '}
-          <Text style={{ fontWeight: '900' }}>Golden Honeycombs</Text> — each one adds +{COMB_BONUS * 100}% honey forever. Combs from Expotitions are kept too.
-        </Text>
-        <Image source={require('../../assets/art/honeycomb.png')} style={styles.comb} />
-        <View style={styles.stats}>
-          <View style={styles.stat}><Text style={styles.statNum}>{fmt(combs)}</Text><Text style={styles.statLabel}>combs now</Text></View>
-          <View style={styles.stat}><Text style={[styles.statNum, { color: C.green }]}>+{fmt(pending)}</Text><Text style={styles.statLabel}>if you nap</Text></View>
-          <View style={styles.stat}><Text style={styles.statNum}>+{fmt(newBonus)}%</Text><Text style={styles.statLabel}>bonus after</Text></View>
-        </View>
-        <Text style={styles.small}>Next comb at {fmt(nextAt)} all-time honey (you have {fmt(s.allTimeEarned)})</Text>
-        <Bar value={s.allTimeEarned / nextAt} color={v.deep} />
-        <Button
-          style={{ marginTop: 12 }}
-          color={confirm ? C.red : C.blue}
-          label={confirm ? 'Tap again to nap — this resets your businesses!' : pending > 0 ? `Take a nap (+${fmt(pending)} combs)` : 'Not sleepy yet'}
-          disabled={pending < 1}
-          onPress={() => {
-            if (!confirm) return setConfirm(true);
-            const got = act((g, t) => nap(g, t));
-            if (got) play('nap');
-            setConfirm(false);
-            if (got) toast(`😴 Zzz… you woke up with ${fmt(got)} Golden Honeycombs!`);
-          }}
-        />
-        <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
-      </Card>
-
-      <Section title="🧸 You" />
-      <ProfileCard />
-
-      <Section title="🔊 Sound" />
-      <SoundCard />
-
-      <Section title="☁️ Cloud save" />
-      <CloudCard />
-
-      <Section title="📜 Your story so far" />
-      <Card>
-        {[
-          ['Playing for', fmtTime((now - s.stats.startedAt) / 1000)],
-          ['All-time honey', fmt(s.allTimeEarned)],
-          ['Honey this nap', fmt(s.runEarned)],
-          ['Pot taps', fmt(s.stats.taps)],
-          ['Balloons caught', fmt(s.stats.balloons)],
-          ['Naps taken', fmt(s.stats.naps)],
-          ['Hugs received', fmt(s.stats.hugsGot)],
-          ['Gifts sent', fmt(s.stats.giftsSent)],
-        ].map(([k, val]) => (
-          <View key={k} style={styles.kv}><Text style={styles.k}>{k}</Text><Text style={styles.v}>{val}</Text></View>
-        ))}
-      </Card>
-
-      <Section title="🌱 Start over" />
-      <Card>
-        <Text style={styles.body}>
-          Begin again from a single Bee Tree. This wipes your honey, homes, add-ons, store items, Golden Honeycombs and honey varieties
-          {s.profile.cloud ? ', including your cloud save' : ''}. Your name, character, room and settings stay.
-        </Text>
-        <Button
-          style={{ marginTop: 10 }}
-          color={C.red}
-          outline={!confirmReset}
-          label={confirmReset ? 'Tap again to wipe everything and start over' : 'Start over'}
-          onPress={() => {
-            if (!confirmReset) return setConfirmReset(true);
-            setConfirmReset(false);
-            startOver();
-          }}
-        />
-      </Card>
-    </ScrollView>
+          <Text style={styles.big}>{v.emoji} {v.name}</Text>
+          <Text style={styles.body}>Everything you make is worth ×{v.mult}. Varieties are kept forever, even through naps.</Text>
+          {next ? (
+            <View style={styles.actionRow}>
+              <Text style={[styles.body, { flex: 1 }]}>Next: <Text style={{ fontWeight: '900' }}>{next.emoji} {next.name}</Text> (×{next.mult})</Text>
+              <Button
+                label="Discover" sub={fmt(varietyCost(s, s.variety + 1))} color={next.deep} disabled={s.honey < varietyCost(s, s.variety + 1)}
+                onPress={() => { if (act((g) => buyVariety(g))) { buzz('success'); play('magic'); toast(`${next.emoji} You discovered ${next.name}!`); } }}
+              />
+            </View>
+          ) : <Text style={styles.body}>👑 You've found the finest honey in all the wood.</Text>}
+        </Card>
+  
+        <Section title="😴 Pooh's Nap" />
+        <Card>
+          <Text style={styles.body}>
+            Curl up for a nap and dream of honey. You start your businesses over, but wake with{' '}
+            <Text style={{ fontWeight: '900' }}>Golden Honeycombs</Text> — each one adds +{COMB_BONUS * 100}% honey forever. Combs from Expotitions are kept too.
+          </Text>
+          <Image source={require('../../assets/art/honeycomb.png')} style={styles.comb} />
+          <View style={styles.stats}>
+            <View style={styles.stat}><Text style={styles.statNum}>{fmt(combs)}</Text><Text style={styles.statLabel}>combs now</Text></View>
+            <View style={styles.stat}><Text style={[styles.statNum, { color: C.green }]}>+{fmt(pending)}</Text><Text style={styles.statLabel}>if you nap</Text></View>
+            <View style={styles.stat}><Text style={styles.statNum}>+{fmt(newBonus)}%</Text><Text style={styles.statLabel}>bonus after</Text></View>
+          </View>
+          <Text style={styles.small}>Next comb at {fmt(nextAt)} all-time honey (you have {fmt(s.allTimeEarned)})</Text>
+          <Bar value={s.allTimeEarned / nextAt} color={v.deep} />
+          <Button
+            style={{ marginTop: 12 }}
+            color={confirm ? C.red : C.blue}
+            label={confirm ? 'Tap again to nap — this resets your businesses!' : pending > 0 ? `Take a nap (+${fmt(pending)} combs)` : 'Not sleepy yet'}
+            disabled={pending < 1}
+            onPress={() => {
+              if (!confirm) return setConfirm(true);
+              const got = act((g, t) => nap(g, t));
+              if (got) play('nap');
+              setConfirm(false);
+              if (got) setWoke(got);
+            }}
+          />
+          <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
+        </Card>
+  
+        <Section title="🧸 You" />
+        <ProfileCard />
+  
+        <Section title="🔊 Sound" />
+        <SoundCard />
+  
+        <Section title="☁️ Cloud save" />
+        <CloudCard />
+  
+        <Section title="📜 Your story so far" />
+        <Card>
+          {[
+            ['Playing for', fmtTime((now - s.stats.startedAt) / 1000)],
+            ['All-time honey', fmt(s.allTimeEarned)],
+            ['Honey this nap', fmt(s.runEarned)],
+            ['Pot taps', fmt(s.stats.taps)],
+            ['Balloons caught', fmt(s.stats.balloons)],
+            ['Naps taken', fmt(s.stats.naps)],
+            ['Hugs received', fmt(s.stats.hugsGot)],
+            ['Gifts sent', fmt(s.stats.giftsSent)],
+          ].map(([k, val]) => (
+            <View key={k} style={styles.kv}><Text style={styles.k}>{k}</Text><Text style={styles.v}>{val}</Text></View>
+          ))}
+        </Card>
+  
+        <Section title="🌱 Start over" />
+        <Card>
+          <Text style={styles.body}>
+            Begin again from a single Bee Tree. This wipes your honey, homes, add-ons, store items, Golden Honeycombs and honey varieties
+            {s.profile.cloud ? ', including your cloud save' : ''}. Your name, character, room and settings stay.
+          </Text>
+          <Button
+            style={{ marginTop: 10 }}
+            color={C.red}
+            outline={!confirmReset}
+            label={confirmReset ? 'Tap again to wipe everything and start over' : 'Start over'}
+            onPress={() => {
+              if (!confirmReset) return setConfirmReset(true);
+              setConfirmReset(false);
+              startOver();
+            }}
+          />
+        </Card>
+      </ScrollView>
+      {woke > 0 && <NapWake combs={woke} onClose={() => setWoke(0)} />}
+    </View>
   );
 }
 
