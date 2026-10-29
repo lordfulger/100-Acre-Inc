@@ -12,14 +12,18 @@ const loading = new Map<string, Promise<void>>();
 let musicSource: AudioBufferSourceNode | null = null;
 let musicGain: GainNode | null = null;
 
-/** Creates/wakes the engine. Must be called from a finished tap the first time. */
+/**
+ * Creates/wakes the engine. Phones only allow this during a finished tap, and
+ * after switching apps iPhones leave it "interrupted", so it's called on every
+ * tap: whenever the engine isn't running, the next tap starts it again.
+ */
 export function wake() {
   if (!ctx) {
     const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
   }
-  if (ctx!.state === 'suspended') ctx!.resume().catch(() => {});
+  if (ctx!.state !== 'running') ctx!.resume().catch(() => {});
 }
 
 export function sleep() {

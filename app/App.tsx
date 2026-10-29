@@ -28,16 +28,13 @@ const TABS: { id: Tab; label: string; emoji: string }[] = [
 ];
 
 // Phones and browsers only allow music to start after the first tap.
-// Phone browsers only allow sound after a *finished* tap, so on the web we wait for the
-// first touchend/click to start the music and unlock every sound effect.
+// Phone browsers only allow sound after a *finished* tap, and pause it again when you
+// switch apps, so on the web every tap makes sure sound is unlocked and running
+// (cheap when it already is).
 let musicStarted = false;
 const musicOnFirstTouch = () => { if (Platform.OS !== 'web' && !musicStarted) { musicStarted = true; startMusic(); } };
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
-  const unlock = () => {
-    unlockAudio();
-    for (const e of ['touchend', 'click', 'keydown']) document.removeEventListener(e, unlock, true);
-  };
-  for (const e of ['touchend', 'click', 'keydown']) document.addEventListener(e, unlock, true);
+  for (const e of ['touchend', 'click', 'keydown']) document.addEventListener(e, () => unlockAudio(), true);
 }
 
 function Game() {
