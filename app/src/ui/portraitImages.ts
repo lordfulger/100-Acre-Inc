@@ -2,4 +2,11 @@
 import { ImageSourcePropType } from 'react-native';
 
 export const PORTRAIT_IMAGES: Partial<Record<string, ImageSourcePropType>> = {
+  pooh: require('../../assets/portraits/pooh.png'),
+  piglet: require('../../assets/portraits/piglet.png'),
+  tigger: require('../../assets/portraits/tigger.png'),
+  rabbit: require('../../assets/portraits/rabbit.png'),
+  owl: require('../../assets/portraits/owl.png'),
+  eeyore: require('../../assets/portraits/eeyore.png'),
+  kanga: require('../../assets/portraits/kanga.png'),
 };
