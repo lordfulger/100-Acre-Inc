@@ -63,9 +63,9 @@ To try the hosted version locally: `cd app && npm run build:web`, then `cd serve
 
 ## Music, sounds and voices
 
-Everything you hear is original and made in code: `npm run sounds` (in `app/`) rebuilds `assets/sounds/` from `scripts/make-sounds.js`, including the background music, "Honey on the Hill" (a music-box waltz), and the tap, buy, hire, upgrade, balloon, hug, gift and nap sounds.
+Everything you hear is original and made in code: `npm run sounds` (in `app/`) rebuilds `assets/sounds/` from `scripts/make-sounds.js` — the background waltz "Honey on the Hill", 20 soft marimba and kalimba effects (unlocks, milestones, add-ons, store, new honey varieties, balloons, a Bee Frenzy buzz, chat, Expotition rewards, welcome back…), tapping that plays a little pentatonic tune as you tap quickly, home level-ups that climb a scale, and a short musical motif for each of the 12 characters.
 
-Characters can speak in your own recorded voices: drop clips like `pooh-1.m4a` into `app/assets/voices/` (see the README there) and they play when you hire a character, when their home gets a new look, and when hugs or balloons arrive. Without recordings, characters stay quiet. Music, sound effects and voices each have a switch on the **Nap** tab.
+Characters play their motif when you hire them, when their home gets a new look, and when they send a hug. To give them real voices, record yourselves: drop clips like `pooh-1.m4a` into `app/assets/voices/` (see the README there). Music, sound effects and (when you have recordings) voices each have a switch on the **Nap** tab.
 
 ## Cloud saves (Google sign-in)
 

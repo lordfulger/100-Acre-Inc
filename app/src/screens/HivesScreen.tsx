@@ -15,6 +15,11 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
   const { s, d, now, act } = useGame();
   const st = s.biz[b.id];
   const info = d.biz[b.id];
+  const buy = () => {
+    const before = st.owned;
+    if (!act((g, t) => buyBiz(g, b.id, mode, t))) return;
+    play(before === 0 ? 'unlock' : s.biz[b.id].owned >= info.nextMilestone ? 'milestone' : 'buy');
+  };
   const v = varietyAt(s.variety);
   const q = quote(s, b.id, mode);
   const canBuy = s.honey >= q.cost;
@@ -30,7 +35,7 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
           <Text style={styles.name}>{b.name}</Text>
           <Text style={styles.blurb} numberOfLines={2}>{b.blurb}</Text>
         </View>
-        <Button label="Unlock" sub={fmt(q.cost)} disabled={!canBuy} onPress={() => { if (act((g, t) => buyBiz(g, b.id, mode, t))) play('buy'); }} />
+        <Button label="Unlock" sub={fmt(q.cost)} disabled={!canBuy} onPress={buy} />
       </Card>
     );
   }
@@ -64,7 +69,7 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
           label={`×${q.n}`}
           sub={fmt(q.cost)}
           disabled={!canBuy}
-          onPress={() => { if (act((g, t) => buyBiz(g, b.id, mode, t))) play('buy'); }}
+          onPress={buy}
           style={{ minWidth: 76 }}
         />
       </View>

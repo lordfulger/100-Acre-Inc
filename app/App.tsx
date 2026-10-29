@@ -14,7 +14,7 @@ import { WoodScreen } from './src/screens/WoodScreen';
 import { GameProvider, useGame } from './src/state/GameContext';
 import { Header } from './src/ui/Header';
 import { C } from './src/ui/kit';
-import { startMusic } from './src/audio/sound';
+import { play, startMusic } from './src/audio/sound';
 import { CloudConflict } from './src/ui/CloudCard';
 import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
 
@@ -61,7 +61,7 @@ function Game() {
       </View>
       <View style={styles.tabs}>
         {TABS.map((t) => (
-          <Pressable key={t.id} onPress={() => setTab(t.id)} style={styles.tab} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }}>
+          <Pressable key={t.id} onPress={() => { if (t.id !== tab) play('tick'); setTab(t.id); }} style={styles.tab} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }}>
             <Text style={[styles.tabEmoji, tab !== t.id && { opacity: 0.55 }]}>{t.emoji}</Text>
             <Text style={[styles.tabLabel, tab === t.id && { color: accent }]}>{t.label}</Text>
             {badges[t.id] && <View style={[styles.badge, { backgroundColor: t.id === 'wood' ? C.pink : C.green }]}><Text style={styles.badgeText}>{badges[t.id]}</Text></View>}

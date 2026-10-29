@@ -26,7 +26,7 @@ export function SoundCard() {
             onValueChange={(on) => {
               act((g) => { g.settings = { ...g.settings, [r.key]: on }; });
               // A little preview so you can hear what you switched on.
-              if (on && r.key === 'sfx') setTimeout(() => play('buy'), 50);
+              if (on && r.key === 'sfx') setTimeout(() => play('shop'), 50);
               if (on && r.key === 'voices') setTimeout(() => say('pooh', 'hello'), 50);
             }}
             trackColor={{ true: C.green, false: C.disabled }}

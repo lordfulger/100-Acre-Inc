@@ -6,7 +6,7 @@ import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
-import { play } from '../audio/sound';
+import { playTap } from '../audio/sound';
 
 type Pop = { id: number; x: number; text: string; anim: Animated.Value };
 let popId = 0;
@@ -20,7 +20,7 @@ function HoneyPot() {
   const onTap = () => {
     const before = d.tapValue;
     const value = act((st, now) => tap(st, now));
-    play(value > before * 1.5 ? 'lucky' : 'tap');
+    playTap(value > before * 1.5);
     buzz();
     scale.setValue(0.86);
     Animated.spring(scale, { toValue: 1, friction: 3, tension: 160, useNativeDriver: nativeDriver }).start();

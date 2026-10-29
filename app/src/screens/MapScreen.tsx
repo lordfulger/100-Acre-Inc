@@ -8,7 +8,7 @@ import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C } from '../ui/kit';
 import { Portrait, portraitFor } from '../ui/Portrait';
 import { HAND, WoodMap } from '../ui/WoodMap';
-import { play } from '../audio/sound';
+import { play, playLevel } from '../audio/sound';
 import { say } from '../audio/voices';
 
 const ALL_IDS = [POOH_HOUSE.id, ...BUSINESSES.map((b) => b.id)];
@@ -31,7 +31,8 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const upgrade = () => {
     if (!act((g) => upgradeBuilding(g, id))) return;
     buzz(next.newLook ? 'success' : 'light');
-    play(next.newLook ? 'upgrade' : 'buy');
+    if (next.newLook) play('upgrade');
+    else playLevel(level + 1);
     if (next.newLook) say(managerId, 'upgrade');
     if (next.newLook) toast(`🔨 ${name} is now ${lookName(level + 1)}! ${nextPerk}!`);
   };
@@ -39,7 +40,7 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <View style={styles.sheet}>
       <View style={styles.sheetHead}>
-        <Portrait id={managerId} size={44} style={{ marginRight: 8 }} />
+        <Portrait id={id === 'heffalump' ? 'heffalump' : managerId} size={44} style={{ marginRight: 8 }} />
         <View style={{ flex: 1 }}>
           <Text style={styles.title} numberOfLines={1}>{name}</Text>
           <Text style={styles.blurb} numberOfLines={2}>{isPooh ? POOH_HOUSE.blurb : b!.blurb}</Text>
@@ -50,7 +51,7 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
       {b && owned === 0 ? (
         <View style={styles.row}>
           <Text style={[styles.info, { flex: 1 }]}>Nobody lives here yet. Unlock it to start making honey here!</Text>
-          <Button label="Unlock" sub={fmt(buy!.cost)} disabled={s.honey < buy!.cost} onPress={() => { if (act((g, t) => buyBiz(g, id, 1, t))) play('buy'); }} />
+          <Button label="Unlock" sub={fmt(buy!.cost)} disabled={s.honey < buy!.cost} onPress={() => { if (act((g, t) => buyBiz(g, id, 1, t))) { play('unlock'); say(managerId, 'hello'); } }} />
         </View>
       ) : (
         <>
@@ -86,7 +87,7 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
                 {a.owned ? (
                   <Text style={styles.addonDone}>✓ Owned</Text>
                 ) : a.unlocked ? (
-                  <Button small label="Buy" sub={fmt(a.cost)} disabled={s.honey < a.cost} onPress={() => { if (act((g) => buyAddon(g, id, a.index))) { buzz('success'); play('upgrade'); say(managerId, 'upgrade'); toast(`${a.emoji} ${a.name} added to ${name}!`); } }} />
+                  <Button small label="Buy" sub={fmt(a.cost)} disabled={s.honey < a.cost} onPress={() => { if (act((g) => buyAddon(g, id, a.index))) { buzz('success'); play('addon'); say(managerId, 'upgrade'); toast(`${a.emoji} ${a.name} added to ${name}!`); } }} />
                 ) : (
                   <Text style={styles.addonLock}>At Lv {a.level}</Text>
                 )}

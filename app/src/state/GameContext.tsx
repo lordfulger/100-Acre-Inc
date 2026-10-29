@@ -195,7 +195,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           sendStats();
           break;
         case 'roster': setNet((n) => ({ ...n, roster: m.roster })); break;
-        case 'chat': setNet((n) => ({ ...n, chat: [...n.chat.slice(-59), m.msg] })); break;
+        case 'chat':
+          setNet((n) => ({ ...n, chat: [...n.chat.slice(-59), m.msg] }));
+          if (m.msg.from !== netRef.current.you) play('pop');
+          break;
         case 'contract': setNet((n) => ({ ...n, contract: m.contract })); break;
         case 'gift':
           receiveGift(s, m.amount * derive(s, now).giftMult);
@@ -215,6 +218,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           toast(`🎈 ${m.avatar} ${m.name} caught a balloon — shared joy! ×2 honey for 20s`);
           break;
         case 'reward':
+          play('fanfare');
           s.combsBonus += m.combs;
           if (m.boost) addBoost(s, 'profit', m.boost.mult, m.boost.secs, m.name, now);
           toast(`🏆 ${m.name}: +${m.combs} Golden Honeycombs${m.boost ? ` and ×${m.boost.mult} honey!` : ''}`);

@@ -7,11 +7,11 @@ import { Image, StyleProp, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { PORTRAIT_IMAGES } from './portraitImages';
 
-export type PortraitId = 'pooh' | 'piglet' | 'tigger' | 'rabbit' | 'owl' | 'eeyore' | 'kanga' | 'robin' | 'small' | 'bee' | 'woozle';
+export type PortraitId = 'pooh' | 'piglet' | 'tigger' | 'rabbit' | 'owl' | 'eeyore' | 'kanga' | 'robin' | 'small' | 'bee' | 'woozle' | 'heffalump';
 
 const BY_EMOJI: Record<string, PortraitId> = {
   '🐻': 'pooh', '🐷': 'piglet', '🐯': 'tigger', '🐰': 'rabbit', '🦉': 'owl', '🐴': 'eeyore',
-  '🦘': 'kanga', '🧒': 'robin', '🐞': 'small', '🐝': 'bee', '🐾': 'woozle',
+  '🦘': 'kanga', '🧒': 'robin', '🐞': 'small', '🐝': 'bee', '🐾': 'woozle', '🐘': 'heffalump',
 };
 
 export const portraitFor = (emoji: string): PortraitId | null => BY_EMOJI[emoji] ?? null;
@@ -43,6 +43,15 @@ const Whiskers = ({ y = 66 }: { y?: number }) => (
 );
 
 const ART: Record<PortraitId, () => React.ReactElement> = {
+  heffalump: () => (
+    <G>
+      <Ellipse cx={24} cy={50} rx={16} ry={22} fill="#B8B4AE" {...sw} />
+      <Ellipse cx={76} cy={50} rx={16} ry={22} fill="#B8B4AE" {...sw} />
+      <Circle cx={50} cy={48} r={26} fill="#C9C5BE" {...sw} />
+      <Path d="M44 60 Q42 80 50 90 Q54 94 58 88" stroke={INK} strokeWidth={1.6} fill="#C9C5BE" />
+      <Eyes y={44} dx={11} r={2.6} />
+    </G>
+  ),
   pooh: () => (
     <G>
       <Circle cx={27} cy={30} r={12} fill="#D9A55B" {...sw} /><Circle cx={27} cy={30} r={6} fill="#EBC48A" />

@@ -37,7 +37,7 @@ export function ShopScreen() {
                   {n.maxed ? (
                     <Text style={styles.maxed}>Maxed!</Text>
                   ) : (
-                    <Button label="Buy" sub={fmt(n.cost)} disabled={s.honey < n.cost} onPress={() => { if (act((g) => buyResearch(g, r.id))) { buzz('success'); play('buy'); } }} />
+                    <Button label="Buy" sub={fmt(n.cost)} disabled={s.honey < n.cost} onPress={() => { if (act((g) => buyResearch(g, r.id))) { buzz('success'); play('shop'); } }} />
                   )}
                 </Card>
               );

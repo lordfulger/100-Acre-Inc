@@ -13,4 +13,5 @@ export const PORTRAIT_IMAGES: Partial<Record<string, ImageSourcePropType>> = {
   small: require('../../assets/portraits/small.png'),
   bee: require('../../assets/portraits/bee.png'),
   woozle: require('../../assets/portraits/woozle.png'),
+  heffalump: require('../../assets/portraits/heffalump.png'),
 };

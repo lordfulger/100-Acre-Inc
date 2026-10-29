@@ -171,11 +171,54 @@ function music() {
 
 const finish = (o, cutoff = 3500, reverb = 0.8) => room(lowpass(o, cutoff), reverb);
 
-const SFX = {
-  // Three slightly different honey "bloops" so rapid tapping doesn't sound like a machine gun.
-  tap1: () => { const o = silence(0.16); drop(o, 0, 420, 640, 0.09, 1); return finish(o, 2600, 0.3); },
-  tap2: () => { const o = silence(0.16); drop(o, 0, 470, 720, 0.085, 1); return finish(o, 2600, 0.3); },
-  tap3: () => { const o = silence(0.16); drop(o, 0, 380, 580, 0.095, 1); return finish(o, 2600, 0.3); },
+/** A soft rising/falling breath of air (balloon drifting in). */
+function swell(out, start, len, amp, seed = 3) {
+  let x = seed;
+  const n = Math.floor(len * RATE);
+  const i0 = Math.floor(start * RATE);
+  for (let i = 0; i < n && i0 + i < out.length; i++) {
+    x = (x * 1103515245 + 12345) & 0x7fffffff;
+    out[i0 + i] += amp * ((x / 0x7fffffff) * 2 - 1) * Math.sin(Math.PI * (i / n)) ** 2;
+  }
+}
+
+/** A gentle hum with a slight wobble (bees, Owl's "hoo", the Heffalump). */
+function hum(out, start, f0, f1, len, amp, { wobble = 5, depth = 0.02, buzz = 0 } = {}) {
+  let phase = 0;
+  const n = Math.floor(len * RATE);
+  const i0 = Math.floor(start * RATE);
+  for (let i = 0; i < n && i0 + i < out.length; i++) {
+    const t = i / RATE;
+    const f = (f0 + (f1 - f0) * (t / len)) * (1 + depth * Math.sin(2 * Math.PI * wobble * t));
+    phase += (2 * Math.PI * f) / RATE;
+    const env = Math.min(1, t / 0.04) * Math.min(1, (len - t) / 0.08);
+    const wave = Math.sin(phase) + buzz * (Math.sin(2 * phase) / 2 + Math.sin(3 * phase) / 3);
+    out[i0 + i] += amp * env * wave;
+  }
+}
+
+const notes = (fn, list, gap, ...args) => (o) => list.forEach((m, i) => fn(o, i * gap, m, ...args));
+
+// The tap "melody": a G-major pentatonic scale, walked up and down as you tap quickly.
+const PENTA = [67, 69, 71, 74, 76, 79, 81, 83];
+// Home upgrades step up a G-major scale, so levelling sounds like climbing.
+const MAJOR = [67, 69, 71, 72, 74, 76, 78, 79];
+
+const SFX = {};
+PENTA.forEach((m, i) => {
+  SFX[`tap${i}`] = () => {
+    const o = silence(0.3);
+    const f = 440 * 2 ** ((m - 69) / 12);
+    drop(o, 0, f * 0.7, f, 0.08, 0.8);
+    kalimba(o, 0.005, m, 0.35, 10, 0.3);
+    return finish(o, 3000, 0.3);
+  };
+});
+MAJOR.forEach((m, i) => {
+  SFX[`level${i}`] = () => { const o = silence(0.8); marimba(o, 0, m, 0.7, 6); marimba(o, 0.07, m + 12, 0.35, 8); return finish(o); };
+});
+
+Object.assign(SFX, {
   lucky: () => { const o = silence(0.9); kalimba(o, 0, 88, 0.6, 5); kalimba(o, 0.07, 93, 0.5, 5); kalimba(o, 0.14, 100, 0.35, 6); return finish(o, 4500); },
   buy: () => { const o = silence(0.7); marimba(o, 0, 72, 0.7, 7); marimba(o, 0.07, 79, 0.6, 7); return finish(o); },
   hire: () => { const o = silence(1.3); [67, 71, 74, 79].forEach((m, i) => marimba(o, i * 0.09, m, 0.6, 5)); return finish(o); },
@@ -185,17 +228,72 @@ const SFX = {
     [48, 55, 64].forEach((m) => warm(o, 0.28, m, 0.6, 0.12, 0.08, 0.6));
     return finish(o, 4000, 1);
   },
+  unlock: () => {
+    const o = silence(2);
+    [67, 71, 74, 79, 83].forEach((m, i) => kalimba(o, i * 0.07, m, 0.4, 3));
+    [43, 55, 59, 62].forEach((m) => warm(o, 0.1, m, 1, 0.1, 0.15, 0.7));
+    return finish(o, 3800, 1.2);
+  },
+  milestone: () => { const o = silence(1.2); [79, 83, 86].forEach((m, i) => marimba(o, i * 0.06, m, 0.55, 6)); kalimba(o, 0.2, 91, 0.4, 4); return finish(o); },
+  addon: () => { const o = silence(1.2); kalimba(o, 0, 76, 0.45, 4); kalimba(o, 0.08, 83, 0.45, 4); kalimba(o, 0.2, 88, 0.25, 6); kalimba(o, 0.26, 95, 0.18, 7); return finish(o, 4200); },
+  shop: () => { const o = silence(0.8); marimba(o, 0, 84, 0.55, 8); marimba(o, 0.08, 79, 0.6, 7); puff(o, 0, 0.02, 0.08, 11); return finish(o); },
+  magic: () => {
+    const o = silence(2.4);
+    [72, 76, 79, 83, 84, 88, 91, 95, 96].forEach((m, i) => kalimba(o, i * 0.04, m, 0.28, 3.5));
+    [48, 55, 64, 67].forEach((m) => warm(o, 0.25, m, 1.2, 0.09, 0.3, 0.8));
+    return finish(o, 4500, 1.4);
+  },
   balloon: () => { const o = silence(0.5); puff(o, 0, 0.05, 0.5, 7); drop(o, 0.005, 260, 140, 0.12, 0.6); kalimba(o, 0.06, 91, 0.2, 7); return finish(o, 2400, 0.5); },
+  whoosh: () => { const o = silence(0.9); swell(o, 0, 0.8, 0.5); kalimba(o, 0.45, 91, 0.12, 5); return finish(o, 1200, 0.6); },
+  buzz: () => { const o = silence(0.9); hum(o, 0, 210, 240, 0.8, 0.4, { wobble: 23, depth: 0.03, buzz: 0.8 }); return finish(o, 1400, 0.3); },
   hug: () => {
     const o = silence(2);
     [84, 81, 79, 76, 72].forEach((m, i) => kalimba(o, i * 0.11, m, 0.32, 3));
     [60, 64, 67].forEach((m) => warm(o, 0.05, m, 1.1, 0.08, 0.25, 0.7));
     return finish(o, 3500, 1.2);
   },
-  nap: () => { const o = silence(3.2); [79, 76, 72, 67, 64, 60].forEach((m, i) => kalimba(o, i * 0.34, m, 0.35, 1.8, 2)); return finish(o, 3000, 1.3); },
   gift: () => { const o = silence(1.1); [76, 79, 84].forEach((m, i) => kalimba(o, i * 0.1, m, 0.45, 4)); return finish(o); },
+  pop: () => { const o = silence(0.25); drop(o, 0, 600, 900, 0.06, 0.8); return finish(o, 2600, 0.3); },
+  fanfare: () => {
+    const o = silence(2.4);
+    [67, 71, 74].forEach((m, i) => marimba(o, i * 0.12, m, 0.55, 5));
+    [79, 83, 86].forEach((m) => kalimba(o, 0.42, m, 0.35, 2.2, 2));
+    [43, 55].forEach((m) => warm(o, 0.42, m, 1, 0.12, 0.05, 0.8));
+    return finish(o, 4000, 1.3);
+  },
+  welcome: () => { const o = silence(2); [55, 59, 62].forEach((m) => warm(o, 0, m, 1, 0.1, 0.2, 0.8)); [79, 74, 79, 83].forEach((m, i) => kalimba(o, 0.1 + i * 0.14, m, 0.35, 3)); return finish(o, 3500, 1.2); },
+  tick: () => { const o = silence(0.12); marimba(o, 0, 84, 0.6, 30); return finish(o, 3000, 0.1); },
+  nap: () => { const o = silence(3.2); [79, 76, 72, 67, 64, 60].forEach((m, i) => kalimba(o, i * 0.34, m, 0.35, 1.8, 2)); return finish(o, 3000, 1.3); },
   oops: () => { const o = silence(0.35); marimba(o, 0, 55, 0.8, 9); marimba(o, 0.08, 52, 0.6, 9); return finish(o, 2000, 0.3); },
+});
+
+// A short musical signature for each character, played when you hire them,
+// when their home gets a new look, and when they send a hug.
+const MOTIFS = {
+  pooh: (o) => { [55, 59, 62, 59].forEach((m, i) => marimba(o, i * 0.16, m, 0.7, 4)); },
+  piglet: (o) => { [84, 86, 88, 86, 88].forEach((m, i) => kalimba(o, i * 0.05, m, 0.35, 6)); },
+  tigger: (o) => { drop(o, 0, 180, 520, 0.18, 0.5); drop(o, 0.2, 220, 640, 0.18, 0.5); kalimba(o, 0.4, 79, 0.4, 4); kalimba(o, 0.47, 84, 0.4, 4); },
+  rabbit: (o) => { [72, 74, 76, 77, 79].forEach((m, i) => marimba(o, i * 0.05, m, 0.55, 8)); },
+  owl: (o) => { hum(o, 0, 330, 320, 0.28, 0.45, { wobble: 6, depth: 0.015 }); hum(o, 0.36, 262, 255, 0.4, 0.45, { wobble: 6, depth: 0.015 }); },
+  eeyore: (o) => { [55, 53, 50, 48].forEach((m, i) => marimba(o, i * 0.32, m, 0.6, 2.5)); },
+  kanga: (o) => { marimba(o, 0, 67, 0.6, 6); marimba(o, 0.14, 74, 0.6, 6); kalimba(o, 0.3, 86, 0.3, 6); kalimba(o, 0.38, 91, 0.3, 6); },
+  robin: (o) => { hum(o, 0, 900, 1350, 0.16, 0.3, { wobble: 0 }); hum(o, 0.22, 1200, 1000, 0.22, 0.3, { wobble: 0 }); },
+  small: (o) => { kalimba(o, 0, 96, 0.3, 8); kalimba(o, 0.06, 100, 0.25, 8); },
+  bee: (o) => { hum(o, 0, 240, 280, 0.5, 0.35, { wobble: 25, depth: 0.03, buzz: 0.7 }); },
+  woozle: (o) => { [64, 67, 70, 67].forEach((m, i) => kalimba(o, i * 0.18, m, 0.35, 3)); warm(o, 0, 40, 0.8, 0.12, 0.2, 0.6); },
+  heffalump: (o) => { hum(o, 0, 110, 165, 0.5, 0.45, { wobble: 4, depth: 0.03, buzz: 0.4 }); warm(o, 0.1, 31, 0.6, 0.15, 0.1, 0.5); },
 };
+for (const [id, play] of Object.entries(MOTIFS)) SFX[`motif-${id}`] = () => { const o = silence(1.6); play(o); return finish(o, 3500, 0.9); };
 
 writeWav('music', music(), 0.5);
-for (const [name, make] of Object.entries(SFX)) writeWav(name, make(), name.startsWith('tap') ? 0.25 : 0.35);
+for (const [name, make] of Object.entries(SFX)) writeWav(name, make(), name.startsWith('tap') || name === 'tick' ? 0.22 : 0.35);
+
+// The game loads sounds by name from this generated list.
+const names = Object.keys(SFX).sort();
+fs.writeFileSync(path.join(__dirname, '..', 'src', 'audio', 'soundFiles.ts'), `// Generated by scripts/make-sounds.js. Don't edit by hand.
+export const SOUND_FILES = {
+${names.map((n) => `  '${n}': require('../../assets/sounds/${n}.wav'),`).join('\n')}
+} as const;
+export type SoundName = keyof typeof SOUND_FILES;
+`);
+console.log(`soundFiles.ts: ${names.length} sounds`);

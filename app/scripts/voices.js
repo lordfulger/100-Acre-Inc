@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const IDS = ['pooh', 'piglet', 'tigger', 'rabbit', 'owl', 'eeyore', 'kanga', 'robin', 'small', 'bee', 'woozle'];
+const IDS = ['pooh', 'piglet', 'tigger', 'rabbit', 'owl', 'eeyore', 'kanga', 'robin', 'small', 'bee', 'woozle', 'heffalump'];
 const dir = path.join(__dirname, '..', 'assets', 'voices');
 const out = path.join(__dirname, '..', 'src', 'audio', 'voiceFiles.ts');
 

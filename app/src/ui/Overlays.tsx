@@ -30,6 +30,7 @@ export function BalloonLayer() {
       const anim = new Animated.Value(0);
       const b = { id: Date.now(), x: 30 + Math.random() * Math.max(60, width - 130), anim };
       setBalloon(b);
+      play('whoosh');
       Animated.timing(anim, { toValue: 1, duration: 13_000, easing: Easing.linear, useNativeDriver: nativeDriver }).start(({ finished }) => {
         if (finished) { setBalloon(null); scheduleNext(); }
       });
@@ -46,7 +47,7 @@ export function BalloonLayer() {
     const g = gameRef.current;
     const r = g.act((s, now) => catchBalloon(s, now));
     play('balloon');
-    if (Math.random() < 0.5) say('pooh', 'balloon');
+    if (r.kind !== 'lucky') setTimeout(() => play('buzz'), 250);
     g.toast(r.kind === 'lucky' ? `🎈 Lucky Honey! +${fmt(r.amount)}` : `🎈 ${r.title}`);
     g.wood.balloon();
   };
@@ -91,7 +92,7 @@ export function WelcomeBack() {
         <Text style={styles.title}>Welcome back, {s.profile.name}!</Text>
         <Text style={styles.body}>While you were away for {fmtTime(welcomeBack.seconds)}, your managers made</Text>
         <Text style={styles.amount}>{fmt(welcomeBack.earned)} honey</Text>
-        <Button label="Lovely!" onPress={() => { dismissWelcome(); say('pooh', 'hello'); }} />
+        <Button label="Lovely!" onPress={() => { dismissWelcome(); play('welcome'); }} />
       </View>
     </View>
   );

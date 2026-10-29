@@ -225,7 +225,7 @@ export const BALLOONS: Record<BalloonKind, { weight: number; title: string; secs
   swarm: { weight: 15, title: 'Bee Swarm! ×50 taps', secs: 12, mult: 50 },
 };
 
-export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🧒', '🐞', '🐝'];
+export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🧒', '🐞', '🐝', '🐘'];
 
 export const QUICK_PHRASES = [
   'Hallo! 👋', 'Oh bother.', 'Time for a little something? 🍯', 'Join the Expotition! 🧭',
