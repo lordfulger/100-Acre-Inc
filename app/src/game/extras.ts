@@ -276,15 +276,20 @@ export const GAME_IDS = Object.keys(GAMES) as GameId[];
 export const gameForHome = (home: string) => GAME_IDS.find((id) => GAMES[id].home === home) || null;
 /** Every game except Pooh's needs its home unlocked first. */
 export const gameOpen = (s: GameState, id: GameId) => GAMES[id].home === POOH_HOUSE.id || s.biz[GAMES[id].home]?.owned > 0;
-/** Prizes come once every this many minutes per game; in between you can play for fun. */
+/** After you play a game it rests for this many minutes before you can play it again. */
 export const GAME_COOLDOWN_MIN = 30;
 const MAX_PRIZE_MIN = 10;
 
 export const gameReady = (s: GameState, id: GameId, now: number) => now - (s.games[id]?.last || 0) >= GAME_COOLDOWN_MIN * 60_000;
+/** Whole minutes until a game can be played again (0 when it's ready). */
+export const gameWait = (s: GameState, id: GameId, now: number) =>
+  Math.max(0, Math.ceil((GAME_COOLDOWN_MIN * 60_000 - (now - (s.games[id]?.last || 0))) / 60_000));
 
 /**
  * Records a finished game. Poohsticks passes `won`; the others pass their score.
- * Returns the honey won (0 when it was just for fun) and whether it was a new best.
+ * Every finished game starts its rest. The only game that can end while resting is a live
+ * Poohsticks race a friend asked you to: that one counts, but pays no prize.
+ * Returns the honey won and whether it was a new best.
  */
 export function finishGame(s: GameState, id: GameId, score: number, now: number, won?: boolean) {
   const rec = s.games[id] || { last: 0, best: 0 };
@@ -293,7 +298,7 @@ export function finishGame(s: GameState, id: GameId, score: number, now: number,
   const minutes = id === 'sticks' ? (won ? MAX_PRIZE_MIN : 3) : Math.min(MAX_PRIZE_MIN, (score * GAMES[id].perPoint) / 60);
   const honey = ready && minutes > 0 ? prize(s, now, minutes) : 0;
   if (honey > 0) earn(s, honey);
-  s.games[id] = { last: honey > 0 ? now : rec.last, best: Math.max(rec.best, score) };
+  s.games[id] = { last: ready ? now : rec.last, best: Math.max(rec.best, score) };
   s.stats.games++;
   if (won) s.stats.sticksWon++;
   const event: WoodEvent | null = bumpEvent(s, 'game', now);

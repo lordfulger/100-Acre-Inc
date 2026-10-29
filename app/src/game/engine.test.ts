@@ -10,7 +10,7 @@ import {
 import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt } from './calendar';
-import { buyDecor, checkTrophies, findThing, finishGame, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
+import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
 import { catchBalloon } from './engine';
 
 let now = 1_700_000_000_000;
@@ -243,6 +243,10 @@ function shop(s: GameState, t: number) {
   assert.equal(finishGame(s, 'drip', 50, day(10, 29, 12) + 60_000).honey, 0);
   assert.equal(s.games.drip.best, 50);
   assert.ok(finishGame(s, 'drip', 5, day(10, 29, 13)).honey > 0);
+  // Any finished game rests, even with no score; locked homes have no game.
+  finishGame(s, 'garden', 0, day(10, 29, 13));
+  assert.ok(!gameReady(s, 'garden', day(10, 29, 13) + 29 * 60_000) && gameReady(s, 'garden', day(10, 29, 13) + 30 * 60_000));
+  assert.ok(gameOpen(s, 'stretch') && gameOpen(s, 'tracks') && !gameOpen(s, 'oddone'));
   assert.ok(checkTrophies(s).length > 0);
   // Old saves get the new things empty.
   const m = migrate({ ...JSON.parse(JSON.stringify(newGame(now))), rooms: undefined, friends: 'bad', letters: undefined }, now);

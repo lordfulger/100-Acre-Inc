@@ -39,6 +39,24 @@ export function Shell({ id, score, right, onQuit, children }: { id: GameId; scor
 
 // ---------- Honey Drip ----------
 
+/** A drop of honey: an amber teardrop with a shine. Golden ones are bigger and glow. */
+function HoneyBlob({ x, y, gold }: { x: number; y: number; gold: boolean }) {
+  const size = gold ? 26 : 18;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: x - size / 2, top: y }}>
+      {gold && <View style={[styles.glow, { width: size * 2, height: size * 2, left: -size / 2, top: -size / 2 + 3 }]} />}
+      <View
+        style={[styles.blob, {
+          width: size, height: size, borderRadius: size / 2, borderTopRightRadius: 2,
+          backgroundColor: gold ? '#FFC23A' : '#E39A1E', borderColor: gold ? '#C27C0E' : '#A9640B',
+        }]}
+      >
+        <View style={[styles.shine, { width: size * 0.26, height: size * 0.38, left: size * 0.2, top: size * 0.36 }]} />
+      </View>
+    </View>
+  );
+}
+
 type Drop = { id: number; x: number; y: number; v: number; kind: 'drop' | 'gold' | 'bee' };
 const DRIP_SECS = 30;
 
@@ -82,11 +100,11 @@ export function HoneyDrip({ onDone, onQuit }: { onDone: (score: number) => void;
         onResponderMove={(e) => move(e.nativeEvent.locationX)}
       >
         <Text pointerEvents="none" style={styles.hint}>Slide your finger to move the pot</Text>
-        {g.drops.map((d) => (
-          <Text key={d.id} pointerEvents="none" style={[styles.drop, { left: d.x * size.w - 14, top: d.y * size.h }]}>
-            {d.kind === 'bee' ? '🐝' : d.kind === 'gold' ? '🌟' : '💧'}
-          </Text>
-        ))}
+        {g.drops.map((d) => (d.kind === 'bee' ? (
+          <Text key={d.id} pointerEvents="none" style={[styles.drop, { left: d.x * size.w - 14, top: d.y * size.h }]}>🐝</Text>
+        ) : (
+          <HoneyBlob key={d.id} gold={d.kind === 'gold'} x={d.x * size.w} y={d.y * size.h} />
+        )))}
         <Text pointerEvents="none" style={[styles.pot, { left: g.pot * size.w - 30, opacity: t - g.hit < 0.4 ? 0.4 : 1 }]}>🍯</Text>
       </View>
     </Shell>
@@ -280,6 +298,10 @@ const styles = StyleSheet.create({
   field: { flex: 1, margin: 12, marginTop: 0, borderRadius: 18, backgroundColor: '#FFF0C2', borderWidth: 2, borderColor: C.border, overflow: 'hidden' },
   hint: { position: 'absolute', top: 10, alignSelf: 'center', color: C.soft, fontWeight: '700', fontSize: 12 },
   drop: { position: 'absolute', fontSize: 26 },
+  // A teardrop: a circle with one sharp corner, turned so the point is at the top.
+  blob: { borderWidth: 1.5, transform: [{ rotate: '-45deg' }] },
+  shine: { position: 'absolute', borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.65)', transform: [{ rotate: '45deg' }] },
+  glow: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(255,210,80,0.35)' },
   pot: { position: 'absolute', bottom: 12, fontSize: 52 },
   prompt: { textAlign: 'center', fontWeight: '800', color: C.ink, fontSize: 15, marginHorizontal: 16, marginBottom: 12 },
   snow: { flexDirection: 'row', flexWrap: 'wrap', alignSelf: 'center', width: 330, maxWidth: '94%', backgroundColor: '#EEF4FA', borderRadius: 20, padding: 6, borderWidth: 2, borderColor: C.border },

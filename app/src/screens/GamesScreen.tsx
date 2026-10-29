@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { activeEvent, eventProgress } from '../game/calendar';
 import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
-import { finishGame, GAME_COOLDOWN_MIN, GAME_IDS, GameId, gameOpen, GAMES, gameReady } from '../game/extras';
+import { finishGame, GAME_COOLDOWN_MIN, GAME_IDS, GameId, gameOpen, GAMES, gameReady, gameWait } from '../game/extras';
 import { fmt } from '../game/format';
 import { StickRace, useGame } from '../state/GameContext';
 import { Button, C, Card, Section } from '../ui/kit';
@@ -28,8 +28,12 @@ export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void })
     onClose();
     const r = act((g, t) => finishGame(g, id, score, t, won));
     if (r.honey > 0) { play('fanfare'); toast(`${GAMES[id].emoji} ${r.newBest ? 'New best! ' : ''}+${fmt(r.honey)} honey`); }
-    else toast(`${GAMES[id].emoji} ${r.newBest ? `New best: ${score}! ` : ''}${score || won ? 'Just for fun this time.' : 'Better luck next time!'}`);
+    else toast(`${GAMES[id].emoji} ${r.newBest ? `New best: ${score}! ` : ''}No prize this time. Better luck next time!`);
   };
+  // The Games tab and the map only offer games that are unlocked and rested, but check again here.
+  const [allowed] = useState(() => gameOpen(s, id) && gameReady(s, id, Date.now()));
+  useEffect(() => { if (!allowed) onClose(); }, [allowed, onClose]);
+  if (!allowed) return null;
   const Game = SOLO[id];
   if (Game) return <Game onDone={(n) => done(n)} onQuit={onClose} />;
 
@@ -60,7 +64,7 @@ export function GamesScreen() {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.list}>
         <Section title="🎲 Games in the Wood" />
-        <Text style={styles.note}>Every home has its own game. Each pays a honey prize once every {GAME_COOLDOWN_MIN} minutes, bigger for better scores. In between, play just for fun.</Text>
+        <Text style={styles.note}>Every home has its own game. Each pays a honey prize, bigger for better scores, then rests for {GAME_COOLDOWN_MIN} minutes before you can play it again.</Text>
         {event?.kind === 'game' && !s.eventsWon.includes(event.id) && (
           <Card style={{ borderColor: C.green }}>
             <Text style={styles.name}>{event.emoji} {event.name}</Text>
@@ -83,7 +87,7 @@ export function GamesScreen() {
             );
           }
           const ready = gameReady(s, id, now);
-          const wait = Math.ceil((GAME_COOLDOWN_MIN * 60_000 - (now - (s.games[id]?.last || 0))) / 60_000);
+          const wait = gameWait(s, id, now);
           return (
             <Card key={id}>
               <View style={styles.row}>
@@ -92,20 +96,20 @@ export function GamesScreen() {
                   <Text style={styles.name}>{g.name}</Text>
                   <Text style={styles.small}>{homeName(g.home)}</Text>
                   <Text style={styles.small}>
-                    {ready ? '🍯 Prize ready' : `Prize again in ${wait}m`}{id !== 'sticks' && s.games[id]?.best ? ` · Best ${s.games[id].best}` : ''}{id === 'sticks' ? ` · ${s.stats.sticksWon} wins` : ''}
+                    {ready ? '🍯 Ready to play' : `💤 Resting · ready in ${wait}m`}{id !== 'sticks' && s.games[id]?.best ? ` · Best ${s.games[id].best}` : ''}{id === 'sticks' ? ` · ${s.stats.sticksWon} wins` : ''}
                   </Text>
                 </View>
               </View>
               <Text style={styles.blurb}>{g.blurb}</Text>
               {id === 'sticks' ? (
                 <View style={styles.buttons}>
-                  <Button small label="🐻 Race Pooh" onPress={() => { play('pop'); setPlaying('sticks'); }} style={{ flex: 1 }} />
+                  <Button small label="🐻 Race Pooh" disabled={!ready} onPress={() => { play('pop'); setPlaying('sticks'); }} style={{ flex: 1 }} />
                   {friends.map((m) => (
-                    <Button key={m.id} small color={C.pink} label={`${m.avatar} Race ${m.name}`} onPress={() => stickApi.invite(m.id)} style={{ flex: 1 }} />
+                    <Button key={m.id} small color={C.pink} label={`${m.avatar} Race ${m.name}`} disabled={!ready} onPress={() => stickApi.invite(m.id)} style={{ flex: 1 }} />
                   ))}
                 </View>
               ) : (
-                <Button label="Play" onPress={() => { play('pop'); setPlaying(id); }} style={{ marginTop: 8 }} />
+                <Button label={ready ? 'Play' : `Ready in ${wait}m`} disabled={!ready} onPress={() => { play('pop'); setPlaying(id); }} style={{ marginTop: 8 }} />
               )}
               {id === 'sticks' && friends.length === 0 && <Text style={styles.small}>When your friend is in the wood, you can race each other live.</Text>}
             </Card>

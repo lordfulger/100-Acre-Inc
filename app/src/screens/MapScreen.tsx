@@ -10,7 +10,7 @@ import { Portrait, portraitFor } from '../ui/Portrait';
 import { HAND, HomeCloseUp, WoodMap } from '../ui/WoodMap';
 import { play, playLevel } from '../audio/sound';
 import { activeEvent, eventProgress, seasonAt, SEASONS, WEATHER_NAMES, weatherAt } from '../game/calendar';
-import { findThing, gameForHome, GameId, GAMES, gameReady, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
+import { findThing, gameForHome, GameId, GAMES, gameReady, gameWait, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
 import { GameRunner } from './GamesScreen';
 import { MapLife, Weather } from '../ui/MapLife';
 import { HomeInside } from './HomeInside';
@@ -141,8 +141,8 @@ function BuildingSheet({ id, onClose, onEnter, onPlay }: { id: string; onClose: 
         if (!game || (b && owned === 0)) return null;
         return (
           <Button
-            label={`${GAMES[game].emoji} Play ${GAMES[game].name}`} sub={gameReady(s, game, now) ? '🍯 Prize ready' : 'Just for fun right now'}
-            color={C.blue} onPress={() => onPlay(game)} style={{ marginBottom: 6 }}
+            label={`${GAMES[game].emoji} Play ${GAMES[game].name}`} sub={gameReady(s, game, now) ? '🍯 Ready to play' : `💤 Resting · ready in ${gameWait(s, game, now)}m`}
+            disabled={!gameReady(s, game, now)} color={C.blue} onPress={() => onPlay(game)} style={{ marginBottom: 6 }}
           />
         );
       })()}
