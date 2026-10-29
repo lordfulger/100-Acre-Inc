@@ -186,6 +186,7 @@ const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json',
   '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.ttf': 'font/ttf',
   '.svg': 'image/svg+xml', '.webp': 'image/webp', '.map': 'application/json',
+  '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.aac': 'audio/aac',
 };
 
 function serveStatic(req, res) {
@@ -194,12 +195,31 @@ function serveStatic(req, res) {
   if (!file.startsWith(PUBLIC_DIR)) return false; // no escaping the folder
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(PUBLIC_DIR, 'index.html');
   if (!existsSync(file)) return false;
-  const hashed = urlPath.startsWith('/_expo/');
-  res.writeHead(200, {
+  // Bundles and asset files have content hashes in their names; everything else should refresh promptly.
+  const hashed = urlPath.startsWith('/_expo/') || urlPath.startsWith('/assets/');
+  const headers = {
     'content-type': TYPES[extname(file).toLowerCase()] || 'application/octet-stream',
-    // Bundles have content hashes in their names; everything else should refresh promptly.
     'cache-control': hashed ? 'public, max-age=31536000, immutable' : 'no-cache',
-  });
+    'accept-ranges': 'bytes',
+  };
+  // Phones (iPhone Safari especially) only play audio from servers that can send a file in pieces.
+  const size = statSync(file).size;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+  if (range && (range[1] || range[2])) {
+    let start = range[1] ? Number(range[1]) : size - Number(range[2]);
+    let end = range[1] && range[2] ? Number(range[2]) : size - 1;
+    start = Math.max(0, start);
+    end = Math.min(end, size - 1);
+    if (start > end) {
+      res.writeHead(416, { 'content-range': `bytes */${size}` });
+      res.end();
+      return true;
+    }
+    res.writeHead(206, { ...headers, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1 });
+    createReadStream(file, { start, end }).pipe(res);
+    return true;
+  }
+  res.writeHead(200, { ...headers, 'content-length': size });
   createReadStream(file).pipe(res);
   return true;
 }

@@ -18,15 +18,42 @@ let started = false;
 // Two players per sound so quick repeats can overlap.
 const pools: Partial<Record<SoundName, { players: AudioPlayer[]; next: number }>> = {};
 
+function poolFor(name: SoundName) {
+  let pool = pools[name];
+  if (!pool) {
+    pool = { players: [createAudioPlayer(SOUND_FILES[name]), createAudioPlayer(SOUND_FILES[name])], next: 0 };
+    pool.players.forEach((p) => { p.volume = VOLUME[name] ?? DEFAULT_VOLUME; });
+    pools[name] = pool;
+  }
+  return pool;
+}
+
+let unlocked = false;
+/**
+ * Phone browsers only let a page make sound after a finished tap, and each sound
+ * has to be started once during a tap before it may play later on its own (a hug
+ * arriving, a balloon drifting in). Called on the first tap: starts the music and
+ * silently plays every effect once so they're all allowed from then on.
+ */
+export function unlockAudio() {
+  startMusic();
+  if (unlocked) return;
+  unlocked = true;
+  for (const name of Object.keys(SOUND_FILES) as SoundName[]) {
+    for (const p of poolFor(name).players) {
+      try {
+        p.muted = true;
+        p.play();
+        setTimeout(() => { try { p.pause(); p.seekTo(0).catch(() => {}); p.muted = false; } catch {} }, 60);
+      } catch {}
+    }
+  }
+}
+
 function playFile(name: SoundName) {
   if (!settings.sfx) return;
   try {
-    let pool = pools[name];
-    if (!pool) {
-      pool = { players: [createAudioPlayer(SOUND_FILES[name]), createAudioPlayer(SOUND_FILES[name])], next: 0 };
-      pool.players.forEach((p) => { p.volume = VOLUME[name] ?? DEFAULT_VOLUME; });
-      pools[name] = pool;
-    }
+    const pool = poolFor(name);
     const p = pool.players[pool.next];
     pool.next = (pool.next + 1) % pool.players.length;
     p.seekTo(0).catch(() => {});

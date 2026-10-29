@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +14,7 @@ import { WoodScreen } from './src/screens/WoodScreen';
 import { GameProvider, useGame } from './src/state/GameContext';
 import { Header } from './src/ui/Header';
 import { C } from './src/ui/kit';
-import { play, startMusic } from './src/audio/sound';
+import { play, startMusic, unlockAudio } from './src/audio/sound';
 import { CloudConflict } from './src/ui/CloudCard';
 import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
 
@@ -28,8 +28,17 @@ const TABS: { id: Tab; label: string; emoji: string }[] = [
 ];
 
 // Phones and browsers only allow music to start after the first tap.
+// Phone browsers only allow sound after a *finished* tap, so on the web we wait for the
+// first touchend/click to start the music and unlock every sound effect.
 let musicStarted = false;
-const musicOnFirstTouch = () => { if (!musicStarted) { musicStarted = true; startMusic(); } };
+const musicOnFirstTouch = () => { if (Platform.OS !== 'web' && !musicStarted) { musicStarted = true; startMusic(); } };
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const unlock = () => {
+    unlockAudio();
+    for (const e of ['touchend', 'click', 'keydown']) document.removeEventListener(e, unlock, true);
+  };
+  for (const e of ['touchend', 'click', 'keydown']) document.addEventListener(e, unlock, true);
+}
 
 function Game() {
   const { s, net } = useGame();
