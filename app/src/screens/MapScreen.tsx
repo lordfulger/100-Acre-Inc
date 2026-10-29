@@ -1,17 +1,49 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BIZ_BY_ID, buildingMult, BUSINESSES, LEVEL_PERKS, LEVEL_STEP, lookName, lookOf, POOH_HOUSE, poohTapMult } from '../game/catalog';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { BIZ_BY_ID, buildingMult, BUSINESSES, LEVEL_STEP, lookName, lookOf, perkFor, POOH_HOUSE, poohTapMult } from '../game/catalog';
 import { addonEffectText } from '../game/catalog';
 import { addonList, buildingNext, buyAddon, buyBiz, canUpgradeBuilding, hireManager, homeHasUpgrade, managerCost, mapView, quote, upgradeBuilding } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
-import { Bar, Button, buzz, C } from '../ui/kit';
+import { Bar, Button, buzz, C, nativeDriver } from '../ui/kit';
 import { Portrait, portraitFor } from '../ui/Portrait';
-import { HAND, WoodMap } from '../ui/WoodMap';
+import { HAND, HomeCloseUp, WoodMap } from '../ui/WoodMap';
 import { play, playLevel } from '../audio/sound';
 import { say } from '../audio/voices';
 
 const ALL_IDS = [POOH_HOUSE.id, ...BUSINESSES.map((b) => b.id)];
+
+/** The home up close as it is now, and a peek at what its next look adds. */
+function CloseUp({ id, look, addons, peek }: { id: string; look: number; addons: string[]; peek: boolean }) {
+  const { width } = useWindowDimensions();
+  const size = Math.min(210, (Math.min(width, 520) - 60) * 0.6);
+  const next = peek ? perkFor(id, look) : null;
+  // A little pop when the home gets a new look.
+  const pop = useRef(new Animated.Value(1)).current;
+  const shown = useRef(look);
+  useEffect(() => {
+    if (look === shown.current) return;
+    shown.current = look;
+    pop.setValue(1.18);
+    Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: nativeDriver }).start();
+  }, [look, pop]);
+  return (
+    <View style={styles.closeUps}>
+      <Animated.View style={[styles.closeUp, { transform: [{ scale: pop }] }]}>
+        <HomeCloseUp id={id} look={look} addons={addons} size={size} />
+      </Animated.View>
+      {next && (
+        <View style={styles.peek}>
+          <Text style={styles.peekLabel}>Next look</Text>
+          <View style={[styles.closeUp, { opacity: 0.85 }]}>
+            <HomeCloseUp id={id} look={look + 1} addons={addons} size={size * 0.55} />
+          </View>
+          <Text style={styles.peekLabel} numberOfLines={2}>{next}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const { s, d, act, toast } = useGame();
@@ -23,7 +55,7 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const owned = b ? s.biz[id].owned : 0;
   const look = lookOf(level);
   const toNextLook = LEVEL_STEP - (level % LEVEL_STEP);
-  const nextPerk = LEVEL_PERKS[id]?.[look] ?? 'A grander look';
+  const nextPerk = perkFor(id, look);
   const total = isPooh ? poohTapMult(level) : buildingMult(level);
   const buy = b ? quote(s, id, 1) : null;
   const managerId = isPooh ? 'pooh' : portraitFor(b!.manager.emoji);
@@ -34,7 +66,7 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
     if (next.newLook) play('upgrade');
     else playLevel(level + 1);
     if (next.newLook) say(managerId, 'upgrade');
-    if (next.newLook) toast(`🔨 ${name} is now ${lookName(level + 1)}! ${nextPerk}!`);
+    if (next.newLook) toast(`🔨 ${name} is now ${lookName(level + 1)}!${nextPerk ? ` ${nextPerk}!` : ''}`);
   };
 
   return (
@@ -48,6 +80,8 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
         <Pressable onPress={onClose} hitSlop={12}><Text style={styles.close}>✕</Text></Pressable>
       </View>
 
+      <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
+      <CloseUp id={id} look={b && owned === 0 ? 0 : look} addons={s.addons} peek={!(b && owned === 0)} />
       {b && owned === 0 ? (
         <View style={styles.row}>
           <Text style={[styles.info, { flex: 1 }]}>Nobody lives here yet. Unlock it to start making honey here!</Text>
@@ -69,7 +103,9 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
             <Text style={styles.nextTitle}>
               Next: Lv {level + 1} — {next.newLook ? `${lookName(level + 1)}! ` : ''}×{Number(next.gain.toFixed(2))} {isPooh ? 'taps' : 'honey'}
             </Text>
-            <Text style={styles.info}>🎨 {next.newLook ? `Adds: ${nextPerk}` : `${toNextLook} more level${toNextLook === 1 ? '' : 's'} until: ${nextPerk}`}</Text>
+            <Text style={styles.info}>
+              🎨 {!nextPerk ? 'As grand as a home can look!' : next.newLook ? `Adds: ${nextPerk}` : `${toNextLook} more level${toNextLook === 1 ? '' : 's'} until: ${nextPerk}`}
+            </Text>
             <View style={{ marginVertical: 6 }}><Bar value={(level % LEVEL_STEP) / LEVEL_STEP} color="#C27C0E" height={8} /></View>
             <Button
               label={next.newLook ? '✨ Upgrade' : 'Upgrade'} sub={fmt(next.cost)}
@@ -109,6 +145,7 @@ function BuildingSheet({ id, onClose }: { id: string; onClose: () => void }) {
           )}
         </>
       )}
+      </ScrollView>
     </View>
   );
 }
@@ -124,7 +161,7 @@ export function MapScreen() {
   return (
     <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {width > 0 && (
-        <ScrollView contentContainerStyle={{ paddingBottom: selected ? 320 : 16 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: selected ? 520 : 16 }}>
           <ScrollView horizontal scrollEnabled={zoom > 1} showsHorizontalScrollIndicator={zoom > 1}>
             <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} />
           </ScrollView>
@@ -145,8 +182,12 @@ const styles = StyleSheet.create({
   zoomText: { fontFamily: HAND, fontSize: 15, color: C.ink },
   sheet: {
     position: 'absolute', left: 8, right: 8, bottom: 8, backgroundColor: C.card, borderRadius: 22, padding: 14,
-    borderWidth: 2, borderColor: '#D9C48E', shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: -2 }, elevation: 10,
+    maxHeight: '82%', borderWidth: 2, borderColor: '#D9C48E', shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: -2 }, elevation: 10,
   },
+  closeUps: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 4 },
+  closeUp: { backgroundColor: '#EEF4D8', borderRadius: 16, overflow: 'hidden', borderWidth: 1.5, borderColor: '#D9E3B8' },
+  peek: { alignItems: 'center', gap: 3, maxWidth: 130 },
+  peekLabel: { fontSize: 11, fontWeight: '800', color: C.soft, textAlign: 'center' },
   sheetHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   title: { fontFamily: HAND, fontSize: 24, color: C.ink },
   close: { fontSize: 20, color: C.soft, fontWeight: '900', paddingHorizontal: 4 },

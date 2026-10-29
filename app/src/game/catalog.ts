@@ -286,3 +286,17 @@ export const LEVEL_PERKS: Record<string, string[]> = {
   camp: ['A second tent', 'A lantern', 'A map table', 'A flagpole', 'A telescope'],
   pines: ['Honey pots', 'Hives in the pines', 'More pines', 'Lanterns', 'A golden glow'],
 };
+
+/** Looks past Legendary: a gold star each, then a golden halo that keeps growing. */
+const STAR_LOOKS = 10;
+const HALO_LOOKS = 15;
+export const MAX_LOOK = LEVEL_PERKS.pooh.length + STAR_LOOKS + HALO_LOOKS;
+
+/** What a home's picture gains on reaching look `look + 1`, or null once it's as grand as it gets. */
+export function perkFor(id: string, look: number): string | null {
+  const named = LEVEL_PERKS[id]?.[look];
+  if (named) return named;
+  if (look < LEVEL_PERKS.pooh.length + STAR_LOOKS) return 'A golden star';
+  if (look < MAX_LOOK) return 'A bigger golden halo';
+  return null;
+}

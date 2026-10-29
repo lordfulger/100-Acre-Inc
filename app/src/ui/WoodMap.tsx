@@ -5,7 +5,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
-import { addonsFor, BIZ_BY_ID, lookOf, POOH_HOUSE } from '../game/catalog';
+import { addonsFor, BIZ_BY_ID, LEVEL_PERKS, lookOf, MAX_LOOK, POOH_HOUSE } from '../game/catalog';
 import { MapView } from '../game/engine';
 import { nativeDriver } from './kit';
 import { Portrait, portraitFor } from './Portrait';
@@ -658,6 +658,67 @@ const ART: Record<string, (p: { lv: number }) => React.ReactElement> = {
   floody: FloodyDock, galleons: GalleonsLap, camp: ExpoCamp, pines: HeffalumpPines,
 };
 
+// Past Legendary every new look adds a gold star round the home, then the stars
+// get a golden halo that grows with each look after that.
+const NAMED_LOOKS = LEVEL_PERKS.pooh.length;
+const STAR_SPOTS: [number, number][] = [
+  [-52, -62], [52, -64], [-64, -30], [64, -28], [-38, -104], [40, -106], [-70, -4], [70, -6], [-14, -122], [16, -124],
+];
+const Star = ({ x, y }: { x: number; y: number }) => (
+  <Polygon
+    points="0,-6.5 1.7,-1.7 6.5,0 1.7,1.7 0,6.5 -1.7,1.7 -6.5,0 -1.7,-1.7"
+    transform={`translate(${x},${y})`} fill={GOLD} stroke="#B88A00" strokeWidth={0.7}
+  />
+);
+
+/** One home as it looks at a given look (level ÷ 5), including the extras past Legendary. */
+export function HomeArt({ id, look }: { id: string; look: number }) {
+  const Art = ART[id];
+  const extra = Math.min(MAX_LOOK, look) - NAMED_LOOKS;
+  const halo = Math.max(0, extra - STAR_SPOTS.length);
+  return (
+    <G>
+      {halo > 0 && <Circle cx={0} cy={-50} r={58 + halo} fill={GOLD} opacity={0.12 + halo * 0.015} />}
+      <Art lv={Math.min(NAMED_LOOKS, look)} />
+      {STAR_SPOTS.slice(0, Math.max(0, extra)).map(([x, y], i) => <Star key={i} x={x} y={y} />)}
+    </G>
+  );
+}
+
+// How far each home's drawing reaches at its grandest named look (left, top, right, bottom),
+// so a close-up can frame it snugly.
+const BOUNDS: Record<string, [number, number, number, number]> = {
+  pooh: [-58, -106, 59, 8], beetree: [-50, -106, 50, 8], haycorn: [-52, -94, 56, 6], garden: [-73, -50, 61, 6],
+  oak: [-56, -131, 56, 8], kitchen: [-46, -85, 44, 7], thistle: [-52, -68, 52, 12], ranch: [-60, -60, 60, 6],
+  works: [-58, -124, 58, 8], heffalump: [-55, -30, 60, 9], bridge: [-46, -40, 46, 65], floody: [-62, -34, 62, 15],
+  galleons: [-60, -96, 60, 8], camp: [-60, -50, 70, 12], pines: [-60, -96, 60, 8],
+};
+
+/** A close-up of one home, big enough to see every detail, with its add-ons. */
+export function HomeCloseUp({ id, look, addons = [], size }: { id: string; look: number; addons?: string[]; size: number }) {
+  const owned = addonsFor(id, 0).map((_, i) => addons.includes(`${id}:${i}`));
+  // Frame the home, plus any add-ons and stars it has.
+  let [x0, y0, x1, y1] = BOUNDS[id];
+  const fit = (x: number, y: number, w: number, h: number) => {
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
+  };
+  owned.forEach((has, i) => has && fit(DECOR[i][0], DECOR[i][1], 17, 17));
+  STAR_SPOTS.slice(0, Math.max(0, Math.min(MAX_LOOK, look) - NAMED_LOOKS)).forEach(([x, y]) => fit(x - 7, y - 7, 14, 14));
+  const pad = 8;
+  const w = x1 - x0 + pad * 2;
+  const h = y1 - y0 + pad * 2;
+  // As tall as the home needs: short and wide for the farm, taller for Owl's tree.
+  return (
+    <Svg width={size} height={size * Math.min(1, Math.max(0.5, h / w))} viewBox={`${x0 - pad} ${y0 - pad} ${w} ${h}`}>
+      <Ellipse cx={(x0 + x1) / 2} cy={4} rx={(x1 - x0) / 2 + pad} ry={10} fill="#D5E4AE" />
+      <HomeArt id={id} look={look} />
+      {owned.map((has, i) => has && (
+        <SvgText key={i} x={DECOR[i][0]} y={DECOR[i][1] + 14} fontSize={15}>{addonsFor(id, 0)[i].emoji}</SvgText>
+      ))}
+    </Svg>
+  );
+}
+
 // ---------- the land ----------
 
 const RIVERS = [
@@ -801,13 +862,12 @@ function WoodMapView({ view, width, selected, upgradable, onSelect }: Props) {
       <Svg width={width} height={MAP_H * k} viewBox={`0 0 ${MAP_W} ${MAP_H}`}>
         <StillLand />
         {ids.sort((a, b) => PLACES[a].y - PLACES[b].y).map((id) => {
-          const Art = ART[id];
           const { x, y } = PLACES[id];
           const locked = isLocked(view, id);
           return (
             <G key={id} transform={`translate(${x},${y})`} opacity={locked ? 0.3 : 1}>
               {selected === id && <Ellipse cx={0} cy={2} rx={56} ry={12} fill="#FFF3B0" opacity={0.9} stroke={GOLD} strokeWidth={2} />}
-              <Art lv={locked ? 0 : Math.min(5, lookOf(view.levels[id] || 0))} />
+              <HomeArt id={id} look={locked ? 0 : lookOf(view.levels[id] || 0)} />
             </G>
           );
         })}
