@@ -1,63 +1,79 @@
 // Music and sound effects. Every file is made by scripts/make-sounds.js.
+//
+// On the web (the home-screen version) sounds play through the browser's Web
+// Audio engine (see webAudio.ts); in the native app through expo-audio.
+import { Platform } from 'react-native';
 import { AudioPlayer, createAudioPlayer } from 'expo-audio';
 import { PortraitId } from '../ui/Portrait';
 import { SOUND_FILES, SoundName } from './soundFiles';
+import * as Web from './webAudio';
 
 export type Sfx =
   | 'lucky' | 'buy' | 'hire' | 'upgrade' | 'unlock' | 'milestone' | 'addon' | 'shop' | 'magic'
   | 'balloon' | 'whoosh' | 'buzz' | 'hug' | 'gift' | 'pop' | 'fanfare' | 'welcome' | 'tick' | 'nap' | 'oops';
 export type SoundSettings = { music: boolean; sfx: boolean; voices: boolean };
 
+const WEB = Platform.OS === 'web';
+const MUSIC = require('../../assets/sounds/music.wav');
+const MUSIC_VOLUME = 0.25;
 // The files are mastered quietly already; these keep effects comfortably under the music.
 const VOLUME: Partial<Record<string, number>> = { tick: 0.35, pop: 0.45, buzz: 0.5, whoosh: 0.5 };
 const DEFAULT_VOLUME = 0.6;
 
 let settings: SoundSettings = { music: true, sfx: true, voices: true };
-let music: AudioPlayer | null = null;
 let started = false;
-// Two players per sound so quick repeats can overlap.
+// False while the game is off screen (another app, phone locked, another browser tab).
+let appActive = true;
+
+// ---------- native players (expo-audio) ----------
+
+let music: AudioPlayer | null = null;
 const pools: Partial<Record<SoundName, { players: AudioPlayer[]; next: number }>> = {};
 
-function poolFor(name: SoundName) {
+function nativePlay(name: SoundName) {
   let pool = pools[name];
   if (!pool) {
     pool = { players: [createAudioPlayer(SOUND_FILES[name]), createAudioPlayer(SOUND_FILES[name])], next: 0 };
     pool.players.forEach((p) => { p.volume = VOLUME[name] ?? DEFAULT_VOLUME; });
     pools[name] = pool;
   }
-  return pool;
+  const p = pool.players[pool.next];
+  pool.next = (pool.next + 1) % pool.players.length;
+  p.seekTo(0).catch(() => {});
+  p.play();
 }
 
-let unlocked = false;
-/**
- * Phone browsers only let a page make sound after a finished tap, and each sound
- * has to be started once during a tap before it may play later on its own (a hug
- * arriving, a balloon drifting in). Called on the first tap: starts the music and
- * silently plays every effect once so they're all allowed from then on.
- */
-export function unlockAudio() {
-  startMusic();
-  if (unlocked) return;
-  unlocked = true;
-  for (const name of Object.keys(SOUND_FILES) as SoundName[]) {
-    for (const p of poolFor(name).players) {
-      try {
-        p.muted = true;
-        p.play();
-        setTimeout(() => { try { p.pause(); p.seekTo(0).catch(() => {}); p.muted = false; } catch {} }, 60);
-      } catch {}
-    }
-  }
-}
+// ---------- shared ----------
 
 function playFile(name: SoundName) {
-  if (!settings.sfx) return;
+  if (!settings.sfx || !appActive) return;
   try {
-    const pool = poolFor(name);
-    const p = pool.players[pool.next];
-    pool.next = (pool.next + 1) % pool.players.length;
-    p.seekTo(0).catch(() => {});
-    p.play();
+    if (WEB) Web.playBuffer(name, VOLUME[name] ?? DEFAULT_VOLUME);
+    else nativePlay(name);
+  } catch {}
+}
+
+/**
+ * Called on the first finished tap (phone browsers only allow sound after one):
+ * wakes the audio engine, starts the music and loads every sound effect.
+ */
+export function unlockAudio() {
+  if (WEB) {
+    Web.wake();
+    for (const name of Object.keys(SOUND_FILES) as SoundName[]) Web.load(name, SOUND_FILES[name]);
+  }
+  startMusic();
+}
+
+export function setAppActive(active: boolean) {
+  if (active === appActive) return;
+  appActive = active;
+  try {
+    if (WEB) {
+      if (active) Web.wake();
+      else Web.sleep();
+    } else if (!active) music?.pause();
+    else if (started && settings.music) music?.play();
   } catch {}
 }
 
@@ -82,17 +98,28 @@ export function playMotif(who: PortraitId | null) {
   if (who && `motif-${who}` in SOUND_FILES) playFile(`motif-${who}` as SoundName);
 }
 
-/** Starts the background music. Browsers only allow this after a tap, so it's called on the first touch. */
+/** Starts the background music (after the first tap). */
 export function startMusic() {
   started = true;
-  if (!settings.music) return;
+  if (!settings.music || !appActive) return;
   try {
-    if (!music) {
-      music = createAudioPlayer(require('../../assets/sounds/music.wav'));
-      music.loop = true;
-      music.volume = 0.25;
+    if (WEB) {
+      Web.startLoop('music', MUSIC, MUSIC_VOLUME);
+    } else {
+      if (!music) {
+        music = createAudioPlayer(MUSIC);
+        music.loop = true;
+        music.volume = MUSIC_VOLUME;
+      }
+      music.play();
     }
-    music.play();
+  } catch {}
+}
+
+function stopMusic() {
+  try {
+    if (WEB) Web.stopLoop();
+    else music?.pause();
   } catch {}
 }
 
@@ -101,7 +128,7 @@ export function applySoundSettings(next: SoundSettings) {
   settings = next;
   if (was.music !== next.music) {
     if (next.music && started) startMusic();
-    else music?.pause();
+    else stopMusic();
   }
 }
 

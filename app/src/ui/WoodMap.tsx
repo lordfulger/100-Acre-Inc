@@ -645,6 +645,9 @@ function Pulse({ children }: { children: React.ReactNode }) {
   return <Animated.View style={{ transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] }}>{children}</Animated.View>;
 }
 
+// The rivers, woods and labels never change, so they are drawn once and reused.
+const StillLand = React.memo(Land);
+
 type Props = {
   view: MapView;
   width: number;
@@ -656,13 +659,13 @@ type Props = {
 /** True when a home is still hidden: not bought yet and not the next one to unlock. */
 const isLocked = (view: MapView, id: string) => id !== 'pooh' && !view.owned[id];
 
-export function WoodMap({ view, width, selected, upgradable, onSelect }: Props) {
+function WoodMapView({ view, width, selected, upgradable, onSelect }: Props) {
   const k = width / MAP_W;
   const ids = Object.keys(PLACES);
   return (
     <View style={{ width, height: MAP_H * k }}>
       <Svg width={width} height={MAP_H * k} viewBox={`0 0 ${MAP_W} ${MAP_H}`}>
-        <Land />
+        <StillLand />
         {ids.sort((a, b) => PLACES[a].y - PLACES[b].y).map((id) => {
           const Art = ART[id];
           const { x, y } = PLACES[id];
@@ -734,3 +737,18 @@ const styles = StyleSheet.create({
   name: { fontFamily: HAND, color: '#4B3A26', textAlign: 'center' },
   stars: { color: '#C27C0E', marginTop: -2, letterSpacing: 1 },
 });
+
+const upgradableKey = (u?: Set<string>) => (u ? [...u].sort().join(",") : "");
+
+/**
+ * The map only redraws when something on it changes (a home bought or upgraded,
+ * a manager hired, an add-on, the selection, the size), not every time the honey
+ * counter ticks. Redrawing hundreds of trees several times a second made phones lag.
+ */
+export const WoodMap = React.memo(
+  WoodMapView,
+  (a, b) =>
+    a.width === b.width && a.selected === b.selected && a.onSelect === b.onSelect &&
+    upgradableKey(a.upgradable) === upgradableKey(b.upgradable) &&
+    JSON.stringify(a.view) === JSON.stringify(b.view),
+);

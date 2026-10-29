@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, receiveGift, tick } from '../game/engine';
 import { fmt } from '../game/format';
-import { applySoundSettings, play } from '../audio/sound';
+import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
 import { portraitFor } from '../ui/Portrait';
@@ -157,9 +157,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const loop = setInterval(() => {
       tick(sRef.current!, Date.now());
       rerender();
-    }, 100);
+    }, 200);
     const autosave = setInterval(save, 5_000);
     const sub = AppState.addEventListener('change', (state) => {
+      // No music or sounds while the game is off screen.
+      setAppActive(state === 'active');
       if (state !== 'active') return save();
       const off = applyOffline(sRef.current!, Date.now());
       if (off.earned > 0 && off.seconds > 60) setWelcomeBack(off);
