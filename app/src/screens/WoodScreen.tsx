@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { QUICK_PHRASES, varietyAt } from '../game/catalog';
+import { GIFT_SHARES, QUICK_PHRASES, varietyAt } from '../game/catalog';
 import { ALBUM } from '../game/album';
 import { fmt, fmtTime, timeAgo } from '../game/format';
 import { Contract, ContractDef, Member, useGame } from '../state/GameContext';
@@ -111,16 +111,22 @@ function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () =>
         </View>
       )}
       {giving && (
-        <View style={styles.memberActions}>
-          {[0.1, 0.25, 0.5].map((f) => (
-            <Button
-              key={f} small outline color={C.blue} label={`${f * 100}%`} sub={fmt(s.honey * f)}
-              disabled={s.honey * f < 1}
-              onPress={() => { wood.gift(m.id, Math.floor(s.honey * f)); setGiving(false); }}
-              style={{ flex: 1 }}
-            />
-          ))}
-        </View>
+        <>
+          <Text style={[styles.small, { marginTop: 8 }]}>Send a share of what {m.name} has now, so a big gift never swamps them.</Text>
+          <View style={styles.memberActions}>
+            {GIFT_SHARES.map((f) => {
+              const amount = Math.floor((m.stats.honey || 0) * f);
+              return (
+                <Button
+                  key={f} small outline color={C.blue} label={`${f * 100}%`} sub={fmt(amount)}
+                  disabled={amount < 1 || amount > s.honey}
+                  onPress={() => { wood.gift(m.id, amount); setGiving(false); }}
+                  style={{ flex: 1 }}
+                />
+              );
+            })}
+          </View>
+        </>
       )}
     </Card>
   );

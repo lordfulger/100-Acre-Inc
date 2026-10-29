@@ -66,7 +66,8 @@ export function Letters() {
   const [share, setShare] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
   const target = to && others.find((m) => m.id === to) ? to : others[0]?.id;
-  const amount = Math.floor(s.honey * share);
+  const theirs = others.find((m) => m.id === target)?.stats.honey || 0;
+  const amount = Math.floor(theirs * share);
 
   const read = (id: string) => {
     setOpen((o) => (o === id ? null : id));
@@ -85,7 +86,7 @@ export function Letters() {
       <Section title="✉️ Letters" />
       {others.length > 0 && (
         <Card>
-          <Text style={styles.small}>Leave a note for when they next come into the wood.</Text>
+          <Text style={styles.small}>Leave a note for when they next come into the wood. Honey tucked inside is a share of what they have.</Text>
           {others.length > 1 && (
             <View style={styles.row}>
               {others.map((m) => (
@@ -101,13 +102,13 @@ export function Letters() {
           />
           <View style={styles.row}>
             {[0, 0.1, 0.25].map((f) => (
-              <Pressable key={f} onPress={() => setShare(f)} style={[styles.pick, share === f && styles.pickOn]}>
+              <Pressable key={f} onPress={() => setShare(f)} disabled={Math.floor(theirs * f) > s.honey} style={[styles.pick, share === f && styles.pickOn, Math.floor(theirs * f) > s.honey && { opacity: 0.4 }]}>
                 <Text style={styles.pickText}>{f ? `🍯 ${f * 100}%` : 'No honey'}</Text>
               </Pressable>
             ))}
           </View>
           <Button
-            label="✉️ Send letter" sub={amount > 0 ? `with ${fmt(amount)} honey` : undefined} disabled={!text.trim() || !target}
+            label="✉️ Send letter" sub={amount > 0 ? `with ${fmt(amount)} honey` : undefined} disabled={!text.trim() || !target || amount > s.honey}
             onPress={() => { wood.letter(target!, text, amount); setText(''); setShare(0); }} style={{ marginTop: 8 }}
           />
         </Card>

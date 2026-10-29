@@ -237,6 +237,12 @@ export const BALLOONS: Record<BalloonKind, { weight: number; title: string; secs
 
 export const AVATARS = ['🐻', '🐷', '🐯', '🐰', '🦉', '🐴', '🦘', '🐣', '🧒', '🐞', '🐝', '🐘', '🐇'];
 
+/**
+ * Honey gifts are a share of what the friend has (not of what you have), so a far
+ * richer friend can't swamp them. The server holds gifts to the biggest share too.
+ */
+export const GIFT_SHARES = [0.1, 0.25, 0.5];
+
 export const QUICK_PHRASES = [
   'Hallo! 👋', 'Oh bother.', 'Time for a little something? 🍯', 'Join the Expotition! 🧭',
   'Thank you for the honey! 💛', 'I caught a balloon! 🎈', 'Bouncy bouncy! 🐯', "You're the best! 💛", 'Night night 😴',

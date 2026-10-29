@@ -340,7 +340,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         case 'giftSent':
           // Paid for once the server has it, so a dropped connection can't lose the honey.
           s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
-          giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
+          // The server may send less than asked (a gift can't be more than half of what they have).
+          giftsPending.current = Math.max(0, giftsPending.current - (Number(m.asked ?? m.amount) || 0));
           s.stats.giftsSent++;
           toast('🎁 Gift delivered!');
           save(); // or reloading straight away would bring the honey back
@@ -383,7 +384,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }
         case 'letterSent':
           s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
-          giftsPending.current = Math.max(0, giftsPending.current - (Number(m.amount) || 0));
+          giftsPending.current = Math.max(0, giftsPending.current - (Number(m.asked ?? m.amount) || 0));
           s.stats.lettersSent++;
           toast('✉️ Letter delivered!');
           save();

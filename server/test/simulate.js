@@ -63,6 +63,10 @@ try {
   b.send({ t: 'gift', to: wa.you, amount: 123 });
   const gift = await a.wait((m) => m.t === 'gift');
   assert.equal(gift.amount, 123);
+  // Gifts are held to half of what the friend has (Pooh has 500), however much is asked.
+  b.send({ t: 'gift', to: wa.you, amount: 1e9 });
+  assert.equal((await a.wait((m) => m.t === 'gift' && m.amount !== 123)).amount, 250);
+  assert.equal((await b.wait((m) => m.t === 'giftSent' && m.amount === 250)).asked, 1e9);
   a.send({ t: 'hug', to: wb.you });
   await b.wait((m) => m.t === 'hug' && m.name === 'Pooh');
   a.send({ t: 'hug', to: wb.you });

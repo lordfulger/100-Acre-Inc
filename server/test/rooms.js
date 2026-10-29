@@ -64,6 +64,8 @@ const pooh = connect(POOH, 'Pooh');
 const welcome = await pooh.until((m) => m.t === 'welcome');
 const piglet = connect(PIGLET, 'Piglet');
 const pigletId = (await piglet.until((m) => m.t === 'welcome')).you;
+piglet.send({ t: 'stats', stats: { honey: 1000 } });
+await pooh.until((m) => m.t === 'roster' && m.roster.some((r) => r.id === pigletId && r.stats.honey === 1000));
 piglet.ws.close();
 await pooh.until((m) => m.t === 'roster' && m.roster.some((r) => r.id === pigletId && !r.online));
 pooh.send({ t: 'chat', text: 'Hallo, Piglet!' });

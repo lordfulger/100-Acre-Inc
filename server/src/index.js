@@ -47,6 +47,9 @@ export function projectDef(n) {
   return { id: `festival${k}`, name: `Honey Festival ${k}`, emoji: '🎪', goalSeconds: 24 * 3600, minGoal: 1e10 };
 }
 const LETTER_MAX = 280;
+// Honey sent to a friend (as a gift or in a letter) is at most this share of what
+// they have, as their phone last told us, so a far richer friend can't swamp them.
+const GIFT_SHARE_MAX = 0.5;
 const STICK_DROP_MS = 20_000;
 const STICK_INVITE_MS = 90_000;
 const FINAL_BOOST = { mult: 2, secs: 20 * 60 };
@@ -149,6 +152,7 @@ const sockets = new Map(); // `${room}:${pid}` -> Set<ws>
 const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const cleanText = (s, max) => String(s || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const num = (n) => (Number.isFinite(n) && n > 0 ? n : 0);
+const giftCap = (room, to) => num(room.members[to]?.stats?.honey) * GIFT_SHARE_MAX;
 // A player's map (owned / level / manager per building), kept small and tidy.
 function cleanBuildings(b) {
   if (!b || typeof b !== 'object') return undefined;
@@ -469,12 +473,13 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'gift': {
-        const amount = num(Number(msg.amount));
         const to = String(msg.to || '');
-        if (!amount || !room.members[to] || to === pid) return;
+        if (!num(Number(msg.amount)) || !room.members[to] || to === pid) return;
+        const amount = Math.floor(Math.min(num(Number(msg.amount)), giftCap(room, to)));
+        if (!amount) return send(ws, { t: 'error', text: `${room.members[to].name} needs some honey of their own before you can send them more.` });
         sendTo(room, to, { t: 'gift', from: pid, name: me.name, avatar: me.avatar, amount }, { queue: true });
         notify(room, to, `🎁 ${me.name} sent you honey!`, 'Come and see how much.', 'gift');
-        send(ws, { t: 'giftSent', to, amount });
+        send(ws, { t: 'giftSent', to, amount, asked: num(Number(msg.amount)) });
         system(room, `🎁 ${me.name} sent ${room.members[to].name} a pot of honey!`);
         break;
       }
@@ -523,12 +528,12 @@ wss.on('connection', (ws) => {
         const to = String(msg.to || '');
         // Letters keep their line breaks; other control characters become spaces.
         const text = String(msg.text || '').replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ').trim().slice(0, LETTER_MAX);
-        const amount = num(Number(msg.amount));
         if (!room.members[to] || to === pid || !text) return;
+        const amount = Math.floor(Math.min(num(Number(msg.amount)), giftCap(room, to)));
         const letter = { id: `${Date.now()}-${pid}`, from: pid, name: me.name, avatar: me.avatar, text, amount, at: Date.now() };
         sendTo(room, to, { t: 'letter', letter }, { queue: true });
         notify(room, to, `✉️ ${me.name} left you a letter`, amount ? 'With honey tucked inside.' : 'Open it in the Friends tab.', `letter-${letter.id}`);
-        send(ws, { t: 'letterSent', amount });
+        send(ws, { t: 'letterSent', amount, asked: num(Number(msg.amount)) });
         system(room, `✉️ ${me.name} left ${room.members[to].name} a letter${amount ? ' with honey tucked inside' : ''}.`);
         break;
       }
