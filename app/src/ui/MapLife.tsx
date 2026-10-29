@@ -48,7 +48,7 @@ function Wanderer({ home, to, k, delay }: { home: string; to: string; k: number;
 }
 
 /** Friends who live in homes with a manager stroll to a neighbour's and back. */
-function wanderers(s: GameState) {
+export function wanderers(s: GameState) {
   const homes = ['pooh', ...Object.keys(PLACES).filter((id) => id !== 'pooh' && s.biz[id]?.managed)];
   const near = (id: string) => {
     const p = PLACES[id];

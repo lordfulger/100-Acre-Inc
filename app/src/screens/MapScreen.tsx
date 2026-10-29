@@ -12,7 +12,7 @@ import { play, playLevel } from '../audio/sound';
 import { activeEvent, eventProgress, seasonAt, SEASONS, WEATHER_NAMES, weatherAt } from '../game/calendar';
 import { findThing, gameForHome, GameId, GAMES, gameReady, gameWait, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
 import { GameRunner } from './GamesScreen';
-import { MapLife, Weather } from '../ui/MapLife';
+import { MapLife, wanderers, Weather } from '../ui/MapLife';
 import { HomeInside } from './HomeInside';
 import { say } from '../audio/voices';
 
@@ -241,22 +241,47 @@ export function MapScreen() {
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
   const upgradable = new Set(ALL_IDS.filter((id) => homeHasUpgrade(s, id)));
+  const away = new Set(wanderers(s).map((w) => w.home));
   const mapWidth = width * zoom;
+  const [height, setHeight] = useState(0);
+  const across = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const down = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const at = useRef({ x: 0, y: 0 });
+
+  // Zooming keeps the same spot of the wood in the middle of the screen.
+  const toggleZoom = () => {
+    const next = zoom === 1 ? 1.7 : 1;
+    const ratio = next / zoom;
+    const x = Math.max(0, (at.current.x + width / 2) * ratio - width / 2);
+    const y = Math.max(0, (at.current.y + height / 2) * ratio - height / 2);
+    setZoom(next);
+    // After the map has been drawn at its new size.
+    setTimeout(() => {
+      across.current?.scrollTo({ x: next === 1 ? 0 : x, animated: false });
+      down.current?.scrollTo({ y, animated: false });
+    }, 0);
+  };
 
   return (
-    <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View style={{ flex: 1 }} onLayout={(e) => { setWidth(e.nativeEvent.layout.width); setHeight(e.nativeEvent.layout.height); }}>
       {width > 0 && (
-        <ScrollView contentContainerStyle={{ paddingBottom: selected ? 520 : 16 }}>
-          <ScrollView horizontal scrollEnabled={zoom > 1} showsHorizontalScrollIndicator={zoom > 1}>
+        <ScrollView
+          ref={down} contentContainerStyle={{ paddingBottom: selected ? 520 : 16 }}
+          scrollEventThrottle={32} onScroll={(e) => { at.current.y = e.nativeEvent.contentOffset.y; }}
+        >
+          <ScrollView
+            ref={across} horizontal scrollEnabled={zoom > 1} showsHorizontalScrollIndicator={zoom > 1}
+            scrollEventThrottle={32} onScroll={(e) => { at.current.x = e.nativeEvent.contentOffset.x; }}
+          >
             <View>
-              <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} />
+              <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} away={away} />
               <MapLife s={s} width={mapWidth} now={now} />
             </View>
           </ScrollView>
         </ScrollView>
       )}
       {!selected && (
-        <Pressable style={styles.zoom} onPress={() => setZoom((z) => (z === 1 ? 1.7 : 1))}>
+        <Pressable style={styles.zoom} onPress={toggleZoom}>
           <Text style={styles.zoomText}>{zoom === 1 ? '🔍 Zoom in' : '🗺️ Whole wood'}</Text>
         </Pressable>
       )}

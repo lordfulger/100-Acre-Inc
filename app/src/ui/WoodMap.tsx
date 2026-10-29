@@ -868,12 +868,14 @@ type Props = {
   selected?: string | null;
   upgradable?: Set<string>;
   onSelect?: (id: string) => void;
+  /** Homes whose friend is out walking on the map, so their portrait isn't shown at home too. */
+  away?: Set<string>;
 };
 
 /** True when a home is still hidden: not bought yet and not the next one to unlock. */
 const isLocked = (view: MapView, id: string) => id !== 'pooh' && !view.owned[id];
 
-function WoodMapView({ view, width, selected, upgradable, onSelect }: Props) {
+function WoodMapView({ view, width, selected, upgradable, onSelect, away }: Props) {
   const k = width / MAP_W;
   const ids = Object.keys(PLACES);
   return (
@@ -922,7 +924,7 @@ function WoodMapView({ view, width, selected, upgradable, onSelect }: Props) {
             {!locked && addonsFor(id, 0).map((a, i) => (view.addons || []).includes(`${id}:${i}`) && (
               <Text key={i} pointerEvents="none" style={[styles.decor, { left: (boxW / 2 + DECOR[i][0]) * k, top: (90 + DECOR[i][1]) * k, fontSize: Math.max(10, 15 * k) }]}>{a.emoji}</Text>
             ))}
-            {manager && !locked && <Portrait id={manager} size={Math.max(20, 30 * k)} style={[styles.manager, { right: 4 * k, bottom: 24 * k }]} />}
+            {manager && !locked && !away?.has(id) && <Portrait id={manager} size={Math.max(20, 30 * k)} style={[styles.manager, { right: 4 * k, bottom: 24 * k }]} />}
             <View style={[styles.nameTag, { maxWidth: (boxW + 20) * k }, upgradable?.has(id) && styles.nameTagReady]}>
               {upgradable?.has(id) && <Pulse><Text style={{ fontSize: Math.max(10, 13 * k) }}>⬆️</Text></Pulse>}
               <View style={{ alignItems: 'center', flexShrink: 1 }}>
@@ -962,6 +964,6 @@ export const WoodMap = React.memo(
   WoodMapView,
   (a, b) =>
     a.width === b.width && a.selected === b.selected && a.onSelect === b.onSelect &&
-    upgradableKey(a.upgradable) === upgradableKey(b.upgradable) &&
+    upgradableKey(a.upgradable) === upgradableKey(b.upgradable) && upgradableKey(a.away) === upgradableKey(b.away) &&
     JSON.stringify(a.view) === JSON.stringify(b.view),
 );
