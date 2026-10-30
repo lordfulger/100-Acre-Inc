@@ -50,8 +50,8 @@ export type Net = {
   rests: Record<string, number>;
   /** The wood's joint buildings. */
   joint: Record<string, JointSite>;
-  /** When (by this phone's clock) you can next send a friend honey: gifts and letters with honey wait 5 minutes. */
-  giftReadyAt: number;
+  /** When (by this phone's clock) you can next send each friend honey: after a gift or honey in a letter, that friend waits 5 minutes. */
+  giftReadyAt: Record<string, number>;
 };
 export type StickPlayer = { pid: string; name: string; avatar: string };
 export type StickRace = { sticks: (StickPlayer & { q: number; time: number })[]; winner: string; seed: number };
@@ -71,13 +71,17 @@ export type CloudState = {
   conflict?: { data: any; allTime: number; honey: number; savedAt: string };
 };
 
+/** The server's waits before you can send each friend honey (ms left), as times on this phone's clock. */
+const readyTimes = (waits: Record<string, number> | undefined) =>
+  Object.fromEntries(Object.entries(waits || {}).map(([id, ms]) => [id, Date.now() + (Number(ms) || 0)]));
+
 /** Just the levels, from the server's joint buildings. */
 const jointLevels = (joint: Record<string, JointSite> | undefined) =>
   Object.fromEntries(Object.entries(joint || {}).map(([id, j]) => [id, Number(j?.level) || 0]));
 
 const emptyNet: Net = {
   status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null,
-  project: null, projectDef: null, built: [], pushKey: null, pushOn: false, rests: {}, joint: {}, giftReadyAt: 0,
+  project: null, projectDef: null, built: [], pushKey: null, pushOn: false, rests: {}, joint: {}, giftReadyAt: {},
 };
 
 /** The online server baked into app.json (`extra.serverUrl`), if any. */
@@ -313,7 +317,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null,
             project: m.project || null, projectDef: m.projectDef || null, built: m.built || [],
             pushKey: m.pushKey || null, pushOn: !!m.pushOn, rests: m.rests || {}, joint: m.joint || {},
-            giftReadyAt: Date.now() + (Number(m.giftWait) || 0),
+            giftReadyAt: readyTimes(m.giftWaits),
           }));
           s.joint = jointLevels(m.joint);
           // Already allowed on this phone: keep the server's copy of the address fresh.
@@ -358,7 +362,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           save();
           break;
         case 'giftSent':
-          setNet((n) => ({ ...n, giftReadyAt: Date.now() + (Number(m.giftWait) || 0) }));
+          setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) }));
           // Paid for once the server has it, so a dropped connection can't lose the honey.
           s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
           // The server may send less than asked (a gift can't be more than half of what they have).
@@ -416,7 +420,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           break;
         }
         case 'letterSent':
-          setNet((n) => ({ ...n, giftReadyAt: Date.now() + (Number(m.giftWait) || 0) }));
+          setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) }));
           s.honey = Math.max(0, s.honey - (Number(m.amount) || 0));
           giftsPending.current = Math.max(0, giftsPending.current - (Number(m.asked ?? m.amount) || 0));
           s.stats.lettersSent++;
@@ -436,7 +440,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           if (m.why) toast(`🥢 ${m.why}`);
           break;
         case 'error':
-          if (m.giftWait) setNet((n) => ({ ...n, giftReadyAt: Date.now() + Number(m.giftWait) }));
+          if (m.giftWaits) setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) }));
           if (client.status !== 'online') {
             client.close();
             setNet((n) => ({ ...n, error: m.text }));
@@ -566,7 +570,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     chat: (text) => { if (text.trim()) client.send({ t: 'chat', text: text.trim() }); },
     hug: (to) => { client.send({ t: 'hug', to }); },
     gift: (to, amount) => {
-      if (amount <= 0 || amount > s.honey - giftsPending.current || net.giftReadyAt > Date.now()) return;
+      if (amount <= 0 || amount > s.honey - giftsPending.current || (net.giftReadyAt[to] || 0) > Date.now()) return;
       if (client.send({ t: 'gift', to, amount })) giftsPending.current += amount;
       else toast('Oh bother: not connected to the wood right now.');
     },
@@ -602,7 +606,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
     },
     letter: (to, text, amount) => {
-      if (!text.trim() || amount < 0 || amount > s.honey - giftsPending.current || (amount > 0 && net.giftReadyAt > Date.now())) return;
+      if (!text.trim() || amount < 0 || amount > s.honey - giftsPending.current || (amount > 0 && (net.giftReadyAt[to] || 0) > Date.now())) return;
       if (client.send({ t: 'letter', to, text: text.trim(), amount })) giftsPending.current += amount;
       else toast('Oh bother: not connected to the wood right now.');
     },

@@ -76,7 +76,7 @@ function JoinCard() {
 
 function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () => void }) {
   const { s, net, wood, now } = useGame();
-  const giftWait = net.giftReadyAt - now;
+  const giftWait = (net.giftReadyAt[m.id] || 0) - now;
   const [giving, setGiving] = useState(false);
   const [more, setMore] = useState(false);
   const blocked = s.blocked.includes(m.id);
@@ -116,7 +116,7 @@ function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () =>
         <>
           <Text style={[styles.small, { marginTop: 8 }]}>
             {giftWait > 0
-              ? `🎁 You can send honey again in ${fmtWait(giftWait)} (one gift every 5 minutes).`
+              ? `🎁 You can send ${m.name} honey again in ${fmtWait(giftWait)} (one gift each every 5 minutes).`
               : `Send a share of what ${m.name} has now, so a big gift never swamps them.`}
           </Text>
           <View style={styles.memberActions}>

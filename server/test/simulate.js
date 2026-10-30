@@ -68,8 +68,8 @@ try {
   assert.equal(gift.amount, 123);
   // A second gift before the cooldown is up (5 minutes; 1.5 seconds in this test) waits.
   b.send({ t: 'gift', to: wa.you, amount: 50 });
-  const wait = await b.wait((m) => m.t === 'error' && /send honey again in/.test(m.text));
-  assert.ok(wait.giftWait > 0);
+  const wait = await b.wait((m) => m.t === 'error' && /send Pooh honey again in/.test(m.text));
+  assert.ok(wait.giftWaits[wa.you] > 0, 'the wait is for that friend');
   await sleep(1600);
   // Gifts are held to half of what the friend has (Pooh has 500), however much is asked.
   b.send({ t: 'gift', to: wa.you, amount: 1e9 });
@@ -79,6 +79,23 @@ try {
   await b.wait((m) => m.t === 'hug' && m.name === 'Pooh');
   a.send({ t: 'hug', to: wb.you });
   await a.wait((m) => m.t === 'error' && /rest/.test(m.text));
+  // Each friend has their own wait: gifting one doesn't hold up gifting another.
+  const g1 = player('d'.repeat(32), 'Tigger', '🐯', 'gifts');
+  await g1.wait((m) => m.t === 'welcome');
+  const g2 = player('e'.repeat(32), 'Roo', '🐣', 'gifts');
+  const gw2 = await g2.wait((m) => m.t === 'welcome');
+  const g3 = player('f'.repeat(32), 'Kanga', '🦘', 'gifts');
+  const gw3 = await g3.wait((m) => m.t === 'welcome');
+  g2.send({ t: 'stats', stats: { honey: 1000 } });
+  g3.send({ t: 'stats', stats: { honey: 1000 } });
+  await g1.wait((m) => m.t === 'roster' && m.roster.filter((r) => r.stats.honey === 1000).length === 2);
+  g1.send({ t: 'gift', to: gw2.you, amount: 100 });
+  await g1.wait((m) => m.t === 'giftSent' && m.to === gw2.you);
+  g1.send({ t: 'gift', to: gw3.you, amount: 100 });
+  const second = await g1.wait((m) => m.t === 'giftSent' || m.t === 'error');
+  assert.equal(second.t, 'giftSent', 'a different friend can be sent honey straight away');
+  assert.ok(second.giftWaits[gw2.you] > 0 && second.giftWaits[gw3.you] > 0, 'and now both wait');
+  for (const g of [g1, g2, g3]) g.ws.close();
   console.log('✓ gifts and hugs (with cooldown)');
 
   a.send({ t: 'startContract', id: 'tail' });

@@ -19,7 +19,8 @@ const DATA_FILE = join(DATA_DIR, 'rooms.json');
 const MAX_MEMBERS = 8;
 const CHAT_HISTORY = 60;
 const HUG_COOLDOWN_MS = 20_000;
-// After sending a friend honey (a gift, or honey in a letter) you wait this long before sending more.
+// After sending a friend honey (a gift, or honey in a letter) you wait this long before sending
+// that friend more. Each friend has their own wait.
 const GIFT_COOLDOWN_MS = Number(process.env.GIFT_COOLDOWN_MS) || 5 * 60_000;
 const BALLOON_COOLDOWN_MS = 8_000;
 
@@ -181,8 +182,11 @@ const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 const cleanText = (s, max) => String(s || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const num = (n) => (Number.isFinite(n) && n > 0 ? n : 0);
 /** How long until this player can send honey again (0 when they can). */
-const giftWait = (member) => Math.max(0, (member.giftAt || 0) + GIFT_COOLDOWN_MS - Date.now());
-const giftWaitText = (ms) => `You can send honey again in ${Math.ceil(ms / 60_000)} min.`;
+const giftWait = (member, to) => Math.max(0, (member.giftTo?.[to] || 0) + GIFT_COOLDOWN_MS - Date.now());
+/** Every friend you're waiting on: their id -> ms left. */
+const giftWaits = (room, member) => Object.fromEntries(Object.keys(room.members).map((to) => [to, giftWait(member, to)]).filter(([, ms]) => ms > 0));
+const sentHoney = (member, to) => { (member.giftTo ||= {})[to] = Date.now(); markDirty(); };
+const giftWaitText = (room, to, ms) => `You can send ${room.members[to]?.name || 'them'} honey again in ${Math.ceil(ms / 60_000)} min.`;
 const giftCap = (room, to) => num(room.members[to]?.stats?.honey) * GIFT_SHARE_MAX;
 // Best minigame scores, for the leaderboards: game id -> score.
 function cleanBests(b) {
@@ -516,7 +520,7 @@ wss.on('connection', (ws) => {
       sockets.get(key).add(ws);
       markDirty();
 
-      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, rests: r.rests || {}, ...projectInfo(r), ...jointInfo(r), giftWait: giftWait(r.members[id]), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
+      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, rests: r.rests || {}, ...projectInfo(r), ...jointInfo(r), giftWaits: giftWaits(r, r.members[id]), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
       for (const [raceId, race] of races) {
         if (race.room === r && race.b === id && race.phase === 'invited') {
           const from = r.members[race.a];
@@ -561,12 +565,11 @@ wss.on('connection', (ws) => {
         if (!num(Number(msg.amount)) || !room.members[to] || to === pid) return;
         const amount = Math.floor(Math.min(num(Number(msg.amount)), giftCap(room, to)));
         if (!amount) return send(ws, { t: 'error', text: `${room.members[to].name} needs some honey of their own before you can send them more.` });
-        if (giftWait(me)) return send(ws, { t: 'error', text: giftWaitText(giftWait(me)), giftWait: giftWait(me) });
-        me.giftAt = Date.now();
-        markDirty();
+        if (giftWait(me, to)) return send(ws, { t: 'error', text: giftWaitText(room, to, giftWait(me, to)), giftWaits: giftWaits(room, me) });
+        sentHoney(me, to);
         sendTo(room, to, { t: 'gift', from: pid, name: me.name, avatar: me.avatar, amount }, { queue: true });
         notify(room, to, `🎁 ${me.name} sent you honey!`, 'Come and see how much.', 'gift');
-        send(ws, { t: 'giftSent', to, amount, asked: num(Number(msg.amount)), giftWait: GIFT_COOLDOWN_MS });
+        send(ws, { t: 'giftSent', to, amount, asked: num(Number(msg.amount)), giftWaits: giftWaits(room, me) });
         system(room, `🎁 ${me.name} sent ${room.members[to].name} a pot of honey!`);
         break;
       }
@@ -626,12 +629,12 @@ wss.on('connection', (ws) => {
         const text = String(msg.text || '').replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ').trim().slice(0, LETTER_MAX);
         if (!room.members[to] || to === pid || !text) return;
         const amount = Math.floor(Math.min(num(Number(msg.amount)), giftCap(room, to)));
-        if (amount && giftWait(me)) return send(ws, { t: 'error', text: `${giftWaitText(giftWait(me))} Your letter can go without honey now.`, giftWait: giftWait(me) });
-        if (amount) { me.giftAt = Date.now(); markDirty(); }
+        if (amount && giftWait(me, to)) return send(ws, { t: 'error', text: `${giftWaitText(room, to, giftWait(me, to))} Your letter can go without honey now.`, giftWaits: giftWaits(room, me) });
+        if (amount) sentHoney(me, to);
         const letter = { id: `${Date.now()}-${pid}`, from: pid, name: me.name, avatar: me.avatar, text, amount, at: Date.now() };
         sendTo(room, to, { t: 'letter', letter }, { queue: true });
         notify(room, to, `✉️ ${me.name} left you a letter`, amount ? 'With honey tucked inside.' : 'Open it in the Friends tab.', `letter-${letter.id}`);
-        send(ws, { t: 'letterSent', amount, asked: num(Number(msg.amount)), giftWait: giftWait(me) });
+        send(ws, { t: 'letterSent', amount, asked: num(Number(msg.amount)), giftWaits: giftWaits(room, me) });
         system(room, `✉️ ${me.name} left ${room.members[to].name} a letter${amount ? ' with honey tucked inside' : ''}.`);
         break;
       }

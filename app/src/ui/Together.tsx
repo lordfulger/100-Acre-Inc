@@ -106,7 +106,6 @@ export function Projects() {
 
 export function Letters() {
   const { s, net, wood, act, toast, now } = useGame();
-  const giftWait = net.giftReadyAt - now;
   const others = net.roster.filter((m) => m.id !== net.you);
   const [to, setTo] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -114,6 +113,7 @@ export function Letters() {
   const [open, setOpen] = useState<string | null>(null);
   const target = to && others.find((m) => m.id === to) ? to : others[0]?.id;
   const theirs = others.find((m) => m.id === target)?.stats.honey || 0;
+  const giftWait = (target ? net.giftReadyAt[target] || 0 : 0) - now;
   const amount = Math.floor(theirs * share);
 
   const read = (id: string) => {
@@ -157,7 +157,7 @@ export function Letters() {
               );
             })}
           </View>
-          {giftWait > 0 && <Text style={[styles.small, { marginTop: 4 }]}>🍯 Honey can go in a letter again in {fmtWait(giftWait)} (one gift every 5 minutes).</Text>}
+          {giftWait > 0 && <Text style={[styles.small, { marginTop: 4 }]}>🍯 Honey can go in a letter to {others.find((m) => m.id === target)?.name} again in {fmtWait(giftWait)} (one gift each every 5 minutes).</Text>}
           <Button
             label="✉️ Send letter" sub={amount > 0 ? `with ${fmt(amount)} honey` : undefined} disabled={!text.trim() || !target || amount > s.honey || (amount > 0 && giftWait > 0)}
             onPress={() => { wood.letter(target!, text, amount); setText(''); setShare(0); }} style={{ marginTop: 8 }}
