@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { COMB_BONUS, varietyAt } from '../game/catalog';
-import { buyVariety, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
+import { varietyAt } from '../game/catalog';
+import { buyVariety, combPower, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
@@ -35,7 +35,7 @@ export function NapScreen() {
   const combs = totalCombs(s);
   const pending = napCombsAvailable(s);
   const nextAt = nextCombAt(s);
-  const newBonus = (combs + pending) * COMB_BONUS * 100;
+  const newBonus = (combs + pending) * combPower(s) * 100;
 
   return (
     <View style={{ flex: 1 }}>
@@ -66,7 +66,7 @@ export function NapScreen() {
         <Card>
           <Text style={styles.body}>
             Curl up for a nap and dream of honey. You start your businesses over, but wake with{' '}
-            <Text style={{ fontWeight: '900' }}>Golden Honeycombs</Text> — each one adds +{COMB_BONUS * 100}% honey forever. Combs from Expotitions are kept too.
+            <Text style={{ fontWeight: '900' }}>Golden Honeycombs</Text> — each one adds +{Number((combPower(s) * 100).toFixed(1))}% honey forever (more with Comb Polish). Combs from Expotitions are kept too.
           </Text>
           <Image source={require('../../assets/art/honeycomb.png')} style={styles.comb} />
           <View style={styles.stats}>

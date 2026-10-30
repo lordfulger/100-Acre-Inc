@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { COMB_BONUS, varietyAt } from '../game/catalog';
-import { Boost, tap, totalCombs } from '../game/engine';
+import { varietyAt } from '../game/catalog';
+import { Boost, combPower, tap, totalCombs } from '../game/engine';
 import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { buzz, C, nativeDriver } from './kit';
@@ -226,7 +226,7 @@ export function Header() {
         <Text style={styles.honey} numberOfLines={1} adjustsFontSizeToFit>{fmt(s.honey)}</Text>
         <Text style={styles.unit}>{v.emoji} {v.name}</Text>
         <Text style={styles.rate}>+{fmt(d.hps)}/s  ·  👆 +{fmt(d.tapValue)}</Text>
-        {combs > 0 && <Text style={styles.combs}>✨ {fmt(combs)} Golden Honeycombs (+{fmt(combs * COMB_BONUS * 100)}%)</Text>}
+        {combs > 0 && <Text style={styles.combs}>✨ {fmt(combs)} Golden Honeycombs (+{fmt(combs * combPower(s) * 100)}%)</Text>}
         {boosts.length > 2 && <Text style={styles.combs}>+{boosts.length - 2} more boosts</Text>}
         {boosts.length > 0 && (
           <View style={styles.chips}>

@@ -187,6 +187,9 @@ export function migrate(raw: any, now: number): GameState {
 // ---------- multipliers ----------
 
 export const totalCombs = (s: GameState) => s.combsFromNaps + s.combsBonus;
+/** How much honey each Golden Honeycomb adds (2%, plus Comb Polish), at a Comb Polish level (yours by default). */
+export const combPower = (s: GameState, polish = s.research.combs || 0) =>
+  COMB_BONUS + (RESEARCH_BY_ID.combs?.per ?? 0) * polish;
 // A fourth root keeps naps rewarding without letting them snowball out of control.
 const combsForHoney = (honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25);
 export const napCombsAvailable = (s: GameState) => Math.max(0, combsForHoney(s.allTimeEarned) - s.combsFromNaps);
@@ -279,7 +282,7 @@ export function derive(s: GameState, now: number): Derived {
   balloonPower += joint('field');
 
   const speed = 1 + researchSum(s, 'speed');
-  const combBonus = COMB_BONUS + researchSum(s, 'combPower');
+  const combBonus = combPower(s);
 
   const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** allMilestonesReached(minOwned);

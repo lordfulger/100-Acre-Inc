@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RESEARCH, RESEARCH_SECTIONS, researchEffect } from '../game/catalog';
-import { buyResearch, researchNext } from '../game/engine';
+import { buyResearch, combPower, researchNext, totalCombs } from '../game/engine';
 import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Button, buzz, C, Card, Section } from '../ui/kit';
@@ -33,6 +33,12 @@ export function ShopScreen() {
                     <Text style={styles.name}>{r.name} <Text style={styles.level}>Lv {n.level}{r.max ? ` / ${r.max}` : ''}</Text></Text>
                     <Text style={styles.desc}>{n.level ? researchEffect(r, n.level) : 'Not bought yet'}</Text>
                     {!n.maxed && <Text style={styles.next}>Next: {researchEffect(r, n.level + 1)}</Text>}
+                    {r.kind === 'combPower' && totalCombs(s) > 0 && (
+                      <Text style={styles.desc}>
+                        ✨ Your {fmt(totalCombs(s))} combs together: +{fmt(totalCombs(s) * combPower(s) * 100)}% honey
+                        {!n.maxed ? ` → +${fmt(totalCombs(s) * combPower(s, n.level + 1) * 100)}%` : ''}
+                      </Text>
+                    )}
                   </View>
                   {n.maxed ? (
                     <Text style={styles.maxed}>Maxed!</Text>

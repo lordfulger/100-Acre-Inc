@@ -11,7 +11,7 @@ import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt } from './calendar';
 import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
-import { addBoost, catchBalloon } from './engine';
+import { addBoost, catchBalloon, combPower } from './engine';
 
 let now = 1_700_000_000_000;
 
@@ -253,6 +253,9 @@ function shop(s: GameState, t: number) {
   assert.equal(finishGame(s, 'tracks', 99, day(10, 29, 14)).honey, 3e6 * 0.02);
   const had = s.honey;
   assert.equal(finishGame(s, 'stretch', 1, day(10, 29, 14)).honey, had * 0.02 * (40 / 600), 'smaller scores, smaller shares');
+  // Comb Polish makes every Golden Honeycomb worth more: +0.1% each a level.
+  assert.ok(Math.abs(combPower(s, 5) - 0.025) < 1e-12);
+  assert.equal(combPower(s, 0), 0.02);
   // The wood's joint buildings help everyone in it, more with every level.
   const plain = derive(s, day(10, 29, 15));
   s.joint = { market: 2, hive: 3, lantern: 4, field: 1 };
