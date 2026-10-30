@@ -88,16 +88,19 @@ const emptyNet: Net = {
 /** The online server baked into app.json (`extra.serverUrl`), if any. */
 const configuredServerUrl = () => (Constants.expoConfig?.extra as { serverUrl?: string } | undefined)?.serverUrl || '';
 
+/** True for the web version served by the game server itself (not the Metro dev server on :8081). */
+const servedFromGameServer = () => Platform.OS === 'web' && typeof window !== 'undefined' && window.location.port !== '8081';
+
 export function defaultServerUrl() {
-  const extra = configuredServerUrl();
-  if (extra) return extra;
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const { protocol, hostname, host, port } = window.location;
     // In development the page comes from Metro (:8081) and the game server is on :3001;
-    // when the game server hosts the web app itself, it's the same address.
-    if (port === '8081') return `ws://${hostname}:3001`;
+    // when the game server hosts the web app itself, it's the same address (Render or your own).
+    if (port === '8081') return configuredServerUrl() || `ws://${hostname}:3001`;
     return `${protocol === 'https:' ? 'wss' : 'ws'}://${host}`;
   }
+  const extra = configuredServerUrl();
+  if (extra) return extra;
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
   return `ws://${host || 'localhost'}:3001`;
 }
@@ -217,9 +220,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         const off = applyOffline(s, now);
         if (off.earned > 0 && off.seconds > 30) setWelcomeBack(off);
       }
-      // A built-in online server wins over an old home-network address saved during testing.
+      // On the web, the game always talks to the server it was loaded from, so moving it to
+      // another address (or your own server) just works. Elsewhere, a built-in online server
+      // wins over an old home-network address saved during testing.
       const isLocal = /^wss?:\/\/(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(s.profile.server);
-      if (!s.profile.server || (isLocal && configuredServerUrl())) s.profile.server = defaultServerUrl();
+      if (servedFromGameServer() || !s.profile.server || (isLocal && configuredServerUrl())) s.profile.server = defaultServerUrl();
       sRef.current = s;
       setReady(true);
     })();

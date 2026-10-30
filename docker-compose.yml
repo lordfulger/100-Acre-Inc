@@ -1,0 +1,28 @@
+# The game, and Caddy in front of it for HTTPS (it gets and renews the certificate
+# for your domain by itself). Settings come from .env; see SELF-HOSTING.md.
+services:
+  game:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - game-data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [game]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  game-data:
+  caddy-data:
+  caddy-config:

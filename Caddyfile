@@ -1,0 +1,6 @@
+# Serves the game over HTTPS at your domain (set DOMAIN in .env). Caddy fetches and
+# renews the certificate itself, and passes the game's live connections straight through.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy game:3001
+}

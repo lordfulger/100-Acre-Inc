@@ -118,7 +118,8 @@ if (madeKeys) rooms[KEYS] = process.env.VAPID_PUBLIC_KEY
   ? { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY }
   : webpush.generateVAPIDKeys();
 const pushKeys = rooms[KEYS];
-webpush.setVapidDetails(process.env.RENDER_EXTERNAL_URL || 'https://one00-acre-inc.onrender.com', pushKeys.publicKey, pushKeys.privateKey);
+// Push services want a contact address for whoever runs the server: its public address will do.
+webpush.setVapidDetails(process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || 'https://one00-acre-inc.onrender.com', pushKeys.publicKey, pushKeys.privateKey);
 const isRoom = (code) => code !== KEYS;
 
 /** A phone's notification address, checked enough to be safe to keep and use. */
