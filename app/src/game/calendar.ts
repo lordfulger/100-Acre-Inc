@@ -15,11 +15,34 @@ export function seasonAt(now: number): Season {
   return m <= 1 || m === 11 ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'autumn';
 }
 
-export type Weather = 'clear' | 'rain' | 'snow' | 'windy';
-export const WEATHER_NAMES: Record<Weather, string> = { clear: 'Fine', rain: 'Rainy', snow: 'Snowing', windy: 'Blustery' };
+export type Weather = 'clear' | 'cloudy' | 'rain' | 'snow' | 'windy';
+export const WEATHER_NAMES: Record<Weather, string> = { clear: 'Fine', cloudy: 'Cloudy', rain: 'Rainy', snow: 'Snowing', windy: 'Blustery' };
 
-/** The same for everyone at the same time; it changes every 2 hours. */
+// The player's real weather, when they've turned that on (see net/localWeather.ts).
+let live: { weather: Weather; until: number } | null = null;
+/** Use the real weather outside until `until`; null goes back to the wood's own. */
+export const setLiveWeather = (w: { weather: Weather; until: number } | null) => { live = w; };
+
+/** Wind (km/h) strong enough to call blustery. */
+const WINDY_KMH = 30;
+
+/** A weather service's code (WMO, as Open-Meteo gives) and wind, turned into the wood's weather. */
+export function weatherFromCode(code: number, windKmh: number): Weather {
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95) return 'rain';
+  if (windKmh >= WINDY_KMH) return 'windy';
+  if (code >= 2) return 'cloudy'; // partly cloudy, overcast, fog
+  return 'clear';
+}
+
+/** The real weather outside if we have it, otherwise the wood's own. */
 export function weatherAt(now: number): Weather {
+  if (live && now < live.until) return live.weather;
+  return woodWeather(now);
+}
+
+/** The wood's own weather: the same for everyone at the same time, changing every 2 hours. */
+export function woodWeather(now: number): Weather {
   const slot = Math.floor(now / 7_200_000);
   const r = Math.abs(Math.sin(slot * 12.9898) * 43758.5453) % 1;
   switch (seasonAt(now)) {

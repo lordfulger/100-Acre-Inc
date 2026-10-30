@@ -95,6 +95,7 @@ const FALL: Record<string, { n: number; ms: number; drift: number; size: number 
   snow: { n: 14, ms: 9_000, drift: 40, size: 14 },
   windy: { n: 10, ms: 5_000, drift: 260, size: 16 },
   clear: { n: 6, ms: 14_000, drift: 60, size: 15 },
+  cloudy: { n: 5, ms: 22_000, drift: 120, size: 22 },
 };
 
 function Flake({ char, w, h, ms, drift, size, i }: { char: string; w: number; h: number; ms: number; drift: number; size: number; i: number }) {
@@ -124,7 +125,7 @@ export function Weather({ now }: { now: number }) {
   const { width, height } = useWindowDimensions();
   const weather = weatherAt(now);
   const season = SEASONS[seasonAt(now)];
-  const char = weather === 'rain' ? '💧' : weather === 'snow' ? '❄️' : weather === 'windy' ? '🍂' : season.particle;
+  const char = weather === 'rain' ? '💧' : weather === 'snow' ? '❄️' : weather === 'windy' ? '🍂' : weather === 'cloudy' ? '☁️' : season.particle;
   const f = FALL[weather];
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>

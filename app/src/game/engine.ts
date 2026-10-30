@@ -49,7 +49,7 @@ export type GameState = {
   secrets: string[]; // map secrets found
   blocked: string[]; // players whose chat, hugs, gifts, letters and challenges are ignored
   treats: Record<string, number>; // when each map treat (bees, river stick) was last taken
-  settings: { music: boolean; sfx: boolean; voices: boolean };
+  settings: { music: boolean; sfx: boolean; voices: boolean; localWeather: boolean };
   boosts: Boost[];
   lastTick: number;
   pendingContribution: number; // honey earned but not yet reported to the co-op Expotition
@@ -108,7 +108,7 @@ export function newGame(now: number): GameState {
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
     trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
     events: {}, eventsWon: [], projects: [], joint: {}, trips: {}, artifacts: {}, equipped: [], daily: { last: '', streak: 0 }, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
-    settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
+    settings: { music: true, sfx: true, voices: true, localWeather: false }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0, trips: 0 },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
   };

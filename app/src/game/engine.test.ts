@@ -9,7 +9,7 @@ import {
 } from './engine';
 import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
-import { activeEvent, seasonAt } from './calendar';
+import { activeEvent, seasonAt, setLiveWeather, weatherAt, weatherFromCode, woodWeather } from './calendar';
 import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
 import { addBoost, buyCombUpgrade, catchBalloon, combPower, napCombsAvailable, nextCombAt, totalCombs } from './engine';
 import { claimDaily, collectTrip, combine, dailyGift, equip, explorerOpen, explorerState, startTrip, tripHours } from './trips';
@@ -319,6 +319,15 @@ function shop(s: GameState, t: number) {
     assert.ok(nextCombAt(s) > s.allTimeEarned, 'the next comb is still ahead');
     Object.assign(s, { combsFromNaps: keep.fromNaps, combsBonus: keep.bonus, combsSpent: keep.spent, combStore: keep.store });
   }
+  // The real weather outside, when a player turns it on, replaces the wood's own for a while.
+  assert.deepEqual([0, 3, 45, 61, 81, 95, 73, 86, 1].map((c) => weatherFromCode(c, 5)), ['clear', 'cloudy', 'cloudy', 'rain', 'rain', 'rain', 'snow', 'snow', 'clear']);
+  assert.equal(weatherFromCode(1, 40), 'windy');
+  assert.equal(weatherFromCode(63, 40), 'rain', 'rain beats wind');
+  const tw = day(10, 29, 19);
+  setLiveWeather({ weather: 'snow', until: tw + 1000 });
+  assert.equal(weatherAt(tw), 'snow');
+  assert.equal(weatherAt(tw + 2000), woodWeather(tw + 2000), 'an old reading is dropped');
+  setLiveWeather(null);
   // Comb Polish makes every Golden Honeycomb worth more: +0.1% each a level.
   assert.ok(Math.abs(combPower(s, 5) - 0.025) < 1e-12);
   assert.equal(combPower(s, 0), 0.02);

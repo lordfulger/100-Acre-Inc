@@ -6,7 +6,7 @@ import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
 import { ProfileCard } from '../ui/ProfileCard';
-import { SoundCard } from '../ui/SoundCard';
+import { SoundCard, WeatherCard } from '../ui/SoundCard';
 import { NapWake } from '../ui/Overlays';
 import { play } from '../audio/sound';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
@@ -137,6 +137,8 @@ export function NapScreen() {
   
         <Section title="🔊 Sound" />
         <SoundCard />
+        <Section title="🌦️ Weather" />
+        <WeatherCard />
   
         <Section title="☁️ Cloud save" />
         <CloudCard />

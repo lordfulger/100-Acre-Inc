@@ -44,7 +44,13 @@
       "expo-font",
       "expo-web-browser",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Used only to match the wood's weather to the weather where you are."
+        }
+      ]
     ]
   }
 }

@@ -46,7 +46,7 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
   const h = w * 0.7;
   const season = SEASONS[seasonAt(now)];
   const weather = weatherAt(now);
-  const outside = weather === 'rain' ? '🌧️' : weather === 'snow' ? '🌨️' : weather === 'windy' ? '🍃' : season.emoji;
+  const outside = weather === 'rain' ? '🌧️' : weather === 'snow' ? '🌨️' : weather === 'windy' ? '🍃' : weather === 'cloudy' ? '☁️' : season.emoji;
   const cost = decorCost(s, now);
   const mine = DECOR.filter((d) => s.decor.includes(d.id) && !room.includes(d.id));
   const store = DECOR.filter((d) => d.how === 'shop' && !s.decor.includes(d.id));

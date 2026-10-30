@@ -10,6 +10,7 @@ import { bestScores, checkDecor, checkTrophies, finishGame, INTERIOR_NAPS, inter
 import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
+import { refreshLocalWeather, stopLocalWeather } from '../net/localWeather';
 import { portraitFor } from '../ui/Portrait';
 import { NetStatus, WoodClient } from '../net/WoodClient';
 import { needsHomeScreen, pushAllowed, pushSupported, registerWorker, subscribe } from '../net/push';
@@ -484,6 +485,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }, 3_000);
     return () => clearInterval(id);
   }, [ready, client, sendStats]);
+
+  // ---------- the real weather outside (if the player turned it on) ----------
+  const localWeatherOn = ready && !!sRef.current?.settings.localWeather;
+  useEffect(() => {
+    if (!localWeatherOn) { stopLocalWeather(); return; }
+    const check = () => refreshLocalWeather(false).then((r) => {
+      if (r === 'denied') {
+        sRef.current!.settings = { ...sRef.current!.settings, localWeather: false };
+        rerender();
+      }
+    });
+    check();
+    const id = setInterval(check, 30 * 60_000);
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') check(); });
+    return () => { clearInterval(id); sub.remove(); };
+  }, [localWeatherOn, rerender]);
 
   // ---------- cloud save (Google) ----------
 

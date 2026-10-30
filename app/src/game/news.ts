@@ -75,6 +75,14 @@ export const NEWS: News[] = [
       ['⚖️', 'Homes cost more as you collect them', 'Each extra one of a home costs a bit more than it used to, and more so for the grander homes. The way up is the next home, not just more of the same.'],
     ],
   },
+  {
+    v: 8,
+    title: 'Your weather',
+    items: [
+      ['🌦️', 'The wood can match outside', "Turn on My real weather on the Nap tab and the wood rains, snows, blows or shines when it does where you are. It uses your rough location, only to ask a weather service, and never sends it to the game."],
+      ['☁️', 'Cloudy days', 'The wood has cloudy days now too.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;
