@@ -10,7 +10,11 @@ import { ALBUM_BY_ID, albumMult } from './album';
 import { bumpEvent, projectMult, seasonAt } from './calendar';
 import { NEWS_VERSION } from './news';
 
-export type BizState = { owned: number; managed: boolean; running: boolean; cycleStart: number };
+export type BizState = {
+  owned: number; managed: boolean; running: boolean; cycleStart: number;
+  /** How long the cycle was (ms) when last checked, so a change can keep its progress. */
+  cycleLen?: number;
+};
 export type Boost = { id: string; kind: 'profit' | 'tap'; mult: number; until: number; label: string };
 
 export type GameState = {
@@ -387,6 +391,13 @@ export function tick(s: GameState, now: number): number {
     if (st.owned <= 0) continue;
     const info = d.biz[b.id];
     const cycleMs = info.cycle * 1000;
+    // An upgrade that makes the cycle shorter (more owned, a milestone, Quick Wings…)
+    // keeps how far along it was: half done stays half done, and the bigger payout
+    // comes when it finishes, rather than counting as finished straight away.
+    if (st.running && st.cycleLen && st.cycleLen !== cycleMs) {
+      st.cycleStart = now - ((now - st.cycleStart) / st.cycleLen) * cycleMs;
+    }
+    st.cycleLen = cycleMs;
     if (st.managed) {
       if (!st.running) { st.running = true; st.cycleStart = now; continue; }
       const done = Math.floor((now - st.cycleStart) / cycleMs);

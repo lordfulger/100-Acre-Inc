@@ -362,4 +362,23 @@ function shop(s: GameState, t: number) {
   const m = migrate({ ...JSON.parse(JSON.stringify(newGame(now))), rooms: undefined, friends: 'bad', letters: undefined }, now);
   assert.deepEqual([m.rooms, m.friends, m.letters], [{}, {}, []]);
 }
+// ---------- upgrades don't finish a cycle early ----------
+{
+  // Piglet's House: 3s cycles; owning 25 halves them.
+  const s = newGame(now);
+  s.biz.haycorn.owned = 24;
+  s.honey = 1e12;
+  assert.ok(startCycle(s, 'haycorn', now));
+  tick(s, now + 2_000); // two-thirds done
+  const before = s.honey;
+  assert.ok(buyBiz(s, 'haycorn', 1, now + 2_000)); // cycle is now 1.5s, and 2s have passed…
+  const paid = before - s.honey;
+  tick(s, now + 2_050);
+  assert.equal(s.honey, before - paid, '…but it is still two-thirds done, not finished');
+  tick(s, now + 2_600); // the last third of a 1.5s cycle
+  assert.ok(s.honey > before - paid, 'then it finishes');
+  assert.equal(s.biz.haycorn.running, false);
+  // And the payout is for all 25.
+  assert.ok(Math.abs(s.honey - (before - paid) - derive(s, now + 2_600).biz.haycorn.perCycle) < 1e-6);
+}
 console.log('All engine checks passed 🍯');
