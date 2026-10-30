@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { activeEvent, eventProgress } from '../game/calendar';
 import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
 import { finishGame, GAME_COOLDOWN_MIN, GAME_IDS, GameId, gameOpen, GAMES, gameReady, gameWait, TIMED_GAMES } from '../game/extras';
 import { HAND } from '../ui/WoodMap';
 import { fmt } from '../game/format';
-import { StickRace, useGame } from '../state/GameContext';
+import { Net, StickRace, useGame } from '../state/GameContext';
+import { GameState } from '../game/engine';
 import { Button, C, Card, Section } from '../ui/kit';
 import { HoneyDrip, Poohsticks, RabbitsGarden, WoozleTracks } from '../ui/Minigames';
 import { Balloons, BeeLine, Bounce, CountPots, OddOne, Pairs, River, Spelling, Stretch, Tail, Trap } from '../ui/HomeGames';
@@ -94,13 +95,20 @@ function GameOver({ id, r, onClose }: { id: GameId; r: Result; onClose: () => vo
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-/** Everyone in your wood who has played this game, best first (your own score is always the latest). */
-export function Leaderboard({ id, limit = 5 }: { id: GameId; limit?: number }) {
-  const { s, net } = useGame();
-  const rows = [
+type ScoreRow = { key: string; name: string; avatar: string; score: number; me: boolean };
+
+/** Everyone in your wood who has played a game, best first (your own score is always the latest). */
+function scoresFor(id: GameId, s: GameState, net: Net): ScoreRow[] {
+  return [
     ...net.roster.filter((m) => m.id !== net.you).map((m) => ({ key: m.id, name: m.name, avatar: m.avatar, score: m.stats.bests?.[id] || 0, me: false })),
     { key: 'me', name: s.profile.name || 'You', avatar: s.profile.avatar, score: s.games[id]?.best || 0, me: true },
   ].filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+}
+
+/** One game's leaderboard. */
+export function Leaderboard({ id, limit = 5 }: { id: GameId; limit?: number }) {
+  const { s, net } = useGame();
+  const rows = scoresFor(id, s, net);
   const mine = rows.findIndex((x) => x.me);
   const shown = rows.slice(0, limit);
   const row = (x: (typeof rows)[number], i: number) => (
@@ -121,6 +129,36 @@ export function Leaderboard({ id, limit = 5 }: { id: GameId; limit?: number }) {
   );
 }
 
+/** Every game's top score in the wood, with yours beside it, at the top of the Games tab. */
+function HighScores() {
+  const { s, net } = useGame();
+  const played = GAME_IDS.filter((id) => id !== 'sticks').map((id) => ({ id, rows: scoresFor(id, s, net) })).filter((x) => x.rows.length);
+  return (
+    <Card>
+      <Text style={styles.name}>🏆 High scores</Text>
+      {played.length === 0 && <Text style={styles.small}>Play a game to set your first high score!</Text>}
+      {played.map(({ id, rows }) => {
+        const top = rows[0];
+        const mine = s.games[id]?.best || 0;
+        return (
+          <View key={id} style={styles.board}>
+            <Text style={styles.rank}>{GAMES[id].emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.boardName} numberOfLines={1}>{GAMES[id].name}</Text>
+              <Text style={styles.small}>{top.me ? '🥇 You lead!' : `🥇 ${top.name} ${top.score}`}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.boardScore}>{mine || '–'}</Text>
+              <Text style={styles.small}>your best</Text>
+            </View>
+          </View>
+        );
+      })}
+      {!net.room && played.length > 0 && <Text style={[styles.small, { marginTop: 6 }]}>Join a wood on the Friends tab to see your friends' scores here too.</Text>}
+    </Card>
+  );
+}
+
 export function GamesScreen() {
   const { s, net, now, stickApi } = useGame();
   const [playing, setPlaying] = useState<GameId | null>(null);
@@ -134,6 +172,7 @@ export function GamesScreen() {
       <ScrollView contentContainerStyle={styles.list}>
         <Section title="🎲 Games in the Wood" />
         <Text style={styles.note}>Every home has its own game. Each pays a honey prize, bigger for better scores, then rests for {GAME_COOLDOWN_MIN} minutes before you can play it again.</Text>
+        <HighScores />
         {event?.kind === 'game' && !s.eventsWon.includes(event.id) && (
           <Card style={{ borderColor: C.green }}>
             <Text style={styles.name}>{event.emoji} {event.name}</Text>
@@ -180,9 +219,7 @@ export function GamesScreen() {
               ) : (
                 <>
                   <Button label={ready ? 'Play' : `Ready in ${wait}m`} disabled={!ready} onPress={() => { play('pop'); setPlaying(id); }} style={{ marginTop: 8 }} />
-                  <Pressable onPress={() => setBoard((b) => (b === id ? null : id))} hitSlop={8}>
-                    <Text style={[styles.small, { textAlign: 'right', marginTop: 8 }]}>{board === id ? '🏆 High scores ▲' : '🏆 High scores ▼'}</Text>
-                  </Pressable>
+                  <Button small outline color={C.soft} label={board === id ? '🏆 Hide high scores' : '🏆 High scores'} onPress={() => setBoard((b) => (b === id ? null : id))} style={{ marginTop: 8 }} />
                   {board === id && <Leaderboard id={id} />}
                 </>
               )}

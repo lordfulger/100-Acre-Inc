@@ -1,4 +1,4 @@
-// Things you do together on the Friends tab: shared projects and letters.
+// Things you do together on the Friends tab: the leaderboard, shared projects and letters.
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { projectBonus } from '../game/calendar';
@@ -6,6 +6,7 @@ import { derive, receiveGift } from '../game/engine';
 import { fmt, timeAgo } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, Card, Section } from './kit';
+import { Portrait } from './Portrait';
 import { play } from '../audio/sound';
 import { pushSupported } from '../net/push';
 
@@ -20,6 +21,51 @@ export function NotifyCard() {
       <Text style={styles.small}>Get a ping on this phone for hugs, honey, letters and Poohsticks challenges, even when the game is closed.</Text>
       <Button label="Turn on notifications" color={C.blue} onPress={wood.notifications} style={{ marginTop: 8 }} />
     </Card>
+  );
+}
+
+const BOARDS = [
+  { id: 'hps', label: '🍯 Honey/sec' },
+  { id: 'allTime', label: '🏦 All-time honey' },
+  { id: 'combs', label: '✨ Honeycombs' },
+  { id: 'cards', label: '📖 Album' },
+  { id: 'trophies', label: '🏅 Trophies' },
+] as const;
+type Board = (typeof BOARDS)[number]['id'];
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+/** Everyone in the wood ranked by one stat (your own is always the latest). */
+export function WoodLeaderboard() {
+  const { s, d, net } = useGame();
+  const [board, setBoard] = useState<Board>('hps');
+  const mine: Record<Board, number> = {
+    hps: d.hps, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, cards: s.album.length, trophies: s.trophies.length,
+  };
+  const rows = net.roster
+    .map((m) => ({ m, me: m.id === net.you, value: m.id === net.you ? mine[board] : m.stats[board] || 0 }))
+    .sort((a, b) => b.value - a.value);
+  if (rows.length < 2) return null;
+  return (
+    <>
+      <Section title="🏆 Leaderboard" />
+      <Card>
+        <View style={styles.row}>
+          {BOARDS.map((b) => (
+            <Pressable key={b.id} onPress={() => setBoard(b.id)} style={[styles.pick, board === b.id && styles.pickOn]}>
+              <Text style={styles.pickText}>{b.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {rows.map(({ m, me, value }, i) => (
+          <View key={m.id} style={[styles.rank, me && styles.rankMe]}>
+            <Text style={styles.medal}>{MEDALS[i] ?? `${i + 1}.`}</Text>
+            <Portrait emoji={m.avatar} size={30} />
+            <Text style={[styles.rankName, me && { fontWeight: '900' }]} numberOfLines={1}>{m.name}{me ? ' (you)' : ''}</Text>
+            <Text style={styles.rankValue}>{fmt(value)}{board === 'hps' ? '/s' : ''}</Text>
+          </View>
+        ))}
+      </Card>
+    </>
   );
 }
 
@@ -134,6 +180,11 @@ const styles = StyleSheet.create({
   small: { color: C.soft, fontSize: 12, fontWeight: '600', marginTop: 2 },
   barText: { position: 'absolute', alignSelf: 'center', top: 1, fontSize: 12, fontWeight: '900', color: C.ink },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  rank: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 6, borderRadius: 10, marginTop: 4 },
+  rankMe: { backgroundColor: '#FFF1C9' },
+  medal: { width: 28, fontSize: 17, fontWeight: '900', color: C.soft, textAlign: 'center' },
+  rankName: { flex: 1, fontSize: 15, fontWeight: '700', color: C.ink },
+  rankValue: { fontSize: 15, fontWeight: '900', color: C.ink },
   pick: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1.5, borderColor: C.border, backgroundColor: 'white' },
   pickOn: { borderColor: C.pink, backgroundColor: '#FDE7EE' },
   pickText: { fontWeight: '800', color: C.ink, fontSize: 13 },

@@ -7,7 +7,7 @@ import { Contract, ContractDef, Member, useGame } from '../state/GameContext';
 import { Bar, Button, C, Card, Section } from '../ui/kit';
 import { HAND, WoodMap } from '../ui/WoodMap';
 import { Portrait } from '../ui/Portrait';
-import { Letters, NotifyCard, Projects } from '../ui/Together';
+import { Letters, NotifyCard, Projects, WoodLeaderboard } from '../ui/Together';
 
 /** A room code from an invite link (…/?wood=CODE), if the game was opened from one. */
 function invitedCode() {
@@ -165,8 +165,14 @@ function ContractCard({ c, def }: { c: Contract; def: ContractDef }) {
   );
 }
 
+/** How long until a resting Expotition is ready: "25m" or "2h 10m". */
+const restLabel = (ms: number) => {
+  const min = Math.ceil(ms / 60_000);
+  return min < 60 ? `${min}m` : `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}`;
+};
+
 function Expotitions() {
-  const { net, wood } = useGame();
+  const { net, wood, now } = useGame();
   const c = net.contract;
   const active = c?.status === 'active';
   const def = c && net.contracts.find((x) => x.id === c.id);
@@ -176,7 +182,7 @@ function Expotitions() {
       {c && def && <ContractCard c={c} def={def} />}
       {!active && (
         <Card>
-          <Text style={styles.body}>Team up: all the honey everyone makes counts toward the goal. Every tier pays Golden Honeycombs to everyone, and finishing gives ×2 honey for 20 minutes.</Text>
+          <Text style={styles.body}>Team up: all the honey everyone makes counts toward the goal. Every tier pays Golden Honeycombs to everyone, and finishing gives ×2 honey for 20 minutes. Afterwards each one rests for as long as it runs.</Text>
           {net.contracts.map((x) => (
             <View key={x.id} style={styles.contractRow}>
               <Text style={{ fontSize: 26, marginRight: 8 }}>{x.emoji}</Text>
@@ -184,7 +190,9 @@ function Expotitions() {
                 <Text style={styles.memberName}>{x.name}</Text>
                 <Text style={styles.small}>{fmtTime(x.minutes * 60)} · up to {x.combs.reduce((a, b) => a + b, 0)} ✨ each</Text>
               </View>
-              <Button small label="Start" onPress={() => wood.startContract(x.id)} />
+              {(net.rests[x.id] || 0) > now
+                ? <Button small outline color={C.soft} label={`💤 ${restLabel(net.rests[x.id] - now)}`} disabled onPress={() => {}} />
+                : <Button small label="Start" onPress={() => wood.startContract(x.id)} />}
             </View>
           ))}
         </Card>
@@ -279,6 +287,7 @@ export function WoodScreen() {
           )}
           {others.map((m) => <MemberCard key={m.id} m={m} me={false} onVisit={() => setVisiting(m.id)} />)}
           {me && <MemberCard m={me} me onVisit={() => {}} />}
+          <WoodLeaderboard />
           <Projects />
           <Expotitions />
           <Letters />

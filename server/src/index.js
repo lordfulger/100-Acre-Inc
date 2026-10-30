@@ -30,6 +30,9 @@ export const CONTRACTS = [
   { id: 'flood', name: 'Rescue Piglet from the Flood', emoji: '🌧️', minutes: 480, goalSeconds: 25_000, minGoal: 1_000_000, combs: [8, 16, 32] },
 ];
 const TIERS = [0.25, 0.6, 1];
+// After an Expotition ends (finished, run out of time or called off) it rests before it
+// can be started again, for as long as it runs. Each one rests on its own.
+const restUntil = (def, now) => now + def.minutes * 60_000;
 
 // Shared projects: built one after another by everyone in a wood, paid for with
 // honey from the bank. Each one finished adds honey for good (the bonus lives in the app).
@@ -239,9 +242,20 @@ function startContract(room, def, starter) {
     startedAt: Date.now(), endsAt: Date.now() + def.minutes * 60_000, startedBy: starter,
   };
   markDirty();
-  broadcast(room, { t: 'contract', contract: room.contract });
+  broadcast(room, contractMsg(room));
   system(room, `${def.emoji} ${room.members[starter]?.name || 'Someone'} started "${def.name}"! Goal: ${goal.toLocaleString('en-US')} honey together.`);
 }
+
+/** Ends the wood's Expotition and starts its rest. */
+function endContract(room, status) {
+  const c = room.contract;
+  c.status = status;
+  const def = CONTRACTS.find((d) => d.id === c.id);
+  if (def) (room.rests ||= {})[c.id] = restUntil(def, Date.now());
+  markDirty();
+}
+
+const contractMsg = (room) => ({ t: 'contract', contract: room.contract, rests: room.rests || {} });
 
 function contribute(room, pid, amount) {
   const c = room.contract;
@@ -259,12 +273,12 @@ function contribute(room, pid, amount) {
       ? `🏆 "${def.name}" complete! Everyone gets ${def.combs[tier]} Golden Honeycombs and ×${FINAL_BOOST.mult} honey for ${FINAL_BOOST.secs / 60} min!`
       : `⭐ Tier ${tier + 1} of "${def.name}" reached! +${def.combs[tier]} Golden Honeycombs each.`);
     if (final) {
-      c.status = 'complete';
+      endContract(room, 'complete');
       for (const member of Object.keys(room.members)) notify(room, member, `🏆 ${def.name} complete!`, 'Golden Honeycombs and double honey for everyone.', 'expo');
     }
   }
   markDirty();
-  broadcast(room, { t: 'contract', contract: c });
+  broadcast(room, contractMsg(room));
 }
 
 setInterval(() => {
@@ -273,9 +287,8 @@ setInterval(() => {
     if (!isRoom(code)) continue;
     const c = room.contract;
     if (c && c.status === 'active' && now > c.endsAt) {
-      c.status = 'expired';
-      markDirty();
-      broadcast(room, { t: 'contract', contract: c });
+      endContract(room, 'expired');
+      broadcast(room, contractMsg(room));
       system(room, `⌛ Time ran out on the Expotition. Oh bother. Try another!`);
     }
   }
@@ -440,7 +453,7 @@ wss.on('connection', (ws) => {
       sockets.get(key).add(ws);
       markDirty();
 
-      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, ...projectInfo(r), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
+      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, rests: r.rests || {}, ...projectInfo(r), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
       for (const [raceId, race] of races) {
         if (race.room === r && race.b === id && race.phase === 'invited') {
           const from = r.members[race.a];
@@ -511,14 +524,15 @@ wss.on('connection', (ws) => {
         const def = CONTRACTS.find((d) => d.id === msg.id);
         if (!def) return;
         if (room.contract?.status === 'active') return send(ws, { t: 'error', text: 'An Expotition is already underway!' });
+        const rest = (room.rests?.[def.id] || 0) - Date.now();
+        if (rest > 0) return send(ws, { t: 'error', text: `${def.name} is resting. Ready again in ${Math.ceil(rest / 60_000)} min.` });
         startContract(room, def, pid);
         break;
       }
       case 'abandonContract': {
         if (room.contract?.status !== 'active') return;
-        room.contract.status = 'expired';
-        markDirty();
-        broadcast(room, { t: 'contract', contract: room.contract });
+        endContract(room, 'expired');
+        broadcast(room, contractMsg(room));
         system(room, `${me.name} called off the Expotition. Perhaps another time.`);
         break;
       }

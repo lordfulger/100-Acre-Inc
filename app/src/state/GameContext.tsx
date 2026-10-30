@@ -40,6 +40,8 @@ export type Net = {
   project: Project | null; projectDef: ProjectDef | null; built: string[];
   /** The server's key for phone notifications, and whether this player has them on. */
   pushKey: string | null; pushOn: boolean;
+  /** When each Expotition can be started again (it rests after it ends). */
+  rests: Record<string, number>;
 };
 export type StickPlayer = { pid: string; name: string; avatar: string };
 export type StickRace = { sticks: (StickPlayer & { q: number; time: number })[]; winner: string; seed: number };
@@ -61,7 +63,7 @@ export type CloudState = {
 
 const emptyNet: Net = {
   status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null,
-  project: null, projectDef: null, built: [], pushKey: null, pushOn: false,
+  project: null, projectDef: null, built: [], pushKey: null, pushOn: false, rests: {},
 };
 
 /** The online server baked into app.json (`extra.serverUrl`), if any. */
@@ -294,7 +296,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setNet((n) => ({
             ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null,
             project: m.project || null, projectDef: m.projectDef || null, built: m.built || [],
-            pushKey: m.pushKey || null, pushOn: !!m.pushOn,
+            pushKey: m.pushKey || null, pushOn: !!m.pushOn, rests: m.rests || {},
           }));
           // Already allowed on this phone: keep the server's copy of the address fresh.
           if (m.pushKey && pushAllowed()) {
@@ -311,7 +313,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setNet((n) => ({ ...n, chat: [...n.chat.slice(-59), m.msg] }));
           if (m.msg.from !== netRef.current.you) play('pop');
           break;
-        case 'contract': setNet((n) => ({ ...n, contract: m.contract })); break;
+        case 'contract': setNet((n) => ({ ...n, contract: m.contract, rests: m.rests || n.rests })); break;
         case 'gift':
           receiveGift(s, m.amount * derive(s, now).giftMult);
           play('gift');

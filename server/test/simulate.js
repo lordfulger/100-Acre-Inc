@@ -84,7 +84,10 @@ try {
   b.send({ t: 'contribute', amount: c.contract.goal });
   const r3 = await a.wait((m) => m.t === 'reward' && m.tier === 2);
   assert.ok(r3.boost);
-  await a.wait((m) => m.t === 'contract' && m.contract.status === 'complete');
+  const done = await a.wait((m) => m.t === 'contract' && m.contract.status === 'complete');
+  assert.ok(done.rests.tail > Date.now() + 29 * 60_000, 'a finished Expotition rests for as long as it runs');
+  a.send({ t: 'startContract', id: 'tail' });
+  await a.wait((m) => m.t === 'error' && /resting/.test(m.text));
   console.log('✓ co-op Expotition completes and rewards both players');
 
   // Shared projects: honey donated by both builds them, then the next one starts.
