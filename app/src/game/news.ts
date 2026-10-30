@@ -93,6 +93,14 @@ export const NEWS: News[] = [
       ['🧭', 'Steady goals', "Expotitions and Our Wood are set from what your wood steadily earns, so they're the same size whether or not someone has just napped."],
     ],
   },
+  {
+    v: 10,
+    title: 'Golden Honeycombs, rebalanced',
+    items: [
+      ['✨', 'Fairer combs', 'Your first 1,000 Golden Honeycombs count in full. Past that, more combs still add honey, but each one a little less. Millions of combs were making honey run away.'],
+      ['🍯', 'Your honey per second will be lower', 'That is expected. Naps are still worth taking, and the bigger your nap, the bigger the boost.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;

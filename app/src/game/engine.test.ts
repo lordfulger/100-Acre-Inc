@@ -5,8 +5,10 @@ import assert from 'node:assert/strict';
 import { BUSINESSES, RESEARCH, varietyAt } from './catalog';
 import {
   addonList, applyOffline, buildingNext, buyAddon, buyBiz, buyResearch, buyVariety, derive, GameState, hireManager, migrate,
-  nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, varietyCost,
+  nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, varietyCost, setCombFull, effectiveCombs, combBonusOf, COMB_FULL,
 } from './engine';
+// Try other comb settings in the simulation: COMB_FULL=1e12 counts every comb in full (the old way).
+if (process.env.COMB_FULL) setCombFull(Number(process.env.COMB_FULL));
 import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt, setLiveWeather, weatherAt, weatherFromCode, woodWeather } from './calendar';
@@ -380,5 +382,16 @@ function shop(s: GameState, t: number) {
   assert.equal(s.biz.haycorn.running, false);
   // And the payout is for all 25.
   assert.ok(Math.abs(s.honey - (before - paid) - derive(s, now + 2_600).biz.haycorn.perCycle) < 1e-6);
+}
+// ---------- combs: full value up to COMB_FULL, then square root ----------
+{
+  if (!process.env.COMB_FULL) {
+    assert.equal(effectiveCombs(500), 500);
+    assert.equal(effectiveCombs(COMB_FULL), COMB_FULL);
+    assert.equal(effectiveCombs(COMB_FULL * 4), COMB_FULL * 2, '4x the combs past the limit is 2x the bonus');
+    const g = newGame(now);
+    g.combsBonus = 2_000_000;
+    assert.ok(combBonusOf(g) < 1000, '2 million combs no longer means x40,000 honey');
+  }
 }
 console.log('All engine checks passed 🍯');

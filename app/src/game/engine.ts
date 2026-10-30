@@ -232,6 +232,20 @@ export function buyCombUpgrade(s: GameState, id: string) {
 /** How much honey each Golden Honeycomb adds (2%, plus Comb Polish), at a Comb Polish level (yours by default). */
 export const combPower = (s: GameState, polish = s.research.combs || 0) =>
   COMB_BONUS + (RESEARCH_BY_ID.combs?.per ?? 0) * polish + artifactBonus(s.equipped, 'combs');
+
+/**
+ * Combs count in full up to this many. Past it, more combs still help, but by the square
+ * root: 4× the combs is 2× the bonus. Counting every comb in full let honey snowball,
+ * since more honey brought more combs, which brought more honey, and so on.
+ */
+export let COMB_FULL = 1_000;
+/** For the pacing simulation, to compare settings. */
+export const setCombFull = (n: number) => { COMB_FULL = n; };
+/** How many combs count towards your honey. */
+export const effectiveCombs = (combs: number) => (combs <= COMB_FULL ? combs : COMB_FULL * Math.sqrt(combs / COMB_FULL));
+/** The honey bonus from combs (0.5 is +50%), with Comb Polish at `polish` (yours by default). */
+export const combBonusOf = (s: GameState, combs = totalCombs(s), polish = s.research.combs || 0) =>
+  combPower(s, polish) * effectiveCombs(combs);
 // A fourth root keeps naps rewarding without letting them snowball out of control.
 /** Combs your all-time honey is worth from naps (before Dream Deeper). */
 const napBaseFor = (honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25);
@@ -332,12 +346,11 @@ export function derive(s: GameState, now: number): Derived {
   balloonPower += joint('field');
 
   const speed = 1 + researchSum(s, 'speed') + art('speed') + combUpgrade(s, 'speed');
-  const combBonus = combPower(s);
 
   const minOwned = Math.min(...WOOD_HOMES.map((b) => s.biz[b.id].owned));
   const minBeyond = Math.min(...BEYOND_HOMES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** (allMilestonesReached(minOwned) + allMilestonesReached(minBeyond));
-  const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album)
+  const baseMult = varietyAt(s.variety).mult * (1 + combBonusOf(s)) * globalUpg * allMult * albumMult(s.album)
     * projectMult(s.projects) * (1 + joint('market')) * (1 + art('honey')) * combUpgrade(s, 'honeyMult') * friendMult(s) * (season === 'summer' ? 1.1 : 1);
   const globalMult = baseMult * boostMult(s, 'profit', now);
 
