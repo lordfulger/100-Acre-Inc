@@ -531,24 +531,27 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const s = sRef.current!;
     if (!s.profile.cloud) return;
     try {
-      const r = await Cloud.uploadCloud(s.profile.server, s.profile.cloud.token, snapshot(), force);
+      const r = await Cloud.uploadCloud(s.profile.server, s.profile.cloud.token, snapshot(), force, s.profile.cloud.base);
       const c = r.conflict;
       if (c) {
         setCloud((x) => ({ ...x, conflict: { data: c.data, allTime: c.allTime, honey: c.data?.honey ?? 0, savedAt: c.updatedAt } }));
       } else {
+        // Remember which cloud version this phone now matches, so it only asks when another copy changes it.
+        if (sRef.current?.profile.cloud && r.updatedAt) { sRef.current.profile.cloud.base = r.updatedAt; save(); }
         setCloud((x) => ({ ...x, lastSaved: Date.now(), error: undefined }));
       }
     } catch (e: any) {
       if (e.message === 'signed-out') signedOut();
       else setCloud((x) => ({ ...x, error: e.message }));
     }
-  }, [snapshot, signedOut]);
+  }, [snapshot, signedOut, save]);
 
   /** Swap in a different save (the cloud copy) without losing this phone's sign-in or server address. */
-  const replaceState = useCallback((data: any) => {
+  const replaceState = useCallback((data: any, savedAt?: string) => {
     const cur = sRef.current!;
     const next = migrate(data, Date.now());
-    next.profile.cloud = cur.profile.cloud;
+    // This phone now matches that cloud version.
+    next.profile.cloud = cur.profile.cloud && { ...cur.profile.cloud, base: savedAt ?? cur.profile.cloud.base };
     next.profile.server = cur.profile.server;
     // Album cards are kept forever, so ones found on this phone stay.
     next.album = [...new Set([...next.album, ...cur.album])];
@@ -705,7 +708,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const c = cloud.conflict;
       setCloud((x) => ({ ...x, conflict: undefined }));
       if (!c) return;
-      if (useCloud) { replaceState(c.data); toast('☁️ Loaded your cloud save'); }
+      if (useCloud) { replaceState(c.data, c.savedAt); toast('☁️ Loaded your cloud save'); }
       else uploadNow(true);
     },
   };

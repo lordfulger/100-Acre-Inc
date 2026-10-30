@@ -52,6 +52,16 @@ try {
   assert.equal((await call('PUT', '/cloud/save', { data: { allTimeEarned: 100, honey: 1 }, force: true }, session.token)).body.ok, true);
   console.log('✓ older progress is caught, and can be kept on purpose');
 
+  // Two copies of the game on one account (an iPhone's Safari tab and home-screen icon keep
+  // separate saves). Each says which cloud version it last synced with.
+  const phone = await call('PUT', '/cloud/save', { data: { allTimeEarned: 10, honey: 5 }, force: true }, session.token);
+  const fresh = await call('PUT', '/cloud/save', { data: { allTimeEarned: 20, honey: 6 }, base: phone.body.updatedAt }, session.token);
+  assert.equal(fresh.status, 200, 'saving on top of the version it synced with needs no question');
+  const stale = await call('PUT', '/cloud/save', { data: { allTimeEarned: 1e9, honey: 7 }, base: phone.body.updatedAt }, session.token);
+  assert.equal(stale.status, 409, 'another copy changed the cloud since: ask, even if this one has made more');
+  assert.equal(stale.body.cloud.data.honey, 6);
+  console.log('✓ two copies on one account ask once instead of fighting');
+
   assert.equal((await call('GET', '/cloud/save', null, session.token + 'x')).status, 401, 'tampered tokens are refused');
   assert.equal((await call('GET', '/cloud/save')).status, 401);
   assert.equal((await call('POST', '/cloud/complete', { code: 'nope', credential: 'fake:1:a@b.c' })).status, 410);

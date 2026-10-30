@@ -239,12 +239,16 @@ export async function handleCloud(req, res) {
       case 'PUT /cloud/save': {
         const who = readToken(req);
         if (!who) return json(res, 401, { error: 'Please sign in again.' }), true;
-        const { data, force } = await readBody(req);
+        const { data, force, base } = await readBody(req);
         const allTime = Number(data?.allTimeEarned);
         if (!data || typeof data !== 'object' || !Number.isFinite(allTime)) return json(res, 400, { error: 'Bad save.' }), true;
-        // All-time honey only ever goes up, so a smaller number means this phone is behind.
+        // A phone says which cloud version it last synced with (`base`). If the cloud has
+        // changed since, another copy of the game saved in between: ask, rather than overwrite.
+        // A phone that has never synced is behind if it has made less honey (all-time only goes up).
         const current = await loadSave(who.sub);
-        if (current && !force && Number(current.allTime) > allTime) {
+        // (Compared as times: the database may write the same moment in another format.)
+        const behind = base ? Date.parse(current?.updatedAt) !== Date.parse(base) : Number(current?.allTime) > allTime;
+        if (current && !force && behind) {
           return json(res, 409, { error: 'The cloud has newer progress.', cloud: current }), true;
         }
         const updatedAt = await storeSave(who.sub, who.email, data, allTime);

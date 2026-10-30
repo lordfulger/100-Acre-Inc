@@ -65,7 +65,7 @@ export type GameState = {
     taps: number; balloons: number; naps: number; hugsGot: number; giftsSent: number; startedAt: number;
     hugsSent: number; upgrades: number; games: number; sticksWon: number; visitors: number; lettersSent: number; expos: number; trips: number;
   };
-  profile: { name: string; avatar: string; secret: string; room: string; server: string; cloud?: { token: string; email: string } };
+  profile: { name: string; avatar: string; secret: string; room: string; server: string; cloud?: { token: string; email: string; base?: string } }; // base: the cloud version this phone last synced with
 };
 
 export type Letter = { id: string; from: string; name: string; avatar: string; text: string; amount: number; at: number; read: boolean };

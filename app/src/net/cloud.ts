@@ -54,8 +54,9 @@ export async function loadCloud(server: string, token: string): Promise<CloudSav
 }
 
 /** Uploads a save. Returns 'conflict' with the cloud copy if the cloud is further ahead. */
-export async function uploadCloud(server: string, token: string, data: unknown, force = false) {
-  const r = await call(server, 'PUT', '/cloud/save', { data, force }, token);
+/** Saves to the cloud. `base` is the cloud version this phone last synced with, so changes made elsewhere since are caught. */
+export async function uploadCloud(server: string, token: string, data: unknown, force = false, base?: string) {
+  const r = await call(server, 'PUT', '/cloud/save', { data, force, base }, token);
   if (r.status === 401) throw new Error('signed-out');
   if (r.status === 409) return { conflict: r.data.cloud as NonNullable<CloudSave> };
   if (r.status !== 200) throw new Error(r.data.error || 'Could not save to the cloud.');
