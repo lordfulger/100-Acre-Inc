@@ -50,7 +50,9 @@ try {
   console.log('✓ both players joined room', wb.room);
 
   a.send({ t: 'stats', stats: { hps: 10, honey: 500, allTime: 1000, buildings: { owned: { garden: 12, 'x y': 3 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0', 'bad addon'], rooms: { garden: ['rug', 'Bad!'] } } } });
-  b.send({ t: 'stats', stats: { hps: 5, honey: 200, allTime: 400 } });
+  b.send({ t: 'stats', stats: { hps: 5, honey: 200, allTime: 400, bests: { drip: 31, 'Bad!': 5, oddone: -2 } } });
+  const piglet = (await a.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Piglet')?.stats.bests?.drip)).roster.find((r) => r.name === 'Piglet');
+  assert.deepEqual(piglet.stats.bests, { drip: 31 }, 'best scores are shared for the leaderboards, tidied');
   await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.hps === 10);
   const pooh = (await b.wait((m) => m.t === 'roster' && m.roster.find((r) => r.name === 'Pooh')?.stats.buildings)).roster.find((r) => r.name === 'Pooh');
   assert.deepEqual(pooh.stats.buildings, { owned: { garden: 12 }, levels: { garden: 2 }, managed: { garden: true }, addons: ['garden:0'], rooms: { garden: ['rug'] } });

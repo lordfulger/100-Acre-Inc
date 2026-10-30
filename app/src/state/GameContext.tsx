@@ -6,7 +6,7 @@ import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, m
 import { fmt } from '../game/format';
 import { checkAlbum } from '../game/album';
 import { bumpEvent } from '../game/calendar';
-import { checkDecor, checkTrophies, finishGame, INTERIOR_NAPS, interiorsOpen } from '../game/extras';
+import { bestScores, checkDecor, checkTrophies, finishGame, INTERIOR_NAPS, interiorsOpen } from '../game/extras';
 import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
@@ -24,7 +24,7 @@ export type Member = {
   notify?: boolean;
   /** Looks after the wood: can ask someone to leave. */
   owner?: boolean;
-  stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; trophies?: number; buildings?: MapView };
+  stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; trophies?: number; buildings?: MapView; bests?: Record<string, number> };
 };
 export type ChatMsg = { id: string; from?: string; name?: string; avatar?: string; text: string; at: number; system?: boolean };
 export type ContractDef = { id: string; name: string; emoji: string; minutes: number; goalSeconds: number; minGoal: number; combs: number[] };
@@ -273,7 +273,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const d = derive(s, Date.now());
     client.send({
       t: 'stats',
-      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, variety: s.variety, naps: s.stats.naps, cards: s.album.length, trophies: s.trophies.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s) },
+      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, variety: s.variety, naps: s.stats.naps, cards: s.album.length, trophies: s.trophies.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s), bests: bestScores(s) },
     });
   }, [client]);
 

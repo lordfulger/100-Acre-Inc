@@ -327,6 +327,14 @@ export const GAMES = {
 } satisfies Record<string, { home: string; name: string; emoji: string; blurb: string; perPoint: number }>;
 export type GameId = keyof typeof GAMES;
 export const GAME_IDS = Object.keys(GAMES) as GameId[];
+/** Games that end when the clock runs out; the rest end when you run out of tries. */
+export const TIMED_GAMES = new Set<GameId>(['drip', 'garden', 'spelling', 'balloons', 'count', 'pairs', 'beeline', 'oddone']);
+/** Your best score in each game (Poohsticks counts wins instead), shared with your wood for the leaderboards. */
+export const bestScores = (s: GameState) => {
+  const out: Record<string, number> = {};
+  for (const id of GAME_IDS) if (id !== 'sticks' && s.games[id]?.best) out[id] = s.games[id].best;
+  return out;
+};
 export const gameForHome = (home: string) => GAME_IDS.find((id) => GAMES[id].home === home) || null;
 /** Every game except Pooh's needs its home unlocked first. */
 export const gameOpen = (s: GameState, id: GameId) => GAMES[id].home === POOH_HOUSE.id || s.biz[GAMES[id].home]?.owned > 0;

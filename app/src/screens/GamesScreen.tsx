@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { activeEvent, eventProgress } from '../game/calendar';
 import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
-import { finishGame, GAME_COOLDOWN_MIN, GAME_IDS, GameId, gameOpen, GAMES, gameReady, gameWait } from '../game/extras';
+import { finishGame, GAME_COOLDOWN_MIN, GAME_IDS, GameId, gameOpen, GAMES, gameReady, gameWait, TIMED_GAMES } from '../game/extras';
+import { HAND } from '../ui/WoodMap';
 import { fmt } from '../game/format';
 import { StickRace, useGame } from '../state/GameContext';
 import { Button, C, Card, Section } from '../ui/kit';
@@ -20,20 +21,32 @@ const SOLO: Partial<Record<GameId, React.ComponentType<{ onDone: (n: number) => 
 };
 const homeName = (home: string) => (home === POOH_HOUSE.id ? POOH_HOUSE.name : BIZ_BY_ID[home].name);
 
+type Result = { score: number; honey: number; newBest: boolean; best: number };
+
 /** Runs one game full-screen and pays out when it ends. Used by the Games tab and the map. */
 export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void }) {
   const { s, act, toast } = useGame();
   const [soloRace, setSoloRace] = useState<StickRace | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
+  const finished = useRef(false);
   const done = (score: number, won?: boolean) => {
-    onClose();
+    if (finished.current) return;
+    finished.current = true;
     const r = act((g, t) => finishGame(g, id, score, t, won));
-    if (r.honey > 0) { play('fanfare'); toast(`${GAMES[id].emoji} ${r.newBest ? 'New best! ' : ''}+${fmt(r.honey)} honey`); }
-    else toast(`${GAMES[id].emoji} ${r.newBest ? `New best: ${score}! ` : ''}No prize this time. Better luck next time!`);
+    if (id === 'sticks') {
+      // Poohsticks shows its own finish, so just say what was won.
+      onClose();
+      if (r.honey > 0) { play('fanfare'); toast(`${GAMES[id].emoji} +${fmt(r.honey)} honey`); }
+      return;
+    }
+    play(r.newBest || r.honey > 0 ? 'fanfare' : 'pop');
+    setResult({ score, honey: r.honey, newBest: r.newBest && score > 0, best: s.games[id]?.best ?? score });
   };
   // The Games tab and the map only offer games that are unlocked and rested, but check again here.
   const [allowed] = useState(() => gameOpen(s, id) && gameReady(s, id, Date.now()));
   useEffect(() => { if (!allowed) onClose(); }, [allowed, onClose]);
   if (!allowed) return null;
+  if (result) return <GameOver id={id} r={result} onClose={onClose} />;
   const Game = SOLO[id];
   if (Game) return <Game onDone={(n) => done(n)} onQuit={onClose} />;
 
@@ -54,9 +67,64 @@ export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void })
   );
 }
 
+/** The end of a game: time's up or game over, the score, your high score, the prize, and the wood's best. */
+function GameOver({ id, r, onClose }: { id: GameId; r: Result; onClose: () => void }) {
+  const g = GAMES[id];
+  const timed = TIMED_GAMES.has(id);
+  return (
+    <View style={styles.over}>
+      <ScrollView contentContainerStyle={styles.overBody}>
+        <Text style={styles.overEmoji}>{r.newBest ? '🏆' : timed ? '⏰' : g.emoji}</Text>
+        <Text style={styles.overTitle}>{timed ? "Time's up!" : 'Game over!'}</Text>
+        <Text style={[styles.overNote, r.newBest && { color: C.greenDeep }]}>
+          {r.newBest ? 'New high score!' : r.score > 0 ? 'Well played!' : 'Have another go when it has rested.'}
+        </Text>
+        <Text style={styles.overScore}>{r.score}</Text>
+        <Text style={styles.small}>{g.emoji} {g.name} · High score {r.best}</Text>
+        <Text style={[styles.prize, r.honey <= 0 && { color: C.soft, fontSize: 16 }]}>{r.honey > 0 ? `+${fmt(r.honey)} honey` : 'No honey this time'}</Text>
+        <Card style={{ width: '100%', marginTop: 14 }}>
+          <Text style={styles.name}>🏆 High scores</Text>
+          <Leaderboard id={id} />
+        </Card>
+        <Button label="Lovely!" onPress={onClose} style={{ alignSelf: 'stretch', marginTop: 4 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+/** Everyone in your wood who has played this game, best first (your own score is always the latest). */
+export function Leaderboard({ id, limit = 5 }: { id: GameId; limit?: number }) {
+  const { s, net } = useGame();
+  const rows = [
+    ...net.roster.filter((m) => m.id !== net.you).map((m) => ({ key: m.id, name: m.name, avatar: m.avatar, score: m.stats.bests?.[id] || 0, me: false })),
+    { key: 'me', name: s.profile.name || 'You', avatar: s.profile.avatar, score: s.games[id]?.best || 0, me: true },
+  ].filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+  const mine = rows.findIndex((x) => x.me);
+  const shown = rows.slice(0, limit);
+  const row = (x: (typeof rows)[number], i: number) => (
+    <View key={x.key} style={[styles.board, x.me && styles.boardMe]}>
+      <Text style={styles.rank}>{MEDALS[i] ?? `${i + 1}.`}</Text>
+      <Portrait emoji={x.avatar} size={26} />
+      <Text style={[styles.boardName, x.me && { fontWeight: '900' }]} numberOfLines={1}>{x.name}{x.me ? ' (you)' : ''}</Text>
+      <Text style={styles.boardScore}>{x.score}</Text>
+    </View>
+  );
+  return (
+    <View style={{ marginTop: 6 }}>
+      {shown.length === 0 && <Text style={styles.small}>No scores yet. Be the first!</Text>}
+      {shown.map(row)}
+      {mine >= limit && row(rows[mine], mine)}
+      {!net.room && <Text style={[styles.small, { marginTop: 6 }]}>Join a wood on the Friends tab to see your friends' scores here too.</Text>}
+    </View>
+  );
+}
+
 export function GamesScreen() {
   const { s, net, now, stickApi } = useGame();
   const [playing, setPlaying] = useState<GameId | null>(null);
+  const [board, setBoard] = useState<GameId | null>(null);
   const event = activeEvent(now);
   // Friends in the wood, or away but with notifications on (they get a ping).
   const friends = net.status === 'online' ? net.roster.filter((m) => m.id !== net.you && (m.online || m.notify)) : [];
@@ -110,7 +178,13 @@ export function GamesScreen() {
                   ))}
                 </View>
               ) : (
-                <Button label={ready ? 'Play' : `Ready in ${wait}m`} disabled={!ready} onPress={() => { play('pop'); setPlaying(id); }} style={{ marginTop: 8 }} />
+                <>
+                  <Button label={ready ? 'Play' : `Ready in ${wait}m`} disabled={!ready} onPress={() => { play('pop'); setPlaying(id); }} style={{ marginTop: 8 }} />
+                  <Pressable onPress={() => setBoard((b) => (b === id ? null : id))} hitSlop={8}>
+                    <Text style={[styles.small, { textAlign: 'right', marginTop: 8 }]}>{board === id ? '🏆 High scores ▲' : '🏆 High scores ▼'}</Text>
+                  </Pressable>
+                  {board === id && <Leaderboard id={id} />}
+                </>
               )}
               {id === 'sticks' && friends.length === 0 && <Text style={styles.small}>When your friend is in the wood (or has notifications on), you can race each other live.</Text>}
             </Card>
@@ -154,6 +228,18 @@ export function SticksLive() {
 }
 
 const styles = StyleSheet.create({
+  over: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.bg, zIndex: 60 },
+  overBody: { padding: 20, paddingTop: 40, alignItems: 'center', maxWidth: 520, width: '100%', alignSelf: 'center' },
+  overEmoji: { fontSize: 64 },
+  overTitle: { fontFamily: HAND, fontSize: 38, color: C.ink, marginTop: 4 },
+  overNote: { fontSize: 16, fontWeight: '800', color: C.soft },
+  overScore: { fontSize: 64, fontWeight: '900', color: C.ink, marginTop: 6 },
+  prize: { fontSize: 20, fontWeight: '900', color: C.greenDeep, marginTop: 8 },
+  board: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, paddingHorizontal: 6, borderRadius: 10 },
+  boardMe: { backgroundColor: '#FFF1C9' },
+  rank: { width: 28, fontSize: 16, fontWeight: '900', color: C.soft, textAlign: 'center' },
+  boardName: { flex: 1, fontSize: 15, fontWeight: '700', color: C.ink },
+  boardScore: { fontSize: 16, fontWeight: '900', color: C.ink },
   list: { padding: 12, paddingBottom: 40, maxWidth: 520, width: '100%', alignSelf: 'center' },
   note: { color: C.soft, fontSize: 13, fontWeight: '600', marginBottom: 10, marginTop: -4 },
   row: { flexDirection: 'row', alignItems: 'center' },

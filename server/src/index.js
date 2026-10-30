@@ -153,6 +153,13 @@ const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 const cleanText = (s, max) => String(s || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const num = (n) => (Number.isFinite(n) && n > 0 ? n : 0);
 const giftCap = (room, to) => num(room.members[to]?.stats?.honey) * GIFT_SHARE_MAX;
+// Best minigame scores, for the leaderboards: game id -> score.
+function cleanBests(b) {
+  const out = {};
+  if (!b || typeof b !== 'object') return out;
+  for (const [k, v] of Object.entries(b).slice(0, 30)) if (/^[a-z]{2,12}$/.test(k) && num(Number(v))) out[k] = Math.min(1e6, Math.floor(Number(v)));
+  return out;
+}
 // A player's map (owned / level / manager per building), kept small and tidy.
 function cleanBuildings(b) {
   if (!b || typeof b !== 'object') return undefined;
@@ -459,6 +466,7 @@ wss.on('connection', (ws) => {
           hps: num(s.hps), honey: num(s.honey), allTime: num(s.allTime), combs: num(s.combs),
           variety: num(s.variety), naps: num(s.naps), cards: num(s.cards), buildings: cleanBuildings(s.buildings),
           trophies: Math.min(1000, num(s.trophies)),
+          bests: cleanBests(s.bests),
         };
         if (s.name) me.name = cleanText(s.name, 16) || me.name;
         if (s.avatar) me.avatar = cleanText(s.avatar, 8) || me.avatar;

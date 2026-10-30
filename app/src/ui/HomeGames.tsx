@@ -11,15 +11,20 @@ type GameProps = { onDone: (score: number) => void; onQuit: () => void };
 const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
 const shuffle = <T,>(list: T[]) => [...list].sort(() => Math.random() - 0.5);
 
-/** Ends the game once, a moment after `over` turns true (so the last frame shows). */
+/**
+ * Ends the game once, a moment after `over` turns true (so the last frame shows).
+ * The game keeps redrawing while it waits, so the latest score and callback are read
+ * when the moment comes rather than restarting the wait each time (which used to
+ * leave the game frozen on its last frame, never ending).
+ */
 function useFinish(over: boolean, score: number, onDone: (n: number) => void, delay = 900) {
-  const done = useRef(false);
+  const latest = useRef({ score, onDone });
+  latest.current = { score, onDone };
   useEffect(() => {
-    if (!over || done.current) return;
-    done.current = true;
-    const id = setTimeout(() => onDone(score), delay);
+    if (!over) return;
+    const id = setTimeout(() => latest.current.onDone(latest.current.score), delay);
     return () => clearTimeout(id);
-  }, [over, score, onDone, delay]);
+  }, [over, delay]);
 }
 
 const lives = (left: number, of = 3) => '❤️'.repeat(Math.max(0, left)) + '🤍'.repeat(Math.max(0, of - left));
