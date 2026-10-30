@@ -62,7 +62,8 @@ function Game() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom']} onTouchStart={musicOnFirstTouch}>
+    // The honey bar at the bottom fills the space by the iPhone's home bar itself (see Header).
+    <SafeAreaView style={styles.root} edges={['top']} onTouchStart={musicOnFirstTouch}>
       <StatusBar style="dark" />
       <View style={styles.tabs}>
         {TABS.map((t) => (

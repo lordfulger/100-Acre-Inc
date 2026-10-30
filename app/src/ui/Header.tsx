@@ -6,6 +6,7 @@ import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { playTap } from '../audio/sound';
 
 type Pop = { id: number; x: number; text: string; anim: Animated.Value; lucky?: boolean };
@@ -209,6 +210,8 @@ function Hearts() {
 
 export function Header() {
   const { s, d, now } = useGame();
+  // The bar runs to the very bottom of the screen, its contents kept clear of the iPhone's home bar.
+  const { bottom } = useSafeAreaInsets();
   const v = varietyAt(s.variety);
   const combs = totalCombs(s);
   // Same-named boosts (two hugs in a row) show as one chip.
@@ -221,7 +224,7 @@ export function Header() {
     }, {}),
   );
   return (
-    <View style={[styles.header, { backgroundColor: v.color }]}>
+    <View style={[styles.header, { backgroundColor: v.color, paddingBottom: 12 + bottom }]}>
       <View style={styles.info}>
         <Text style={styles.honey} numberOfLines={1} adjustsFontSizeToFit>{fmt(s.honey)}</Text>
         <Text style={styles.unit}>{v.emoji} {v.name}</Text>
