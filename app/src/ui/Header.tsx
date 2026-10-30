@@ -8,6 +8,7 @@ import { buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { playTap } from '../audio/sound';
+import { lightEffects } from './effects';
 
 type Pop = { id: number; x: number; text: string; anim: Animated.Value; lucky?: boolean };
 let popId = 0;
@@ -107,13 +108,14 @@ function HoneyPot() {
       id: ++popId, kind, dx: 0, up: 0, size: 0, side: 1, gold: lucky, anim: new Animated.Value(0), ...extra,
     });
     // A lucky tap is golden honey, a touch more of it, and a soft glow round the pot
-    // rather than a bigger burst, so it still feels calm.
+    // rather than a bigger burst, so it still feels calm. The light version splashes less.
+    const light = lightEffects(s.settings.effects);
     const goo: Splash[] = [make('glob', { size: lucky ? 28 : 26 })];
-    for (let i = 0; i < (lucky ? 4 : 3); i++) {
+    for (let i = 0; i < (light ? 2 : lucky ? 4 : 3); i++) {
       const side = Math.random() < 0.5 ? -1 : 1;
       goo.push(make('blob', { dx: side * (18 + Math.random() * (lucky ? 56 : 50)), up: 40 + Math.random() * (lucky ? 40 : 35), size: (lucky ? 13 : 12) + Math.random() * 5 }));
     }
-    if (lucky || Math.random() < 0.4) goo.push(make('drip', { side: Math.random() < 0.5 ? -1 : 1, size: 9 }));
+    if (!light && (lucky || Math.random() < 0.4)) goo.push(make('drip', { side: Math.random() < 0.5 ? -1 : 1, size: 9 }));
     // Rapid tapping keeps it to a sensible amount of honey on screen.
     setSplashes((sp) => [...sp.slice(-24), ...goo]);
     for (const g of goo) {

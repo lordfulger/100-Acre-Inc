@@ -11,7 +11,7 @@ import * as Web from './webAudio';
 export type Sfx =
   | 'lucky' | 'buy' | 'hire' | 'upgrade' | 'unlock' | 'milestone' | 'addon' | 'shop' | 'magic'
   | 'balloon' | 'whoosh' | 'buzz' | 'hug' | 'gift' | 'pop' | 'fanfare' | 'welcome' | 'tick' | 'nap' | 'oops';
-export type SoundSettings = { music: boolean; sfx: boolean; voices: boolean };
+export type SoundSettings = { music: boolean; sfx: boolean; voices: boolean; effects?: string };
 
 const WEB = Platform.OS === 'web';
 const MUSIC = require('../../assets/sounds/music.wav');
@@ -86,6 +86,20 @@ export function setAppActive(active: boolean) {
     } else if (!active) music?.pause();
     else if (started && settings.music) music?.play();
   } catch {}
+}
+
+// On the web, also watch the page itself (not just the app's background/foreground
+// events): some phone browsers keep a page "visible" when you switch tabs, but it
+// still loses focus. The music stops on any of these and comes back when the game does.
+if (WEB && typeof document !== 'undefined' && typeof window !== 'undefined') {
+  let focused = true;
+  const check = () => setAppActive(document.visibilityState === 'visible' && focused);
+  document.addEventListener('visibilitychange', check);
+  window.addEventListener('pagehide', () => setAppActive(false));
+  window.addEventListener('pageshow', check);
+  window.addEventListener('blur', () => { focused = false; check(); });
+  window.addEventListener('focus', () => { focused = true; check(); });
+  setInterval(() => { if (document.hidden) setAppActive(false); }, 2_000);
 }
 
 export const play = (name: Sfx) => playFile(name);

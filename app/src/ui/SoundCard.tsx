@@ -6,6 +6,7 @@ import { useGame } from '../state/GameContext';
 import { refreshLocalWeather } from '../net/localWeather';
 import { weatherAt, WEATHER_NAMES } from '../game/calendar';
 import { C, Card } from './kit';
+import { lightEffects, seemsSlow } from './effects';
 
 const ROWS = [
   { key: 'music', label: '🎵 Music', hint: '"Honey on the Hill", a music-box waltz' },
@@ -64,6 +65,19 @@ export function SoundCard() {
           />
         </View>
       ))}
+      <View style={styles.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>✨ Fancy effects</Text>
+          <Text style={styles.hint}>
+            {s.settings.effects === 'auto' && seemsSlow() ? 'Turned down automatically, as this phone seemed slow' : 'Weather, fireflies, birds and smoke on the map'}
+          </Text>
+        </View>
+        <Switch
+          value={!lightEffects(s.settings.effects)}
+          onValueChange={(on) => act((g) => { g.settings = { ...g.settings, effects: on ? 'full' : 'light' }; })}
+          trackColor={{ true: C.green, false: C.disabled }}
+        />
+      </View>
     </Card>
   );
 }

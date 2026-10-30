@@ -10,6 +10,7 @@ import { nativeDriver } from './kit';
 import { Portrait } from './Portrait';
 import { HAND, MAP_H, MAP_W, PLACES } from './WoodMap';
 import { MapAlive, Speech, TOP_ROOM } from './MapAlive';
+import { lightEffects } from './effects';
 
 // Open spots on the map for holiday decorations.
 const HOLIDAY_SPOTS: [number, number][] = [
@@ -50,13 +51,15 @@ function Wanderer({ home, to, k, delay }: { home: string; to: string; k: number;
 
 /** Friends who live in homes with a manager stroll to a neighbour's and back. */
 export function wanderers(s: GameState) {
+  const light = lightEffects(s.settings.effects);
   const homes = ['pooh', ...Object.keys(PLACES).filter((id) => id !== 'pooh' && s.biz[id]?.managed)];
   const near = (id: string) => {
     const p = PLACES[id];
     return Object.keys(PLACES).filter((o) => o !== id).sort((x, y) => Math.hypot(PLACES[x].x - p.x, PLACES[x].y - p.y) - Math.hypot(PLACES[y].x - p.x, PLACES[y].y - p.y))[0];
   };
   // Pooh, plus the two most recently hired friends.
-  return [homes[0], ...homes.slice(1).slice(-2)].map((home) => ({ home, to: near(home) }));
+  // Just Pooh in the light version.
+  return (light ? [homes[0]] : [homes[0], ...homes.slice(1).slice(-2)]).map((home) => ({ home, to: near(home) }));
 }
 
 export function MapLife({ s, width, now }: { s: GameState; width: number; now: number }) {

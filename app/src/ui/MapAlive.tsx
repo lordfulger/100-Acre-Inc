@@ -9,6 +9,8 @@ import { useGame } from '../state/GameContext';
 import { nativeDriver } from './kit';
 import { PLACES } from './WoodMap';
 import { play } from '../audio/sound';
+import { clock, wave } from './clock';
+import { lightEffects } from './effects';
 
 /** How dark the wood is at this hour (real local time). Evening is dusk; lamps go on then. */
 export function skyAt(now: number): { tint: string; dark: 'day' | 'evening' | 'night' } {
@@ -69,7 +71,7 @@ const HIVE = { x: PLACES.beetree.x + 8, y: PLACES.beetree.y - 62 };
 const CIRCLE = Array.from({ length: 9 }, (_, i) => (i / 8) * Math.PI * 2);
 
 function Bee({ k, ms, r, phase }: { k: number; ms: number; r: number; phase: number }) {
-  const v = useLoop(ms);
+  const v = clock(ms);
   const input = CIRCLE.map((_, i) => i / 8);
   return (
     <Animated.Text
@@ -109,18 +111,18 @@ function BeeSwarm({ k }: { k: number }) {
 
 const CHIMNEY = { x: PLACES.kitchen.x + 13, y: PLACES.kitchen.y - 60 };
 
-function Puff({ k, delay }: { k: number; delay: number }) {
-  const v = useLoop(3600, delay);
+function Puff({ k, phase }: { k: number; phase: number }) {
+  const v = clock(3600);
   return (
     <Animated.View
       pointerEvents="none"
       style={[styles.puff, {
         left: CHIMNEY.x * k - 5, top: CHIMNEY.y * k - 5, width: 10, height: 10,
-        opacity: v.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.6, 0] }),
+        opacity: wave(v, phase, (t) => (t < 0.15 ? (t / 0.15) * 0.6 : 0.6 * (1 - (t - 0.15) / 0.85)), 12),
         transform: [
-          { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -34 * k] }) },
-          { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, 10 * k] }) },
-          { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.6, 2.2] }) },
+          { translateY: wave(v, phase, (t) => -34 * k * t, 12) },
+          { translateX: wave(v, phase, (t) => 10 * k * t, 12) },
+          { scale: wave(v, phase, (t) => 0.6 + 1.6 * t, 12) },
         ],
       }]}
     />
@@ -203,14 +205,15 @@ function Bird({ k, y, ms, delay }: { k: number; y: number; ms: number; delay: nu
 const FIREFLIES: [number, number][] = [[240, 380], [300, 420], [350, 380], [120, 670], [180, 690], [420, 735], [460, 920], [60, 990], [520, 380], [230, 900]];
 
 function Firefly({ k, x, y, i }: { k: number; x: number; y: number; i: number }) {
-  const v = useLoop(2400 + (i % 4) * 500, i * 300);
+  const v = clock(2800);
+  const phase = (i * 0.37) % 1;
   return (
     <Animated.View
       pointerEvents="none"
       style={[styles.firefly, {
         left: x * k, top: y * k,
-        opacity: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.15, 1, 0.15] }),
-        transform: [{ translateY: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -6, 0] }) }],
+        opacity: wave(v, phase, (t) => 0.15 + 0.85 * Math.sin(t * Math.PI)),
+        transform: [{ translateY: wave(v, phase, (t) => -6 * Math.sin(t * Math.PI)) }],
       }]}
     />
   );
@@ -226,16 +229,17 @@ const WINDOWS: Record<string, [number, number][]> = {
   pole: [[-40, -18]], mist: [[18, -8]], spot: [[30, -10]], bluebell: [[-30, -20]], summit: [[0, -56]],
 };
 
-function HomeLight({ k, x, y, bright, i }: { k: number; x: number; y: number; bright: boolean; i: number }) {
-  // A gentle flicker, like a lamp or a fire inside.
-  const v = useLoop(1800 + (i % 5) * 370, (i % 7) * 200);
+function HomeLight({ k, x, y, bright, i, still }: { k: number; x: number; y: number; bright: boolean; i: number; still: boolean }) {
+  // A gentle flicker, like a lamp or a fire inside (steady in the light version).
+  const v = clock(2000);
+  const base = bright ? 0.88 : 0.5;
   const glow = 22 * k;
   return (
     <Animated.View
       pointerEvents="none"
       style={[styles.abs, {
         left: x * k - glow / 2, top: y * k - glow / 2, width: glow, height: glow, alignItems: 'center', justifyContent: 'center',
-        opacity: v.interpolate({ inputRange: [0, 0.3, 0.6, 1], outputRange: bright ? [0.85, 1, 0.75, 0.85] : [0.45, 0.6, 0.4, 0.45] }),
+        opacity: still ? base : wave(v, (i * 0.29) % 1, (t) => base + 0.12 * Math.sin(t * Math.PI * 2) * (t > 0.5 ? 0.6 : 1)),
       }]}
     >
       <View style={[styles.halo, { width: glow, height: glow, borderRadius: glow / 2 }]} />
@@ -244,14 +248,14 @@ function HomeLight({ k, x, y, bright, i }: { k: number; x: number; y: number; br
   );
 }
 
-function HomeLights({ k, bright }: { k: number; bright: boolean }) {
+function HomeLights({ k, bright, still }: { k: number; bright: boolean; still: boolean }) {
   const { s } = useGame();
   const homes = Object.keys(PLACES).filter((id) => id === 'pooh' || s.biz[id]?.owned > 0);
   let i = 0;
   return (
     <>
       {homes.flatMap((id) => (WINDOWS[id] || [[0, -10]]).map(([dx, dy]) => (
-        <HomeLight key={`${id}${dx}${dy}`} k={k} x={PLACES[id].x + dx} y={PLACES[id].y + dy} bright={bright} i={i++} />
+        <HomeLight key={`${id}${dx}${dy}`} k={k} x={PLACES[id].x + dx} y={PLACES[id].y + dy} bright={bright} i={i++} still={still} />
       )))}
     </>
   );
@@ -261,7 +265,7 @@ function HomeLights({ k, bright }: { k: number; bright: boolean }) {
 
 function Secrets({ k }: { k: number }) {
   const { s, act, toast } = useGame();
-  const twinkle = useLoop(2600);
+  const twinkle = clock(2600);
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -297,15 +301,16 @@ function Secrets({ k }: { k: number }) {
 
 /** Everything above, drawn over the map. `now` decides day or night. */
 export function MapAlive({ k, now }: { k: number; now: number }) {
+  const { s } = useGame();
   const sky = skyAt(now);
+  // The light version keeps what you can tap (bees, the stick, secrets) and drops the decoration.
+  const light = lightEffects(s.settings.effects);
   return (
     <>
-      {sky.dark !== 'day' && <HomeLights k={k} bright={sky.dark === 'night'} />}
-      {sky.dark !== 'day' && FIREFLIES.map(([x, y], i) => <Firefly key={i} k={k} x={x} y={y} i={i} />)}
-      {sky.dark !== 'night' && <><Bird k={k} y={60} ms={40_000} delay={3_000} /><Bird k={k} y={600} ms={55_000} delay={20_000} /></>}
-      <Puff k={k} delay={0} />
-      <Puff k={k} delay={1200} />
-      <Puff k={k} delay={2400} />
+      {sky.dark !== 'day' && <HomeLights k={k} bright={sky.dark === 'night'} still={light} />}
+      {!light && sky.dark !== 'day' && FIREFLIES.map(([x, y], i) => <Firefly key={i} k={k} x={x} y={y} i={i} />)}
+      {!light && sky.dark !== 'night' && <><Bird k={k} y={60} ms={40_000} delay={3_000} /><Bird k={k} y={600} ms={55_000} delay={20_000} /></>}
+      {!light && [0, 1 / 3, 2 / 3].map((p) => <Puff key={p} k={k} phase={p} />)}
       <BeeSwarm k={k} />
       <RiverStick k={k} />
       <Secrets k={k} />

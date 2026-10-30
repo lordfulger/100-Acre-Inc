@@ -267,7 +267,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         toast('🎉 Holiday event complete! A new album card and decoration are yours.');
       }
       rerender();
-    }, 200);
+    }, 300); // ~3 redraws a second: smooth enough for the honey counter, kind to older phones
     const autosave = setInterval(save, 5_000);
     const sub = AppState.addEventListener('change', (state) => {
       // No music or sounds while the game is off screen.

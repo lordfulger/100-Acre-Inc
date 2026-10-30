@@ -14,6 +14,7 @@ import { findThing, gameForHome, GameId, GAMES, gameReady, gameWait, homeOpen, I
 import { GameRunner } from './GamesScreen';
 import { MapLife, wanderers, Weather } from '../ui/MapLife';
 import { skyAt } from '../ui/MapAlive';
+import { lightEffects } from '../ui/effects';
 import { HomeInside } from './HomeInside';
 import { say } from '../audio/voices';
 
@@ -286,7 +287,7 @@ export function MapScreen() {
           <Text style={styles.zoomText}>{zoom === 1 ? '🔍 Zoom in' : '🗺️ Whole wood'}</Text>
         </Pressable>
       )}
-      <Weather now={now} />
+      {!lightEffects(s.settings.effects) && <Weather now={now} />}
       {!selected && <TopBar />}
       {selected && <BuildingSheet id={selected} onClose={() => setSelected(null)} onEnter={() => setInside(selected)} onPlay={setGame} />}
       {inside && <HomeInside id={inside} onClose={() => setInside(null)} />}

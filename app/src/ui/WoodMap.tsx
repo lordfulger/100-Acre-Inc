@@ -9,6 +9,7 @@ import { addonsFor, BIZ_BY_ID, LEVEL_PERKS, lookOf, MAX_LOOK, POOH_HOUSE } from 
 import { MapView } from '../game/engine';
 import { nativeDriver } from './kit';
 import { Portrait, portraitFor } from './Portrait';
+import { clock, wave } from './clock';
 
 export const MAP_W = 600;
 export const MAP_H = 1560;
@@ -1057,17 +1058,10 @@ const LABELS: { text: string; x: number; y: number; size?: number; w?: number }[
   { text: 'THE SEA (NEARLY)', x: 560, y: 1545, size: 9, w: 70 },
 ];
 
+/** The bobbing "upgrade ready" arrows all ride one shared clock. */
 function Pulse({ children }: { children: React.ReactNode }) {
-  const v = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(v, { toValue: 1, duration: 600, useNativeDriver: nativeDriver }),
-      Animated.timing(v, { toValue: 0, duration: 600, useNativeDriver: nativeDriver }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [v]);
-  return <Animated.View style={{ transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] }}>{children}</Animated.View>;
+  const bob = wave(clock(1200), 0, (t) => -4 * Math.sin(t * Math.PI));
+  return <Animated.View style={{ transform: [{ translateY: bob }] }}>{children}</Animated.View>;
 }
 
 // The rivers, woods and labels never change, so they are drawn once and reused.
