@@ -1,0 +1,15 @@
+# The game on its own, for a server where Apache already handles the web (and HTTPS).
+# It only listens on this machine (127.0.0.1:3001); Apache passes your domain's
+# traffic to it. See SELF-HOSTING.md and deploy/apache-100acre.conf.
+services:
+  game:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - game-data:/data
+
+volumes:
+  game-data:
