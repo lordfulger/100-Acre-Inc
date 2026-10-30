@@ -180,14 +180,17 @@ const sockets = new Map(); // `${room}:${pid}` -> Set<ws>
 
 const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const cleanText = (s, max) => String(s || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
-const num = (n) => (Number.isFinite(n) && n > 0 ? n : 0);
+// Kept short of the very largest numbers, so sums and goals can never turn into Infinity.
+const num = (n) => (Number.isFinite(n) && n > 0 ? Math.min(n, 1e300) : 0);
+/** A member of the wood, only if really there (ids like "__proto__" aren't members). */
+const memberOf = (room, id) => (typeof id === 'string' && Object.hasOwn(room.members, id) ? room.members[id] : undefined);
 /** How long until this player can send honey again (0 when they can). */
 const giftWait = (member, to) => Math.max(0, (member.giftTo?.[to] || 0) + GIFT_COOLDOWN_MS - Date.now());
 /** Every friend you're waiting on: their id -> ms left. */
 const giftWaits = (room, member) => Object.fromEntries(Object.keys(room.members).map((to) => [to, giftWait(member, to)]).filter(([, ms]) => ms > 0));
 const sentHoney = (member, to) => { (member.giftTo ||= {})[to] = Date.now(); markDirty(); };
-const giftWaitText = (room, to, ms) => `You can send ${room.members[to]?.name || 'them'} honey again in ${Math.ceil(ms / 60_000)} min.`;
-const giftCap = (room, to) => num(room.members[to]?.stats?.honey) * GIFT_SHARE_MAX;
+const giftWaitText = (room, to, ms) => `You can send ${memberOf(room, to)?.name || 'them'} honey again in ${Math.ceil(ms / 60_000)} min.`;
+const giftCap = (room, to) => num(memberOf(room, to)?.stats?.honey) * GIFT_SHARE_MAX;
 // Best minigame scores, for the leaderboards: game id -> score.
 function cleanBests(b) {
   const out = {};
@@ -200,14 +203,14 @@ function cleanBuildings(b) {
   if (!b || typeof b !== 'object') return undefined;
   const pick = (obj, fn) => {
     const out = {};
-    for (const [k, v] of Object.entries(obj || {}).slice(0, 20)) if (/^[a-z]{2,12}$/.test(k)) out[k] = fn(v);
+    for (const [k, v] of Object.entries(obj || {}).slice(0, 40)) if (/^[a-z]{2,12}$/.test(k)) out[k] = fn(v);
     return out;
   };
   return {
     owned: pick(b.owned, (v) => Math.min(1e6, num(Number(v)))),
     levels: pick(b.levels, (v) => Math.min(1e6, num(Number(v)))),
     managed: pick(b.managed, (v) => v === true),
-    addons: Array.isArray(b.addons) ? b.addons.filter((a) => /^[a-z]{2,12}:[0-9]$/.test(a)).slice(0, 80) : [],
+    addons: Array.isArray(b.addons) ? b.addons.filter((a) => /^[a-z]{2,12}:[0-9]$/.test(a)).slice(0, 240) : [],
     rooms: pick(b.rooms, (v) => (Array.isArray(v) ? v.filter((d) => /^[a-z]{2,12}$/.test(d)).slice(0, 6) : [])),
   };
 }
@@ -234,8 +237,9 @@ function sendTo(room, pid, msg, { queue = false } = {}) {
   if (set && set.size) {
     for (const ws of set) send(ws, msg);
   } else if (queue) {
-    (room.inbox[pid] ||= []).push(msg);
-    room.inbox[pid] = room.inbox[pid].slice(-50);
+    if (!memberOf(room, pid)) return;
+    const box = Object.hasOwn(room.inbox, pid) ? room.inbox[pid] : [];
+    room.inbox[pid] = [...box, msg].slice(-200);
     markDirty();
   }
 }
@@ -267,8 +271,7 @@ function system(room, text) {
 // ---------- contracts ----------
 
 function startContract(room, def, starter) {
-  const totalHps = Object.values(room.members).reduce((s, m) => s + num(m.stats?.hps), 0);
-  const goal = Math.max(def.minGoal, Math.round(totalHps * def.goalSeconds));
+  const goal = safeGoal(Math.max(def.minGoal, roomHps(room) * def.goalSeconds));
   room.contract = {
     id: def.id, goal, progress: 0, contributions: {}, tiersReached: 0, status: 'active',
     startedAt: Date.now(), endsAt: Date.now() + def.minutes * 60_000, startedBy: starter,
@@ -329,14 +332,26 @@ setInterval(() => {
 
 // ---------- shared projects ----------
 
-const roomHps = (room) => Object.values(room.members).reduce((s, m) => s + num(m.stats?.hps), 0);
+// Goals (Expotitions, projects, joint levels) come from what the wood steadily earns: each
+// friend's best steady honey per second (boosts left out), fading by half every 3 days, so a
+// nap (honey per second near 0) or a boost doesn't make goals tiny or huge. Friends not seen
+// for two weeks don't count.
+const PEAK_HALF_LIFE_MS = 3 * 86_400_000;
+const AWAY_MS = 14 * 86_400_000;
+const peakNow = (m, now = Date.now()) => num(m.peak) * 0.5 ** (Math.max(0, now - (m.peakAt || now)) / PEAK_HALF_LIFE_MS);
+const roomHps = (room) => {
+  const now = Date.now();
+  return Object.values(room.members).reduce((s, m) => (now - (m.lastSeen || 0) > AWAY_MS ? s : s + Math.max(peakNow(m, now), num(m.stats?.steady ?? m.stats?.hps))), 0);
+};
+/** Goals stay ordinary numbers (never Infinity, which would save as nothing). */
+const safeGoal = (g) => Math.min(Math.round(g), 1e300);
 
 /** The project being built now, started fresh (goal from today's honey) when needed. */
 function currentProject(room) {
   room.built ||= [];
   const def = projectDef(room.built.length);
   if (!room.project || room.project.id !== def.id) {
-    room.project = { id: def.id, goal: Math.max(def.minGoal, Math.round(roomHps(room) * def.goalSeconds)), progress: 0, contributions: {} };
+    room.project = { id: def.id, goal: safeGoal(Math.max(def.minGoal, roomHps(room) * def.goalSeconds)), progress: 0, contributions: {} };
     markDirty();
   }
   return room.project;
@@ -359,6 +374,18 @@ function donate(room, pid, amount) {
   broadcast(room, { t: 'project', ...projectInfo(room) });
 }
 
+/**
+ * Goals set before anyone's honey per second had arrived (a brand-new wood) start at the
+ * floor. While nobody has paid in yet, set them again from what the wood really earns.
+ */
+function settleGoals(room) {
+  for (const def of JOINT) {
+    const j = room.joint?.[def.id];
+    if (j && j.progress === 0 && !Object.keys(j.contributions).length) j.goal = 0;
+  }
+  if (room.project && room.project.progress === 0) room.project = null;
+}
+
 // ---------- the joint map ----------
 
 /** One joint building, with the goal for its next level set from the wood's honey now if it isn't yet. */
@@ -367,7 +394,7 @@ function jointSite(room, def) {
   const j = (room.joint[def.id] ||= { level: 0, goal: 0, progress: 0, contributions: {} });
   if (!j.goal) {
     const grow = JOINT_GROWTH ** j.level;
-    j.goal = Math.round(Math.max(def.minGoal, roomHps(room) * def.hours * 3600) * grow);
+    j.goal = safeGoal(Math.max(def.minGoal, roomHps(room) * def.hours * 3600) * grow);
     markDirty();
   }
   return j;
@@ -490,11 +517,21 @@ wss.on('connection', (ws) => {
   ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', (raw) => {
+    try {
+      handle(raw);
+    } catch (e) {
+      // One bad message must never take the whole server (and everyone's wood) down.
+      console.error('message failed:', e);
+    }
+  });
+  const handle = (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
     if (!msg || typeof msg.t !== 'string') return;
 
     if (msg.t === 'hello') {
+      // One wood per connection: the app opens a new one to change woods.
+      if (room) return;
       const code = cleanCode(msg.room);
       // (cleanCode only gives capitals and digits, so it can never be the keys' name.)
       if (code.length < 3) return send(ws, { t: 'error', text: 'Room codes need at least 3 letters or numbers.' });
@@ -514,7 +551,7 @@ wss.on('connection', (ws) => {
       };
       room = r; pid = id;
       // The first one into a wood looks after it (woods from before this get whoever comes first).
-      if (!r.owner || !r.members[r.owner]) r.owner = id;
+      if (!r.owner || !memberOf(r, r.owner)) r.owner = id;
       const key = `${code}:${id}`;
       if (!sockets.has(key)) sockets.set(key, new Set());
       sockets.get(key).add(ws);
@@ -527,7 +564,7 @@ wss.on('connection', (ws) => {
           send(ws, { t: 'stickInvite', id: raceId, from: race.a, name: from?.name, avatar: from?.avatar });
         }
       }
-      for (const queued of r.inbox[id] || []) send(ws, queued);
+      for (const queued of (Object.hasOwn(r.inbox, id) && r.inbox[id]) || []) send(ws, queued);
       delete r.inbox[id];
       broadcast(r, { t: 'roster', roster: roster(r) }, id);
       if (isNew) system(r, `${r.members[id].avatar} ${r.members[id].name} wandered into the wood. Hallo!`);
@@ -547,7 +584,10 @@ wss.on('connection', (ws) => {
           variety: num(s.variety), naps: num(s.naps), cards: num(s.cards), buildings: cleanBuildings(s.buildings),
           trophies: Math.min(1000, num(s.trophies)),
           bests: cleanBests(s.bests),
+          steady: num(s.steady ?? s.hps),
         };
+        if (me.stats.steady >= peakNow(me)) { me.peak = me.stats.steady; me.peakAt = Date.now(); }
+        settleGoals(room);
         if (s.name) me.name = cleanText(s.name, 16) || me.name;
         if (s.avatar) me.avatar = cleanText(s.avatar, 8) || me.avatar;
         broadcast(room, { t: 'roster', roster: roster(room) });
@@ -562,20 +602,22 @@ wss.on('connection', (ws) => {
       }
       case 'gift': {
         const to = String(msg.to || '');
-        if (!num(Number(msg.amount)) || !room.members[to] || to === pid) return;
+        if (!num(Number(msg.amount)) || to === pid) return;
+        if (!memberOf(room, to)) return send(ws, { t: 'error', text: 'They have left the wood.', asked: num(Number(msg.amount)) });
         const amount = Math.floor(Math.min(num(Number(msg.amount)), giftCap(room, to)));
-        if (!amount) return send(ws, { t: 'error', text: `${room.members[to].name} needs some honey of their own before you can send them more.` });
-        if (giftWait(me, to)) return send(ws, { t: 'error', text: giftWaitText(room, to, giftWait(me, to)), giftWaits: giftWaits(room, me) });
+        if (!amount) return send(ws, { t: 'error', text: `${room.members[to].name} needs some honey of their own before you can send them more.`, asked: num(Number(msg.amount)) });
+        if (giftWait(me, to)) return send(ws, { t: 'error', text: giftWaitText(room, to, giftWait(me, to)), giftWaits: giftWaits(room, me), asked: num(Number(msg.amount)) });
         sentHoney(me, to);
         sendTo(room, to, { t: 'gift', from: pid, name: me.name, avatar: me.avatar, amount }, { queue: true });
         notify(room, to, `🎁 ${me.name} sent you honey!`, 'Come and see how much.', 'gift');
         send(ws, { t: 'giftSent', to, amount, asked: num(Number(msg.amount)), giftWaits: giftWaits(room, me) });
+        sendTo(room, pid, { t: 'giftWaits', giftWaits: giftWaits(room, me) });
         system(room, `🎁 ${me.name} sent ${room.members[to].name} a pot of honey!`);
         break;
       }
       case 'hug': {
         const to = String(msg.to || '');
-        if (!room.members[to] || to === pid) return;
+        if (!memberOf(room, to) || to === pid) return;
         if (Date.now() - lastHug < HUG_COOLDOWN_MS) return send(ws, { t: 'error', text: 'Hugs need a little rest between them.' });
         lastHug = Date.now();
         sendTo(room, to, { t: 'hug', from: pid, name: me.name, avatar: me.avatar }, { queue: true });
@@ -600,7 +642,10 @@ wss.on('connection', (ws) => {
       }
       case 'abandonContract': {
         if (room.contract?.status !== 'active') return;
+        // Called off in its first 5 minutes (a slip of the finger, say): no rest afterwards.
+        const early = Date.now() - room.contract.startedAt < 5 * 60_000;
         endContract(room, 'expired');
+        if (early && room.rests) delete room.rests[room.contract.id];
         broadcast(room, contractMsg(room));
         system(room, `${me.name} called off the Expotition. Perhaps another time.`);
         break;
@@ -627,20 +672,21 @@ wss.on('connection', (ws) => {
         const to = String(msg.to || '');
         // Letters keep their line breaks; other control characters become spaces.
         const text = String(msg.text || '').replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ').trim().slice(0, LETTER_MAX);
-        if (!room.members[to] || to === pid || !text) return;
+        if (!memberOf(room, to) || to === pid || !text) return;
         const amount = Math.floor(Math.min(num(Number(msg.amount)), giftCap(room, to)));
-        if (amount && giftWait(me, to)) return send(ws, { t: 'error', text: `${giftWaitText(room, to, giftWait(me, to))} Your letter can go without honey now.`, giftWaits: giftWaits(room, me) });
+        if (amount && giftWait(me, to)) return send(ws, { t: 'error', text: `${giftWaitText(room, to, giftWait(me, to))} Your letter can go without honey now.`, giftWaits: giftWaits(room, me), asked: num(Number(msg.amount)) });
         if (amount) sentHoney(me, to);
         const letter = { id: `${Date.now()}-${pid}`, from: pid, name: me.name, avatar: me.avatar, text, amount, at: Date.now() };
         sendTo(room, to, { t: 'letter', letter }, { queue: true });
         notify(room, to, `✉️ ${me.name} left you a letter`, amount ? 'With honey tucked inside.' : 'Open it in the Friends tab.', `letter-${letter.id}`);
         send(ws, { t: 'letterSent', amount, asked: num(Number(msg.amount)), giftWaits: giftWaits(room, me) });
+        if (amount) sendTo(room, pid, { t: 'giftWaits', giftWaits: giftWaits(room, me) });
         system(room, `✉️ ${me.name} left ${room.members[to].name} a letter${amount ? ' with honey tucked inside' : ''}.`);
         break;
       }
       case 'stickInvite': {
         const to = String(msg.to || '');
-        if (!room.members[to] || to === pid) return;
+        if (!memberOf(room, to) || to === pid) return;
         if (!isOnline(room.code, to) && !room.members[to].push) return send(ws, { t: 'error', text: `${room.members[to].name} isn't in the wood right now.` });
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const race = { room, a: pid, b: to, drops: {}, phase: 'invited' };
@@ -697,7 +743,7 @@ wss.on('connection', (ws) => {
         // Only whoever looks after the wood can ask someone to leave; they can't come back.
         const who = String(msg.who || '');
         if (pid !== room.owner) return send(ws, { t: 'error', text: 'Only whoever looks after this wood can do that.' });
-        if (!room.members[who] || who === pid) return;
+        if (!memberOf(room, who) || who === pid) return;
         const name = room.members[who].name;
         room.barred = [...(room.barred || []), who].slice(-100);
         delete room.members[who];
@@ -731,7 +777,7 @@ wss.on('connection', (ws) => {
       }
       case 'makeOwner': {
         const who = String(msg.who || '');
-        if (pid !== room.owner || !room.members[who]) return;
+        if (pid !== room.owner || !memberOf(room, who)) return;
         room.owner = who;
         markDirty();
         broadcast(room, { t: 'roster', roster: roster(room) });
@@ -742,7 +788,7 @@ wss.on('connection', (ws) => {
         send(ws, { t: 'pong', at: Date.now() });
         break;
     }
-  });
+  };
 
   ws.on('close', () => {
     if (!room) return;

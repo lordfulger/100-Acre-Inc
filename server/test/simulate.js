@@ -96,6 +96,26 @@ try {
   assert.equal(second.t, 'giftSent', 'a different friend can be sent honey straight away');
   assert.ok(second.giftWaits[gw2.you] > 0 && second.giftWaits[gw3.you] > 0, 'and now both wait');
   for (const g of [g1, g2, g3]) g.ws.close();
+  // Odd names can't crash the server, and refused gifts say how much was asked for.
+  const z = player('9'.repeat(32), 'Odd', '🐞', 'odd');
+  await z.wait((m) => m.t === 'welcome');
+  for (const to of ['__proto__', 'constructor', 'toString']) {
+    z.send({ t: 'hug', to });
+    z.send({ t: 'letter', to, text: 'hi', amount: 5 });
+    z.send({ t: 'gift', to, amount: 5 });
+    z.send({ t: 'makeOwner', who: to });
+  }
+  z.send({ t: 'ping' });
+  await z.wait((m) => m.t === 'pong');
+  assert.equal((await z.wait((m) => m.t === 'error' && m.asked === 5)).asked, 5);
+  // Goals come from what friends steadily earn at their best, so a nap (earning ~0) doesn't shrink them.
+  z.send({ t: 'stats', stats: { hps: 5000, steady: 1000 } });
+  z.send({ t: 'stats', stats: { hps: 0, steady: 0 } });
+  await new Promise((r) => setTimeout(r, 100));
+  z.send({ t: 'startContract', id: 'flood' });
+  const zc = await z.wait((m) => m.t === 'contract' && m.contract.status === 'active');
+  assert.ok(Math.abs(zc.contract.goal - 1000 * 25_000) / (1000 * 25_000) < 0.01, `goal from the steady best, not the nap (${zc.contract.goal})`);
+  z.ws.close();
   console.log('✓ gifts and hugs (with cooldown)');
 
   a.send({ t: 'startContract', id: 'tail' });
