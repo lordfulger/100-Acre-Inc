@@ -248,7 +248,7 @@ export function Header() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderTopLeftRadius: 26, borderTopRightRadius: 26, zIndex: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, zIndex: 10 },
   goo: { position: 'absolute' },
   gooBody: { borderWidth: 1.5, overflow: 'hidden', shadowColor: '#5A3200', shadowOpacity: 0.3, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
   gooCore: { position: 'absolute', left: '22%', right: '22%', top: '30%', bottom: '14%', opacity: 0.75 },
