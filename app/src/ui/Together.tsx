@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { projectBonus } from '../game/calendar';
 import { derive, receiveGift } from '../game/engine';
-import { fmt, timeAgo } from '../game/format';
+import { fmt, fmtWait, timeAgo } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, Card, Section } from './kit';
 import { Portrait } from './Portrait';
@@ -105,7 +105,8 @@ export function Projects() {
 }
 
 export function Letters() {
-  const { s, net, wood, act, toast } = useGame();
+  const { s, net, wood, act, toast, now } = useGame();
+  const giftWait = net.giftReadyAt - now;
   const others = net.roster.filter((m) => m.id !== net.you);
   const [to, setTo] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -147,14 +148,18 @@ export function Letters() {
             placeholderTextColor={C.faint} style={styles.input}
           />
           <View style={styles.row}>
-            {[0, 0.1, 0.25].map((f) => (
-              <Pressable key={f} onPress={() => setShare(f)} disabled={Math.floor(theirs * f) > s.honey} style={[styles.pick, share === f && styles.pickOn, Math.floor(theirs * f) > s.honey && { opacity: 0.4 }]}>
+            {[0, 0.1, 0.25].map((f) => {
+              const off = f > 0 && (Math.floor(theirs * f) > s.honey || giftWait > 0);
+              return (
+              <Pressable key={f} onPress={() => setShare(f)} disabled={off} style={[styles.pick, share === f && styles.pickOn, off && { opacity: 0.4 }]}>
                 <Text style={styles.pickText}>{f ? `🍯 ${f * 100}%` : 'No honey'}</Text>
               </Pressable>
-            ))}
+              );
+            })}
           </View>
+          {giftWait > 0 && <Text style={[styles.small, { marginTop: 4 }]}>🍯 Honey can go in a letter again in {fmtWait(giftWait)} (one gift every 5 minutes).</Text>}
           <Button
-            label="✉️ Send letter" sub={amount > 0 ? `with ${fmt(amount)} honey` : undefined} disabled={!text.trim() || !target || amount > s.honey}
+            label="✉️ Send letter" sub={amount > 0 ? `with ${fmt(amount)} honey` : undefined} disabled={!text.trim() || !target || amount > s.honey || (amount > 0 && giftWait > 0)}
             onPress={() => { wood.letter(target!, text, amount); setText(''); setShare(0); }} style={{ marginTop: 8 }}
           />
         </Card>

@@ -8,8 +8,9 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 
 const PORT = 3999;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const server = spawn(process.execPath, ['src/index.js'], {
-  env: { ...process.env, PORT: String(PORT), DATA_DIR: mkdtempSync(join(tmpdir(), 'honey-')) },
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: mkdtempSync(join(tmpdir(), 'honey-')), GIFT_COOLDOWN_MS: '1500' },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((ok) => server.stdout.on('data', (d) => String(d).includes('listening') && ok()));
@@ -65,6 +66,11 @@ try {
   b.send({ t: 'gift', to: wa.you, amount: 123 });
   const gift = await a.wait((m) => m.t === 'gift');
   assert.equal(gift.amount, 123);
+  // A second gift before the cooldown is up (5 minutes; 1.5 seconds in this test) waits.
+  b.send({ t: 'gift', to: wa.you, amount: 50 });
+  const wait = await b.wait((m) => m.t === 'error' && /send honey again in/.test(m.text));
+  assert.ok(wait.giftWait > 0);
+  await sleep(1600);
   // Gifts are held to half of what the friend has (Pooh has 500), however much is asked.
   b.send({ t: 'gift', to: wa.you, amount: 1e9 });
   assert.equal((await a.wait((m) => m.t === 'gift' && m.amount !== 123)).amount, 250);
@@ -142,6 +148,7 @@ try {
   // Rewards/gifts queue for players who are offline.
   b.ws.close();
   await a.wait((m) => m.t === 'roster' && !m.roster.find((r) => r.name === 'Piglet').online);
+  await sleep(1600); // Pooh sent honey in a letter just now
   a.send({ t: 'gift', to: wb.you, amount: 77 });
   await new Promise((r) => setTimeout(r, 100));
   const b2 = player('b'.repeat(32), 'Piglet', '🐷');

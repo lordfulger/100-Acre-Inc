@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { GIFT_SHARES, QUICK_PHRASES, varietyAt } from '../game/catalog';
 import { ALBUM } from '../game/album';
-import { fmt, fmtTime, timeAgo } from '../game/format';
+import { fmt, fmtTime, fmtWait, timeAgo } from '../game/format';
 import { Contract, ContractDef, Member, useGame } from '../state/GameContext';
 import { Bar, Button, C, Card, Section } from '../ui/kit';
 import { HAND, WoodMap } from '../ui/WoodMap';
@@ -75,7 +75,8 @@ function JoinCard() {
 }
 
 function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () => void }) {
-  const { s, net, wood } = useGame();
+  const { s, net, wood, now } = useGame();
+  const giftWait = net.giftReadyAt - now;
   const [giving, setGiving] = useState(false);
   const [more, setMore] = useState(false);
   const blocked = s.blocked.includes(m.id);
@@ -113,14 +114,18 @@ function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () =>
       )}
       {giving && (
         <>
-          <Text style={[styles.small, { marginTop: 8 }]}>Send a share of what {m.name} has now, so a big gift never swamps them.</Text>
+          <Text style={[styles.small, { marginTop: 8 }]}>
+            {giftWait > 0
+              ? `🎁 You can send honey again in ${fmtWait(giftWait)} (one gift every 5 minutes).`
+              : `Send a share of what ${m.name} has now, so a big gift never swamps them.`}
+          </Text>
           <View style={styles.memberActions}>
             {GIFT_SHARES.map((f) => {
               const amount = Math.floor((m.stats.honey || 0) * f);
               return (
                 <Button
                   key={f} small outline color={C.blue} label={`${f * 100}%`} sub={fmt(amount)}
-                  disabled={amount < 1 || amount > s.honey}
+                  disabled={amount < 1 || amount > s.honey || giftWait > 0}
                   onPress={() => { wood.gift(m.id, amount); setGiving(false); }}
                   style={{ flex: 1 }}
                 />

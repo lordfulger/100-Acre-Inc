@@ -31,3 +31,10 @@ export function timeAgo(ms: number): string {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
 }
+
+/** A short wait: "4m 05s", or "35s" under a minute. */
+export const fmtWait = (ms: number) => {
+  const secs = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(secs / 60);
+  return m ? `${m}m ${String(secs % 60).padStart(2, '0')}s` : `${secs}s`;
+};
