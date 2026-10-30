@@ -14,6 +14,7 @@ import { MapAlive, Speech, TOP_ROOM } from './MapAlive';
 // Open spots on the map for holiday decorations.
 const HOLIDAY_SPOTS: [number, number][] = [
   [140, 250], [260, 160], [395, 330], [560, 250], [40, 430], [250, 520], [420, 600], [110, 600], [560, 620], [250, 800], [560, 900], [420, 1040],
+  [560, 1110], [40, 1240], [470, 1300], [250, 1380], [560, 1400], [330, 1500],
 ];
 
 function Wanderer({ home, to, k, delay }: { home: string; to: string; k: number; delay: number }) {

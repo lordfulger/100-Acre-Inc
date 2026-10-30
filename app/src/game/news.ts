@@ -66,6 +66,15 @@ export const NEWS: News[] = [
       ['💭', 'Dream Deeper', 'Naps give more Golden Honeycombs. The Explorer\'s Kit makes trips shorter.'],
     ],
   },
+  {
+    v: 7,
+    title: 'Beyond the Wood',
+    items: [
+      ['🧭', 'Five new homes', "The map goes further south: the North Pole, the Misty Hollow, Pooh's Thoughtful Spot, the Bluebell Wood and the Highest Hill. Each one is far bigger than the last."],
+      ['📈', 'Much bigger numbers', 'Honey can now climb far higher than before.'],
+      ['⚖️', 'Homes cost more as you collect them', 'Each extra one of a home costs a bit more than it used to, and more so for the grander homes. The way up is the next home, not just more of the same.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;

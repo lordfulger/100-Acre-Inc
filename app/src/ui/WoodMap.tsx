@@ -11,7 +11,7 @@ import { nativeDriver } from './kit';
 import { Portrait, portraitFor } from './Portrait';
 
 export const MAP_W = 600;
-export const MAP_H = 1060;
+export const MAP_H = 1560;
 export const HAND = 'PatrickHand_400Regular';
 
 // Where each home stands (centre of its base).
@@ -32,6 +32,12 @@ export const PLACES: Record<string, { x: number; y: number }> = {
   floody: { x: 470, y: 830 },
   galleons: { x: 130, y: 930 },
   camp: { x: 360, y: 990 },
+  // Beyond the wood.
+  pole: { x: 470, y: 1150 },
+  mist: { x: 130, y: 1190 },
+  spot: { x: 330, y: 1290 },
+  bluebell: { x: 130, y: 1430 },
+  summit: { x: 450, y: 1440 },
 };
 
 const INK = '#4B3A26';
@@ -669,10 +675,198 @@ function HeffalumpPines({ lv }: { lv: number }) {
   );
 }
 
+// ---------- beyond the wood ----------
+
+function NorthPole({ lv }: { lv: number }) {
+  return (
+    <G>
+      {lv >= 5 && (
+        <G opacity={0.55}>
+          <Path d="M-70 -96 Q-35 -118 0 -98 Q35 -78 70 -100" stroke="#7FD6A8" strokeWidth={7} fill="none" strokeLinecap="round" />
+          <Path d="M-62 -84 Q-30 -104 4 -86 Q36 -68 66 -88" stroke="#B48AD6" strokeWidth={5} fill="none" strokeLinecap="round" />
+        </G>
+      )}
+      <Ellipse cx={0} cy={2} rx={58} ry={11} fill="#F4F7FB" stroke="#C9D3DE" strokeWidth={1} />
+      <Ellipse cx={-18} cy={-2} rx={22} ry={7} fill="white" />
+      {lv >= 4 && (
+        <G transform="translate(34,0)">
+          <Path d="M-18 0 A18 16 0 0 1 18 0 Z" fill="#F4F7FB" stroke={INK} strokeWidth={1} />
+          <Path d="M-12 -6 L12 -6 M-16 -12 L16 -12 M-6 0 L-6 -6 M6 0 L6 -6 M0 -6 L0 -12" stroke="#B9C6D3" strokeWidth={0.8} />
+          <Path d="M-5 0 A5 6 0 0 1 5 0 Z" fill="#6E8098" />
+        </G>
+      )}
+      <Line x1={0} y1={2} x2={0} y2={-74} stroke={TRUNK} strokeWidth={3.5} strokeLinecap="round" />
+      <Sign x={-17} y={-68} w={34} lines={['NORTH', 'POLE']} />
+      {lv >= 1 && <G><Pot x={-22} y={4} /><Pot x={14} y={5} s={0.9} /></G>}
+      {lv >= 2 && (
+        <G>
+          <Hive x={-40} y={-14} s={1.1} />
+          <Ellipse cx={-40} cy={-22} rx={6} ry={2.5} fill="white" />
+        </G>
+      )}
+      {lv >= 3 && (
+        <G>
+          {[-56, 54].map((x) => (
+            <G key={x}>
+              <Line x1={x} y1={4} x2={x} y2={-40} stroke={INK} strokeWidth={1} />
+              <Polygon points={`${x},-40 ${x + (x < 0 ? 13 : -13)},-36 ${x},-32`} fill={x < 0 ? '#C8553D' : '#5A8FD6'} stroke={INK} strokeWidth={0.5} />
+            </G>
+          ))}
+          <Bunting x1={-56} y1={-38} x2={-2} y2={-58} n={5} />
+        </G>
+      )}
+      <Bees x={-38} y={-34} n={2 + lv} spread={12} />
+    </G>
+  );
+}
+
+function MistyHollow({ lv }: { lv: number }) {
+  const Fog = ({ o }: { o: number }) => (
+    <G opacity={o}>
+      <Ellipse cx={-30} cy={-14} rx={36} ry={10} fill="white" />
+      <Ellipse cx={22} cy={-26} rx={40} ry={11} fill="white" />
+      <Ellipse cx={-6} cy={-42} rx={30} ry={8} fill="white" />
+    </G>
+  );
+  return (
+    <G>
+      {lv >= 5 && <Glow r={64} />}
+      <Ellipse cx={0} cy={2} rx={58} ry={10} fill="#C9D6C3" />
+      <G opacity={0.6}><Tree x={-40} y={0} s={1.3} dark /><Tree x={42} y={-2} s={1.2} dark /></G>
+      {/* The hollow log Rabbit hid in. */}
+      <Rect x={-26} y={-16} width={44} height={16} rx={8} fill="#9C7650" stroke={INK} strokeWidth={1} />
+      <Ellipse cx={18} cy={-8} rx={5} ry={8} fill="#5E4630" stroke={INK} strokeWidth={0.8} />
+      <Path d="M-20 -12 Q-8 -10 4 -12" stroke="#7A5A3A" strokeWidth={0.8} fill="none" />
+      {lv >= 2 && <Hive x={-8} y={-24} s={1} />}
+      {lv >= 4 && [[-46, 4], [-36, 6], [34, 6], [46, 3]].map(([x, y], i) => (
+        <G key={i}>
+          <Line x1={x} y1={y} x2={x} y2={y - 5} stroke="#F4E8C8" strokeWidth={1.4} />
+          <Path d={`M${x - 4} ${y - 5} Q${x} ${y - 11} ${x + 4} ${y - 5} Z`} fill="#E07A6B" stroke={INK} strokeWidth={0.4} />
+          <Circle cx={x} cy={y - 7} r={6} fill={GOLD} opacity={0.2} />
+        </G>
+      ))}
+      {lv >= 3 && (
+        <G>
+          <Line x1={30} y1={4} x2={30} y2={-36} stroke={TRUNK} strokeWidth={1.6} />
+          <Polygon points="30,-36 52,-34 56,-30 52,-26 30,-24" fill="#F4E8C8" stroke={INK} strokeWidth={0.6} />
+        </G>
+      )}
+      <Fog o={0.75} />
+      {lv >= 1 && [[-30, -30], [16, -40]].map(([x, y], i) => (
+        <G key={i}>
+          <Circle cx={x} cy={y + 2} r={8} fill={GOLD} opacity={0.3} />
+          <Rect x={x - 3} y={y - 3} width={6} height={8} rx={2} fill="#F08A3C" stroke={INK} strokeWidth={0.5} />
+        </G>
+      ))}
+    </G>
+  );
+}
+
+function ThoughtfulSpot({ lv }: { lv: number }) {
+  return (
+    <G>
+      {lv >= 5 && <Glow r={62} />}
+      <Ellipse cx={0} cy={2} rx={56} ry={10} fill="#D5E4AE" />
+      <Tree x={-38} y={0} s={1.5} />
+      {lv >= 3 && <Bunting x1={-38} y1={-40} x2={46} y2={-36} n={7} />}
+      {lv >= 4 && (
+        <G>
+          <Line x1={46} y1={4} x2={46} y2={-38} stroke={INK} strokeWidth={1.4} />
+          <Rect x={42} y={-44} width={8} height={8} rx={2} fill={GOLD} stroke={INK} strokeWidth={0.6} />
+          <Circle cx={46} cy={-40} r={9} fill={GOLD} opacity={0.2} />
+        </G>
+      )}
+      {/* The thinking log. */}
+      <Rect x={-10} y={-10} width={40} height={10} rx={5} fill="#9C7650" stroke={INK} strokeWidth={1} />
+      <Ellipse cx={30} cy={-5} rx={3} ry={5} fill="#C9A274" stroke={INK} strokeWidth={0.6} />
+      {lv >= 2 && <G><Rect x={-26} y={-4} width={24} height={7} rx={3.5} fill="#8A6440" stroke={INK} strokeWidth={0.8} /></G>}
+      <Pot x={6} y={-10} s={1.1} />
+      {lv >= 1 && <G><Pot x={22} y={-10} s={0.9} /><Pot x={-14} y={4} s={0.9} /></G>}
+      {/* A thought, about honey. */}
+      <Circle cx={18} cy={-26} r={2} fill="white" stroke={INK} strokeWidth={0.6} />
+      <Circle cx={24} cy={-34} r={3.2} fill="white" stroke={INK} strokeWidth={0.6} />
+      <Ellipse cx={34} cy={-50} rx={14} ry={10} fill="white" stroke={INK} strokeWidth={0.8} />
+      <Pot x={34} y={-44} s={0.8} />
+    </G>
+  );
+}
+
+function BluebellWood({ lv }: { lv: number }) {
+  const bells: [number, number][] = [[-44, 4], [-30, 6], [-18, 2], [-4, 7], [10, 3], [24, 6], [38, 2], [50, 5], [-50, -2], [44, -4], [-24, -6], [18, -5], [0, -2], [-38, -8], [32, -10]];
+  const Bell = ({ x, y }: { x: number; y: number }) => (
+    <G>
+      <Path d={`M${x} ${y} Q${x - 1} ${y - 8} ${x + 3} ${y - 11}`} stroke={LEAF_DARK} strokeWidth={0.8} fill="none" />
+      <Ellipse cx={x + 3} cy={y - 9} rx={2} ry={2.6} fill="#6E8FD8" stroke="#3E5A9C" strokeWidth={0.4} />
+      <Ellipse cx={x + 1} cy={y - 6} rx={1.7} ry={2.2} fill="#7E9EE4" stroke="#3E5A9C" strokeWidth={0.4} />
+    </G>
+  );
+  return (
+    <G>
+      {lv >= 5 && <Glow r={64} />}
+      <Ellipse cx={0} cy={2} rx={60} ry={12} fill="#C3D3EE" />
+      <Tree x={-30} y={-6} s={1.35} dark />
+      <Tree x={28} y={-8} s={1.25} />
+      {lv >= 2 && <G><Hive x={-48} y={-6} s={1.1} /><Hive x={52} y={-8} s={1} /></G>}
+      {lv >= 3 && (
+        <G transform="translate(6,0)">
+          <Rect x={-14} y={-9} width={28} height={3} fill={TRUNK} stroke={INK} strokeWidth={0.5} />
+          <Rect x={-14} y={-15} width={28} height={2.5} fill={TRUNK} stroke={INK} strokeWidth={0.5} />
+          <Line x1={-12} y1={-6} x2={-12} y2={2} stroke={TRUNK} strokeWidth={1.4} /><Line x1={12} y1={-6} x2={12} y2={2} stroke={TRUNK} strokeWidth={1.4} />
+        </G>
+      )}
+      {bells.slice(0, lv >= 1 ? bells.length : 9).map(([x, y], i) => <Bell key={i} x={x} y={y} />)}
+      {lv >= 4 && [[-20, -40], [12, -48], [36, -34]].map(([x, y], i) => (
+        <G key={i}>
+          <Polygon points={`${x},${y} ${x - 5},${y - 4} ${x - 5},${y + 3}`} fill="#7E9EE4" stroke={INK} strokeWidth={0.3} />
+          <Polygon points={`${x},${y} ${x + 5},${y - 4} ${x + 5},${y + 3}`} fill="#7E9EE4" stroke={INK} strokeWidth={0.3} />
+        </G>
+      ))}
+      <Bees x={0} y={-24} n={2 + lv} spread={20} />
+    </G>
+  );
+}
+
+function HighestHill({ lv }: { lv: number }) {
+  return (
+    <G>
+      {lv >= 5 && <Glow r={70} />}
+      <Path d="M-64 4 Q-40 -30 -10 -52 Q0 -58 10 -52 Q40 -30 64 4 Z" fill="#A9C77E" stroke={INK} strokeWidth={1} />
+      <Path d="M-30 -30 Q-12 -46 0 -50 Q12 -46 28 -32" stroke="#C8DC9E" strokeWidth={5} fill="none" strokeLinecap="round" />
+      {[[-44, 0], [-20, -6], [30, -4], [50, 2]].map(([x, y], i) => <Grass key={i} x={x} y={y} />)}
+      {lv >= 2 && [[-8, -52, 7], [6, -53, 6], [-1, -60, 6], [0, -66, 4]].map(([x, y, r], i) => (
+        <Ellipse key={i} cx={x} cy={y} rx={r} ry={r * 0.7} fill="#C9C2B5" stroke={INK} strokeWidth={0.7} />
+      ))}
+      {lv >= 1 && (
+        <G>
+          <Line x1={0} y1={lv >= 2 ? -68 : -54} x2={0} y2={-92} stroke={INK} strokeWidth={1.2} />
+          <Polygon points="0,-92 16,-88 0,-83" fill={lv >= 5 ? GOLD : '#C8553D'} stroke={INK} strokeWidth={0.5} />
+        </G>
+      )}
+      {lv >= 3 && (
+        <G transform="translate(-30,-28)">
+          <Line x1={0} y1={0} x2={-5} y2={10} stroke={INK} strokeWidth={0.8} />
+          <Line x1={0} y1={0} x2={5} y2={10} stroke={INK} strokeWidth={0.8} />
+          <Line x1={0} y1={0} x2={0} y2={10} stroke={INK} strokeWidth={0.8} />
+          <Rect x={-2} y={-6} width={14} height={4} rx={2} fill="#B88A00" stroke={INK} strokeWidth={0.6} transform="rotate(-25)" />
+        </G>
+      )}
+      {lv >= 4 && [[44, -70, '#E46A8C'], [-50, -64, '#5A8FD6']].map(([x, y, c], i) => (
+        <G key={i}>
+          <Polygon points={`${x},${Number(y) - 8} ${Number(x) + 6},${y} ${x},${Number(y) + 8} ${Number(x) - 6},${y}`} fill={String(c)} stroke={INK} strokeWidth={0.6} />
+          <Path d={`M${x} ${Number(y) + 8} Q${Number(x) - 6} ${Number(y) + 30} ${Number(x) < 0 ? -26 : 24} ${-30}`} stroke={INK} strokeWidth={0.5} fill="none" />
+        </G>
+      ))}
+      <Pot x={26} y={-14} s={1.1} />
+      <Pot x={-26} y={-10} />
+    </G>
+  );
+}
+
 const ART: Record<string, (p: { lv: number }) => React.ReactElement> = {
   pooh: PoohHouse, beetree: BeeTreeArt, haycorn: PigletHouse, garden: RabbitFarm, oak: OwlHouse, kitchen: KangaHouse,
   thistle: EeyorePlace, ranch: TiggerHill, works: RobinHouse, heffalump: HeffalumpTrap, bridge: BridgeArt,
   floody: FloodyDock, galleons: GalleonsLap, camp: ExpoCamp, pines: HeffalumpPines,
+  pole: NorthPole, mist: MistyHollow, spot: ThoughtfulSpot, bluebell: BluebellWood, summit: HighestHill,
 };
 
 // Past Legendary every new look adds a gold star round the home, then the stars
@@ -709,6 +903,7 @@ const BOUNDS: Record<string, [number, number, number, number]> = {
   oak: [-56, -131, 56, 8], kitchen: [-46, -85, 44, 7], thistle: [-52, -68, 52, 12], ranch: [-60, -60, 60, 6],
   works: [-58, -124, 58, 8], heffalump: [-55, -30, 60, 9], bridge: [-46, -40, 46, 65], floody: [-62, -34, 62, 15],
   galleons: [-60, -96, 60, 8], camp: [-60, -50, 70, 12], pines: [-60, -96, 60, 8],
+  pole: [-72, -120, 72, 14], mist: [-62, -62, 62, 12], spot: [-58, -78, 58, 12], bluebell: [-62, -64, 62, 14], summit: [-66, -100, 66, 8],
 };
 
 /** A close-up of one home, big enough to see every detail, with its add-ons. */
@@ -741,7 +936,7 @@ export function HomeCloseUp({ id, look, addons = [], size }: { id: string; look:
 const RIVERS = [
   'M548 0 C540 40 575 70 560 110 C548 150 520 165 470 178 C410 192 360 172 300 196 C275 206 262 215 255 232',
   'M0 205 C60 198 110 212 150 218 C190 224 225 222 255 232',
-  'M255 232 C262 280 250 320 262 360 C272 400 250 450 230 480 C210 510 240 540 285 560 C330 580 325 610 318 640 C310 690 288 740 320 820 C340 880 290 930 300 980 C305 1010 330 1040 340 1060',
+  'M255 232 C262 280 250 320 262 360 C272 400 250 450 230 480 C210 510 240 540 285 560 C330 580 325 610 318 640 C310 690 288 740 320 820 C340 880 290 930 300 980 C305 1010 330 1040 340 1060 C350 1100 280 1140 240 1200 C200 1260 220 1320 250 1360 C280 1400 270 1480 290 1560',
   'M600 420 C560 422 520 428 470 438 C420 450 400 470 370 490 C340 510 300 530 285 560',
   'M0 528 C60 532 120 522 160 506 C190 496 210 490 230 480',
   'M0 722 C60 712 120 738 170 760 C200 772 230 790 240 820 C250 850 280 870 312 880',
@@ -754,6 +949,9 @@ const PATHS = [
   'M365 272 C420 280 480 285 535 292', 'M365 272 C400 320 430 360 455 400', 'M455 405 C470 440 490 470 505 505',
   'M168 392 C220 470 260 560 300 630', 'M505 512 C440 560 380 600 330 638',
   'M330 645 C400 660 450 680 492 700', 'M330 650 C390 720 430 790 470 830', 'M310 650 C250 760 180 850 130 930', 'M140 935 C200 965 280 985 360 990',
+  // Beyond the wood.
+  'M365 995 C400 1050 440 1100 470 1150', 'M350 998 C280 1060 180 1120 130 1190', 'M470 1155 C420 1200 370 1250 330 1290',
+  'M135 1195 C200 1230 270 1260 325 1290', 'M325 1295 C260 1340 180 1390 130 1430', 'M335 1295 C380 1350 420 1400 450 1440',
 ];
 
 const FOREST: [number, number, number][] = [
@@ -771,6 +969,10 @@ const FOREST: [number, number, number][] = [
   // further into the wood
   [40, 880, 0.9], [230, 900, 0.85], [250, 940, 0.8], [440, 920, 0.95], [470, 950, 1.0], [500, 925, 0.9], [560, 960, 0.9], [580, 1000, 0.85],
   [60, 1010, 0.9], [100, 1030, 0.85], [200, 1030, 0.8], [470, 1030, 0.85], [540, 1035, 0.9], [20, 960, 0.8],
+  // beyond the wood
+  [30, 1090, 0.9], [56, 1110, 0.85], [570, 1090, 0.9], [580, 1200, 0.85], [560, 1260, 0.9], [580, 1320, 0.85],
+  [40, 1300, 0.9], [70, 1320, 0.85], [20, 1350, 0.8], [420, 1240, 0.85], [230, 1430, 0.85], [580, 1520, 0.9],
+  [40, 1530, 0.9], [200, 1520, 0.85], [360, 1520, 0.8], [530, 1380, 0.85], [380, 1090, 0.8], [250, 1100, 0.75],
 ];
 
 const PINES: [number, number][] = [
@@ -784,6 +986,7 @@ function Land() {
       {[
         [150, 120, 160, 90], [420, 110, 170, 100], [300, 300, 260, 120], [100, 450, 140, 110], [480, 470, 150, 110],
         [300, 560, 220, 80], [150, 680, 180, 100], [460, 700, 180, 110], [140, 930, 170, 90], [380, 990, 200, 80],
+        [470, 1150, 150, 80], [130, 1190, 140, 80], [330, 1290, 170, 90], [130, 1430, 150, 80], [450, 1440, 170, 90],
       ].map(([cx, cy, rx, ry], i) => (
         <Ellipse key={i} cx={cx} cy={cy} rx={rx} ry={ry} fill="#DCE6B4" opacity={0.75} />
       ))}
@@ -791,6 +994,12 @@ function Land() {
       <Ellipse cx={60} cy={555} rx={70} ry={30} fill="#B9CFC0" opacity={0.6} />
       <Ellipse cx={520} cy={530} rx={80} ry={28} fill="#B9CFC0" opacity={0.6} />
       <Ellipse cx={470} cy={840} rx={95} ry={30} fill="#B9CFC0" opacity={0.6} />
+      {/* Snow round the North Pole, mist in the hollow, and bluebells. */}
+      <Ellipse cx={470} cy={1150} rx={110} ry={34} fill="#F4F7FB" opacity={0.8} />
+      <Ellipse cx={130} cy={1175} rx={100} ry={40} fill="#E6ECEE" opacity={0.7} />
+      <Ellipse cx={130} cy={1430} rx={110} ry={34} fill="#C3D3EE" opacity={0.6} />
+      {/* The sea, just about visible from the Highest Hill. */}
+      <Path d="M600 1470 C560 1490 540 1520 520 1560 L600 1560 Z" fill={WATER} opacity={0.8} />
       {/* Sandy pit where Roo plays */}
       <Path d="M150 120 C170 100 250 100 268 118 C280 132 250 150 200 148 C165 147 140 138 150 120 Z" fill={SAND} stroke="#C9A64B" strokeWidth={1} strokeDasharray="2,2" />
       {[170, 190, 214, 240, 252].map((x, i) => <Circle key={x} cx={x} cy={124 + (i % 2) * 10} r={1.2} fill="#C9A64B" />)}
@@ -843,7 +1052,9 @@ const LABELS: { text: string; x: number; y: number; size?: number; w?: number }[
   { text: 'FLOODY PLACE', x: 56, y: 560, size: 12, w: 70 },
   { text: 'RATHER BOGGY AND SAD', x: 505, y: 568, size: 10 },
   { text: 'FURTHER INTO THE WOOD', x: 300, y: 880, size: 11, w: 130 },
-  { text: 'NORTH POLE (PROBABLY)', x: 520, y: 1000, size: 9, w: 90 },
+  { text: 'BEYOND THE WOOD', x: 300, y: 1068, size: 15 },
+  { text: 'WHERE TIGGER GOT LOST', x: 250, y: 1205, size: 9, w: 70 },
+  { text: 'THE SEA (NEARLY)', x: 560, y: 1545, size: 9, w: 70 },
 ];
 
 function Pulse({ children }: { children: React.ReactNode }) {

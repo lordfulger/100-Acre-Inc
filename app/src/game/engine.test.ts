@@ -87,7 +87,7 @@ function shop(s: GameState, t: number) {
   console.log(`First Pooh's House upgrade after ${firstPooh}s of play`);
   console.log(`300B all-time honey after ${reached300B < 0 ? 'more than ' + HOURS + 'h' : fmtTime(reached300B)} of non-stop play`);
   console.log(`Purchases per 10 minutes: ${buysPerWindow.join(' ')}`);
-  console.log(`Levels: ${JSON.stringify(s.levels)}\nStore: ${JSON.stringify(s.research)}\nAdd-ons owned: ${s.addons.length}/66`);
+  console.log(`Levels: ${JSON.stringify(s.levels)}\nStore: ${JSON.stringify(s.research)}\nAdd-ons owned: ${s.addons.length}/${(BUSINESSES.length + 1) * 6}`);
   assert.ok(s.addons.length > 0, 'greedy player should buy add-ons');
   assert.ok(Object.keys(s.research).length >= 10, 'most store items should unlock in the first hours');
   assert.ok(firstPooh > 0 && firstPooh <= 30, 'first upgrade should come within seconds');

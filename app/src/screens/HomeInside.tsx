@@ -21,6 +21,7 @@ import { say } from '../audio/voices';
 const WALLS: Record<string, string> = {
   pooh: '#F3D9A0', beetree: '#E9E2B0', haycorn: '#F4C9C9', garden: '#D9E6B8', oak: '#D8C7A8', kitchen: '#F6D8B8', thistle: '#C9CFD6',
   ranch: '#F7C88A', works: '#CFE0C3', heffalump: '#D6C4A6', bridge: '#C7DCE8', floody: '#BFD8E6', galleons: '#E3D9F0', camp: '#E6D7B8', pines: '#C8DBC8',
+  pole: '#E4ECF4', mist: '#D8DEDC', spot: '#E8DCC0', bluebell: '#D6DDF2', summit: '#D9E6C4',
 };
 // Where each decoration stands in the room, as fractions of its width and height.
 const SLOTS: [number, number][] = [[0.12, 0.62], [0.86, 0.6], [0.3, 0.8], [0.7, 0.82], [0.1, 0.28], [0.88, 0.3]];

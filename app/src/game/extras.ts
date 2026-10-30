@@ -125,6 +125,7 @@ export function resident(home: string): { portrait: PortraitId; name: string; em
 const RESIDENT_PORTRAIT: Record<string, PortraitId> = {
   beetree: 'pooh', haycorn: 'piglet', garden: 'rabbit', oak: 'owl', kitchen: 'kanga', thistle: 'eeyore', ranch: 'tigger',
   works: 'robin', heffalump: 'small', bridge: 'woozle', floody: 'roo', galleons: 'poohpiglet', camp: 'bee', pines: 'heffalump',
+  pole: 'robin', mist: 'rabbit', spot: 'pooh', bluebell: 'piglet', summit: 'poohpiglet',
 };
 
 // Original lines, written in the spirit of the books.
@@ -144,6 +145,11 @@ const LINES: Record<string, string[]> = {
   galleons: ["Pooh and Piglet are sitting very still, looking at the whole world.", "\"What day is it?\" asks Pooh. \"Today,\" says Piglet. \"My favourite.\"", "Up here you can see every home in the wood. Even yours."],
   camp: ["The bees buzz a marching song.", "A bee lands on the map, exactly on the North Pole.", "Bzz. (It sounds pleased to see you.)"],
   pines: ["The Heffalump peeks round a pine and waves its trunk shyly.", "A very large, very gentle sigh. It likes your visit.", "The Heffalump offers you a pine cone. It's warm."],
+  pole: ["\"We found it!\" says Christopher Robin. \"Pooh found it, really.\"", "Everyone is wearing mittens, even the bees.", "The notice says NORTH POLE. Pooh wrote it. Christopher Robin helped with the spelling."],
+  mist: ["\"Have you seen the way home?\" asks Rabbit. \"Not that I'm lost. I'm Exploring.\"", "The fog parts, and there's a pot of honey. Then it closes again.", "Somewhere in the mist, Tigger bounces. Rabbit sighs."],
+  spot: ["\"Think, think, think,\" says Pooh, and then he has a little something.", "Pooh is thinking about honey. It's his favourite thing to think about.", "\"Sometimes,\" says Pooh, \"the smallest things take up the most room in your heart.\""],
+  bluebell: ["Piglet's Grandfather was called Trespassers William. He'd have liked it here.", "Every bluebell has a bee in it, ringing softly.", "Piglet picks a bluebell for Eeyore. It's a very small present, but a nice one."],
+  summit: ["From up here you can see the whole wood, and a bit of the sea.", "Everybody has come up for the view. Pooh has come up for the picnic.", "\"Is this the top of the world?\" asks Roo. \"Very nearly,\" says Kanga."],
 };
 /** Something they say when you bump into them on the map. */
 export const chatter = (home: string, rand = Math.random) => {

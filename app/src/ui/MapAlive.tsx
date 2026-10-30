@@ -223,6 +223,7 @@ const WINDOWS: Record<string, [number, number][]> = {
   pooh: [[0, -12]], haycorn: [[-2.5, -32]], kitchen: [[-14.5, -19], [13.5, -19]], oak: [[10, -14], [30, -46]],
   works: [[0, -15], [0, -88]], garden: [[0, -10]], thistle: [[0, -8]], ranch: [[0, -12]], heffalump: [[0, -6]],
   bridge: [[-30, -8]], floody: [[0, -10]], galleons: [[0, -10]], camp: [[0, -10]], pines: [[0, -10]], beetree: [[2, -30]],
+  pole: [[-40, -18]], mist: [[18, -8]], spot: [[30, -10]], bluebell: [[-30, -20]], summit: [[0, -56]],
 };
 
 function HomeLight({ k, x, y, bright, i }: { k: number; x: number; y: number; bright: boolean; i: number }) {
