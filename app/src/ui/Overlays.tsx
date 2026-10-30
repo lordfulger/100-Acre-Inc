@@ -7,10 +7,12 @@ import { useGame } from '../state/GameContext';
 import { Button, buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
 import { play, warmUp } from '../audio/sound';
+import { anyColour, BALLOON_BUNCH, BALLOON_COLOURS } from './balloonImages';
 
 // Golden balloons drift up the screen now and then. Catch one for a bonus —
 // and your partner gets a little shared joy too.
-const BALLOON = require('../../assets/art/balloon.png');
+// One in this many is a whole bunch rather than a single balloon (just for looks).
+const BUNCH_ODDS = 8;
 // The framed story cards, shown at the game's big moments.
 const CARDS = {
   hunny: require('../../assets/art/card-hunny.png'),
@@ -21,7 +23,7 @@ const StoryCard = ({ card, height }: { card: keyof typeof CARDS; height: number 
   <Image source={CARDS[card]} style={[styles.card, { height, width: height * 800 / 960 }]} />
 );
 
-type Balloon = { id: number; x: number; anim: Animated.Value };
+type Balloon = { id: number; x: number; anim: Animated.Value; art: number };
 
 export function BalloonLayer() {
   const game = useGame();
@@ -48,7 +50,8 @@ export function BalloonLayer() {
     const id = setInterval(() => {
       if (Date.now() < nextAt.current) return;
       const anim = new Animated.Value(0);
-      const b = { id: Date.now(), x: 30 + Math.random() * Math.max(60, width - 130), anim };
+      const art = Math.random() < 1 / BUNCH_ODDS ? BALLOON_BUNCH : BALLOON_COLOURS[anyColour()];
+      const b = { id: Date.now(), x: 30 + Math.random() * Math.max(60, width - 130), anim, art };
       setBalloon(b);
       play('whoosh');
       Animated.timing(anim, { toValue: 1, duration: 13_000, easing: Easing.linear, useNativeDriver: nativeDriver }).start(({ finished }) => {
@@ -80,7 +83,7 @@ export function BalloonLayer() {
   if (!balloon) return null;
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      <FlyingBalloon key={balloon.id} x={balloon.x} anim={balloon.anim} height={height} onPop={pop} />
+      <FlyingBalloon key={balloon.id} x={balloon.x} anim={balloon.anim} art={balloon.art} height={height} onPop={pop} />
     </View>
   );
 }
@@ -89,8 +92,8 @@ export function BalloonLayer() {
  * The balloon on its way up. The game updates several times a second; this only
  * draws again if the screen changes size, and the flight itself runs natively.
  */
-const FlyingBalloon = React.memo(function FlyingBalloon({ x, anim, height, onPop }: {
-  x: number; anim: Animated.Value; height: number; onPop: () => void;
+const FlyingBalloon = React.memo(function FlyingBalloon({ x, anim, art, height, onPop }: {
+  x: number; anim: Animated.Value; art: number; height: number; onPop: () => void;
 }) {
   const flight = useMemo(() => ({
     position: 'absolute' as const, left: x, top: 0,
@@ -102,7 +105,7 @@ const FlyingBalloon = React.memo(function FlyingBalloon({ x, anim, height, onPop
   return (
     <Animated.View style={flight}>
       <Pressable onPress={onPop} hitSlop={20} accessibilityLabel="Catch the balloon" style={styles.balloon}>
-        <Image source={BALLOON} style={styles.balloonArt} />
+        <Image source={art} style={styles.balloonArt} />
         <Portrait id="pooh" size={40} style={{ marginTop: -6 }} />
       </Pressable>
     </Animated.View>

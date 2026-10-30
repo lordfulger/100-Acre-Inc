@@ -253,6 +253,11 @@ function shop(s: GameState, t: number) {
   assert.equal(finishGame(s, 'tracks', 99, day(10, 29, 14)).honey, 3e6 * 0.02);
   const had = s.honey;
   assert.equal(finishGame(s, 'stretch', 1, day(10, 29, 14)).honey, had * 0.02 * (40 / 600), 'smaller scores, smaller shares');
+  // A Lucky Honey balloon pays 5% of what you're worth this run, not minutes of income.
+  s.honey = 3.4e11; s.runEarned = 5e11;
+  const lucky = catchBalloon(s, day(10, 29, 16), () => 0);
+  assert.equal(lucky.kind, 'lucky');
+  assert.ok(Math.abs(lucky.amount - 3.4e11 * 0.05 * derive(s, day(10, 29, 16)).balloonPower) < 1);
   // Comb Polish makes every Golden Honeycomb worth more: +0.1% each a level.
   assert.ok(Math.abs(combPower(s, 5) - 0.025) < 1e-12);
   assert.equal(combPower(s, 0), 0.02);

@@ -4,7 +4,8 @@
 import { BIZ_BY_ID, BUSINESSES, jointBonus, POOH_HOUSE } from './catalog';
 import { bumpEvent, EVENTS, WoodEvent } from './calendar';
 import { ALBUM } from './album';
-import { derive, earn, GameState } from './engine';
+import { derive, earn, GameState, runWorth } from './engine';
+export { runWorth };
 import type { PortraitId } from '../ui/Portrait';
 
 export const dayKey = (now: number) => {
@@ -16,13 +17,6 @@ const hash = (text: string) => {
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
   return h >>> 0;
 };
-/**
- * What you're worth this run, for prizes: the honey you have, or a fifth of what you've
- * made since your last nap if you've just spent it. Prizes come from this rather than
- * from your income, so a fresh run after a nap pays fresh-run prizes (Golden Honeycombs
- * make your income jump straight after a nap, long before your honey catches up).
- */
-export const runWorth = (s: GameState) => Math.max(s.honey, s.runEarned * 0.2);
 /** The smallest prize, so a brand-new game still gets something. */
 const MIN_PRIZE = 100;
 /** A prize of this share of what you're worth this run. */

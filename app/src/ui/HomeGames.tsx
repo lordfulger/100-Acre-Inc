@@ -1,11 +1,12 @@
 // One game for each home that didn't have one yet. They all report a score when done.
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, buzz, C } from './kit';
 import { Shell, useFrames } from './Minigames';
 import { HAND } from './WoodMap';
 import { Portrait, PortraitId } from './Portrait';
 import { play } from '../audio/sound';
+import { anyColour, BALLOON_COLOURS, BalloonColour } from './balloonImages';
 
 type GameProps = { onDone: (score: number) => void; onQuit: () => void };
 const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
@@ -217,8 +218,9 @@ export function Tail({ onDone, onQuit }: GameProps) {
 
 // ---------- Tigger: Balloons ----------
 
-type Floater = { id: number; x: number; y: number; v: number; kind: 'red' | 'gold' | 'bee' };
+type Floater = { id: number; x: number; y: number; v: number; kind: 'plain' | 'gold' | 'bee'; colour: BalloonColour };
 const BALLOON_SECS = 30;
+// Golden balloons (worth 3) are the yellow ones, with a sparkle; the rest come in every other colour.
 
 export function Balloons({ onDone, onQuit }: GameProps) {
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -230,7 +232,7 @@ export function Balloons({ onDone, onQuit }: GameProps) {
     g.last = t;
     if (t >= g.next) {
       const r = Math.random();
-      g.items.push({ id: g.id++, x: 0.08 + Math.random() * 0.84, y: 1.05, v: 0.2 + t / 90 + Math.random() * 0.12, kind: r < 0.15 ? 'bee' : r < 0.27 ? 'gold' : 'red' });
+      g.items.push({ id: g.id++, x: 0.08 + Math.random() * 0.84, y: 1.05, v: 0.2 + t / 90 + Math.random() * 0.12, kind: r < 0.15 ? 'bee' : r < 0.27 ? 'gold' : 'plain', colour: r >= 0.15 && r < 0.27 ? 'yellow' : anyColour(['yellow']) });
       g.next = t + Math.max(0.3, 0.7 - t / 70);
     }
     for (const it of g.items) it.y -= it.v * dt;
@@ -248,8 +250,15 @@ export function Balloons({ onDone, onQuit }: GameProps) {
     <Shell id="balloons" score={`🎈 ${g.score}`} right={`⏱ ${Math.ceil(left)}s`} onQuit={onQuit}>
       <View style={[styles.field, { backgroundColor: '#E3F0FA' }]} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         {g.items.map((it) => (
-          <Pressable key={it.id} onPressIn={() => popIt(it.id)} hitSlop={8} style={[styles.floater, { left: it.x * size.w - 24, top: it.y * size.h }]}>
-            <Text style={{ fontSize: 40 }}>{it.kind === 'bee' ? '🐝' : it.kind === 'gold' ? '🌟' : '🎈'}</Text>
+          <Pressable key={it.id} onPressIn={() => popIt(it.id)} hitSlop={8} style={[styles.floater, { left: it.x * size.w - (it.kind === 'bee' ? 24 : 62), top: it.y * size.h }]}>
+            {it.kind === 'bee'
+              ? <Text style={{ fontSize: 40 }}>🐝</Text>
+              : (
+                <View>
+                  <Image source={BALLOON_COLOURS[it.colour]} style={styles.gameBalloon} />
+                  {it.kind === 'gold' && <Text style={styles.sparkle}>✨</Text>}
+                </View>
+              )}
           </Pressable>
         ))}
         <View pointerEvents="none" style={[styles.actor, { bottom: 8, left: '50%', marginLeft: -28 }]}><Portrait id="tigger" size={56} /></View>
@@ -523,6 +532,8 @@ const styles = StyleSheet.create({
   bushes: { width: 300, height: 120, marginTop: 20 },
   bush: { position: 'absolute', top: 0, width: '30%' },
   floater: { position: 'absolute', padding: 4 },
+  gameBalloon: { width: 124, height: 124 },
+  sparkle: { position: 'absolute', top: 2, right: 28, fontSize: 20 },
   potBox: { width: 320, maxWidth: '94%', height: 260, alignSelf: 'center', borderRadius: 18, backgroundColor: '#FFF0C2', borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
   potSpot: { position: 'absolute', fontSize: 34 },
   answers: { flexDirection: 'row', gap: 10, width: 320, maxWidth: '94%', marginTop: 16 },

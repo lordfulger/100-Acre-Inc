@@ -553,6 +553,18 @@ export function receiveGift(s: GameState, amount: number) {
   if (amount > 0 && Number.isFinite(amount)) s.honey = cap(s.honey + amount);
 }
 
+/**
+ * What you're worth this run, for prizes: the honey you have, or a fifth of what you've
+ * made since your last nap if you've just spent it. Prizes come from this rather than
+ * from your income, so a fresh run after a nap pays fresh-run prizes (Golden Honeycombs
+ * make your income jump straight after a nap, long before your honey catches up).
+ */
+export const runWorth = (s: GameState) => Math.max(s.honey, s.runEarned * 0.2);
+/** A Lucky Honey balloon: this share of what you're worth this run (more with balloon upgrades)… */
+export const LUCKY_SHARE = 0.05;
+/** …and never less than this, for a brand-new game. */
+const MIN_LUCKY = 100;
+
 export function catchBalloon(s: GameState, now: number, rand = Math.random) {
   const d = derive(s, now);
   const total = Object.values(BALLOONS).reduce((a, b) => a + b.weight, 0);
@@ -565,7 +577,7 @@ export function catchBalloon(s: GameState, now: number, rand = Math.random) {
   bumpEvent(s, 'balloon', now);
   const def = BALLOONS[kind];
   if (kind === 'lucky') {
-    const amount = Math.max(d.tapValue * 20, Math.min(s.honey * 0.1, d.hps * 300)) * d.balloonPower;
+    const amount = Math.max(MIN_LUCKY, runWorth(s) * LUCKY_SHARE * d.balloonPower);
     earn(s, amount);
     return { kind, title: def.title, amount, mult: 0, secs: 0 };
   }
