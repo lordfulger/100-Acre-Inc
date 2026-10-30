@@ -870,12 +870,14 @@ type Props = {
   onSelect?: (id: string) => void;
   /** Homes whose friend is out walking on the map, so their portrait isn't shown at home too. */
   away?: Set<string>;
+  /** Colours laid over the drawing (the season, dusk, night), under the name tags so those stay easy to read. */
+  tints?: string[];
 };
 
 /** True when a home is still hidden: not bought yet and not the next one to unlock. */
 const isLocked = (view: MapView, id: string) => id !== 'pooh' && !view.owned[id];
 
-function WoodMapView({ view, width, selected, upgradable, onSelect, away }: Props) {
+function WoodMapView({ view, width, selected, upgradable, onSelect, away, tints }: Props) {
   const k = width / MAP_W;
   const ids = Object.keys(PLACES);
   return (
@@ -905,6 +907,7 @@ function WoodMapView({ view, width, selected, upgradable, onSelect, away }: Prop
           {l.text}
         </Text>
       ))}
+      {tints?.map((c, i) => <View key={i} pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: c }]} />)}
       {ids.map((id) => {
         const { x, y } = PLACES[id];
         const locked = isLocked(view, id);
@@ -957,7 +960,7 @@ const upgradableKey = (u?: Set<string>) => (u ? [...u].sort().join(",") : "");
 
 /**
  * The map only redraws when something on it changes (a home bought or upgraded,
- * a manager hired, an add-on, the selection, the size), not every time the honey
+ * a manager hired, an add-on, the selection, the size, the time of day), not every time the honey
  * counter ticks. Redrawing hundreds of trees several times a second made phones lag.
  */
 export const WoodMap = React.memo(
@@ -965,5 +968,6 @@ export const WoodMap = React.memo(
   (a, b) =>
     a.width === b.width && a.selected === b.selected && a.onSelect === b.onSelect &&
     upgradableKey(a.upgradable) === upgradableKey(b.upgradable) && upgradableKey(a.away) === upgradableKey(b.away) &&
+    String(a.tints) === String(b.tints) &&
     JSON.stringify(a.view) === JSON.stringify(b.view),
 );

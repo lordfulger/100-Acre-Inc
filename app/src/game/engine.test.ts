@@ -246,6 +246,13 @@ function shop(s: GameState, t: number) {
   assert.equal(finishGame(s, 'drip', 50, day(10, 29, 12) + 60_000).honey, 0);
   assert.equal(s.games.drip.best, 50);
   assert.ok(finishGame(s, 'drip', 5, day(10, 29, 13)).honey > 0);
+  // Prizes come from what you're worth this run, not your income: just after a nap, with
+  // honey in the millions and a big income, a top score pays 2% of the honey you have.
+  s.honey = 3e6; s.runEarned = 4e6;
+  addBoost(s, 'profit', 7, 3600, 'Bee Frenzy', day(10, 29, 14));
+  assert.equal(finishGame(s, 'tracks', 99, day(10, 29, 14)).honey, 3e6 * 0.02);
+  const had = s.honey;
+  assert.equal(finishGame(s, 'stretch', 1, day(10, 29, 14)).honey, had * 0.02 * (40 / 600), 'smaller scores, smaller shares');
   // Any finished game rests, even with no score; locked homes have no game.
   finishGame(s, 'garden', 0, day(10, 29, 13));
   assert.ok(!gameReady(s, 'garden', day(10, 29, 13) + 29 * 60_000) && gameReady(s, 'garden', day(10, 29, 13) + 30 * 60_000));

@@ -1,4 +1,4 @@
-// Life on the map, drawn over the (memoized) WoodMap: the season's tint, holiday
+// Life on the map, drawn over the (memoized) WoodMap: holiday
 // decorations, projects built together, and friends wandering between homes.
 // Weather falls over the whole screen, separately, so it doesn't scroll away.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -60,13 +60,11 @@ export function wanderers(s: GameState) {
 
 export function MapLife({ s, width, now }: { s: GameState; width: number; now: number }) {
   const k = width / MAP_W;
-  const season = SEASONS[seasonAt(now)];
   const event = activeEvent(now);
   const walkers = wanderers(s);
   const walkKey = walkers.map((w) => w.home).join(',');
   return (
     <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { width, height: MAP_H * k }]}>
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: season.tint }]} />
       {event && HOLIDAY_SPOTS.map(([x, y], i) => (
         <Text key={i} pointerEvents="none" style={[styles.spot, { left: x * k - 10, top: y * k - 10, fontSize: Math.max(14, 20 * k) }]}>{i % 3 === 2 ? event.emoji : event.mapEmoji}</Text>
       ))}

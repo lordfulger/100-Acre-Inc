@@ -13,6 +13,7 @@ import { activeEvent, eventProgress, seasonAt, SEASONS, WEATHER_NAMES, weatherAt
 import { findThing, gameForHome, GameId, GAMES, gameReady, gameWait, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
 import { GameRunner } from './GamesScreen';
 import { MapLife, wanderers, Weather } from '../ui/MapLife';
+import { skyAt } from '../ui/MapAlive';
 import { HomeInside } from './HomeInside';
 import { say } from '../audio/voices';
 
@@ -274,7 +275,7 @@ export function MapScreen() {
             scrollEventThrottle={32} onScroll={(e) => { at.current.x = e.nativeEvent.contentOffset.x; }}
           >
             <View>
-              <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} away={away} />
+              <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} away={away} tints={[SEASONS[seasonAt(now)].tint, skyAt(now).tint]} />
               <MapLife s={s} width={mapWidth} now={now} />
             </View>
           </ScrollView>

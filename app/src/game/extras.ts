@@ -16,7 +16,19 @@ const hash = (text: string) => {
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
   return h >>> 0;
 };
-/** A small honey prize: some minutes of your honey per second, with a floor early on. */
+/**
+ * What you're worth this run, for prizes: the honey you have, or a fifth of what you've
+ * made since your last nap if you've just spent it. Prizes come from this rather than
+ * from your income, so a fresh run after a nap pays fresh-run prizes (Golden Honeycombs
+ * make your income jump straight after a nap, long before your honey catches up).
+ */
+export const runWorth = (s: GameState) => Math.max(s.honey, s.runEarned * 0.2);
+/** The smallest prize, so a brand-new game still gets something. */
+const MIN_PRIZE = 100;
+/** A prize of this share of what you're worth this run. */
+export const runPrize = (s: GameState, part: number) => Math.max(MIN_PRIZE, runWorth(s) * part);
+
+/** Some minutes of your honey per second, with a floor early on (prices in the decoration shop). */
 const prize = (s: GameState, now: number, minutes: number) => {
   const d = derive(s, now);
   return Math.max(d.tapValue * 50, d.hps * minutes * 60);
@@ -198,21 +210,13 @@ export function findThing(s: GameState, home: string) {
   return true;
 }
 
-/** A visitor's thank-you is a share of your honey: this much of what you have now… */
+/** A visitor's thank-you: this share of what you're worth this run. */
 export const VISITOR_SHARE = 0.05;
-/** …and never less than this much of what you've made since your last nap, so spending first doesn't spoil it. */
-export const VISITOR_RUN_SHARE = 0.01;
-
-/** Proportional to your honey rather than your income, and boosts running at the time don't count. */
-export function visitorPrize(s: GameState, now: number) {
-  const plain = derive({ ...s, boosts: [] }, now);
-  return Math.max(plain.tapValue * 50, s.honey * VISITOR_SHARE, s.runEarned * VISITOR_RUN_SHARE);
-}
 
 export function thankVisitor(s: GameState, now: number) {
   const v = visitorToday(s, now);
   if (!v.ready || v.done) return 0;
-  const honey = visitorPrize(s, now);
+  const honey = runPrize(s, VISITOR_SHARE);
   earn(s, honey);
   s.visitor.done = true;
   s.stats.visitors++;
@@ -235,10 +239,13 @@ export const SECRETS: Secret[] = [
   { id: 'bottle', x: 40, y: 575, emoji: '🍾', text: "A message in a bottle: \"HELP! PIGLET (ME)\". Don't worry, it's an old one." },
 ];
 
+/** Finding a secret pays this share of what you're worth this run. */
+export const SECRET_SHARE = 0.02;
+
 export function findSecret(s: GameState, id: string, now: number) {
   if (s.secrets.includes(id) || !SECRETS.some((x) => x.id === id)) return 0;
   s.secrets.push(id);
-  const honey = prize(s, now, 5);
+  const honey = runPrize(s, SECRET_SHARE);
   earn(s, honey);
   return honey;
 }
@@ -340,7 +347,10 @@ export const gameForHome = (home: string) => GAME_IDS.find((id) => GAMES[id].hom
 export const gameOpen = (s: GameState, id: GameId) => GAMES[id].home === POOH_HOUSE.id || s.biz[GAMES[id].home]?.owned > 0;
 /** After you play a game it rests for this many minutes before you can play it again. */
 export const GAME_COOLDOWN_MIN = 30;
-const MAX_PRIZE_MIN = 10;
+/** A game's best prize (a top score, or beating Pooh at Poohsticks): this share of what you're worth this run. */
+export const GAME_SHARE = 0.02;
+/** The score worth the full prize is the one that earns this many points' worth (score × perPoint). */
+const FULL_PRIZE_POINTS = 600;
 
 export const gameReady = (s: GameState, id: GameId, now: number) => now - (s.games[id]?.last || 0) >= GAME_COOLDOWN_MIN * 60_000;
 /** Whole minutes until a game can be played again (0 when it's ready). */
@@ -357,8 +367,8 @@ export function finishGame(s: GameState, id: GameId, score: number, now: number,
   const rec = s.games[id] || { last: 0, best: 0 };
   const newBest = score > rec.best;
   const ready = gameReady(s, id, now);
-  const minutes = id === 'sticks' ? (won ? MAX_PRIZE_MIN : 3) : Math.min(MAX_PRIZE_MIN, (score * GAMES[id].perPoint) / 60);
-  const honey = ready && minutes > 0 ? prize(s, now, minutes) : 0;
+  const part = id === 'sticks' ? (won ? 1 : 0.3) : Math.min(1, (score * GAMES[id].perPoint) / FULL_PRIZE_POINTS);
+  const honey = ready && part > 0 ? runPrize(s, GAME_SHARE * part) : 0;
   if (honey > 0) earn(s, honey);
   s.games[id] = { last: ready ? now : rec.last, best: Math.max(rec.best, score) };
   s.stats.games++;

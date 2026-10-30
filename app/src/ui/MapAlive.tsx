@@ -299,7 +299,6 @@ export function MapAlive({ k, now }: { k: number; now: number }) {
   const sky = skyAt(now);
   return (
     <>
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: sky.tint }]} />
       {sky.dark !== 'day' && <HomeLights k={k} bright={sky.dark === 'night'} />}
       {sky.dark !== 'day' && FIREFLIES.map(([x, y], i) => <Firefly key={i} k={k} x={x} y={y} i={i} />)}
       {sky.dark !== 'night' && <><Bird k={k} y={60} ms={40_000} delay={3_000} /><Bird k={k} y={600} ms={55_000} delay={20_000} /></>}
