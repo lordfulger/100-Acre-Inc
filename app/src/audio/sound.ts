@@ -17,7 +17,7 @@ const WEB = Platform.OS === 'web';
 const MUSIC = require('../../assets/sounds/music.wav');
 const MUSIC_VOLUME = 0.25;
 // The files are mastered quietly already; these keep effects comfortably under the music.
-const VOLUME: Partial<Record<string, number>> = { tick: 0.35, pop: 0.45, buzz: 0.5, whoosh: 0.5 };
+const VOLUME: Partial<Record<string, number>> = { tick: 0.35, pop: 0.45, buzz: 0.5, whoosh: 0.5, lucky: 0.45 };
 const DEFAULT_VOLUME = 0.6;
 
 let settings: SoundSettings = { music: true, sfx: true, voices: true };
@@ -106,7 +106,8 @@ export function warmUp(names: Sfx[]) {
 // in a row). Any mix of these notes sounds pleasant together.
 let lastNote = -1;
 export function playTap(lucky = false) {
-  if (lucky) return playFile('lucky');
+  // A lucky tap keeps the melody going, with a soft chime underneath.
+  if (lucky) playFile('lucky');
   let note = Math.floor(Math.random() * 7);
   if (note >= lastNote) note++;
   lastNote = note;

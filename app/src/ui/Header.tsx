@@ -8,7 +8,7 @@ import { buzz, C, nativeDriver } from './kit';
 import { Portrait } from './Portrait';
 import { playTap } from '../audio/sound';
 
-type Pop = { id: number; x: number; text: string; anim: Animated.Value };
+type Pop = { id: number; x: number; text: string; anim: Animated.Value; lucky?: boolean };
 let popId = 0;
 /**
  * Honey sloshing out of the pot on a tap: a glob that swells up at the mouth, gooey
@@ -99,15 +99,18 @@ function HoneyPot() {
   const scale = useRef(new Animated.Value(1)).current;
   const [pops, setPops] = useState<Pop[]>([]);
   const [splashes, setSplashes] = useState<Splash[]>([]);
+  const glow = useRef(new Animated.Value(1)).current;
 
   const splash = (lucky: boolean) => {
     const make = (kind: Splash['kind'], extra: Partial<Splash> = {}): Splash => ({
       id: ++popId, kind, dx: 0, up: 0, size: 0, side: 1, gold: lucky, anim: new Animated.Value(0), ...extra,
     });
-    const goo: Splash[] = [make('glob', { size: lucky ? 32 : 26 })];
-    for (let i = 0; i < (lucky ? 6 : 3); i++) {
+    // A lucky tap is golden honey, a touch more of it, and a soft glow round the pot
+    // rather than a bigger burst, so it still feels calm.
+    const goo: Splash[] = [make('glob', { size: lucky ? 28 : 26 })];
+    for (let i = 0; i < (lucky ? 4 : 3); i++) {
       const side = Math.random() < 0.5 ? -1 : 1;
-      goo.push(make('blob', { dx: side * (18 + Math.random() * (lucky ? 70 : 50)), up: 40 + Math.random() * (lucky ? 55 : 35), size: (lucky ? 15 : 12) + Math.random() * 5 }));
+      goo.push(make('blob', { dx: side * (18 + Math.random() * (lucky ? 56 : 50)), up: 40 + Math.random() * (lucky ? 40 : 35), size: (lucky ? 13 : 12) + Math.random() * 5 }));
     }
     if (lucky || Math.random() < 0.4) goo.push(make('drip', { side: Math.random() < 0.5 ? -1 : 1, size: 9 }));
     // Rapid tapping keeps it to a sensible amount of honey on screen.
@@ -125,18 +128,29 @@ function HoneyPot() {
     const lucky = value > before * 1.5;
     playTap(lucky);
     splash(lucky);
+    if (lucky) {
+      glow.setValue(0);
+      Animated.timing(glow, { toValue: 1, duration: 1100, easing: Easing.out(Easing.quad), useNativeDriver: nativeDriver }).start();
+    }
     buzz();
     scale.setValue(0.86);
     Animated.spring(scale, { toValue: 1, friction: 3, tension: 160, useNativeDriver: nativeDriver }).start();
     const id = ++popId;
     const anim = new Animated.Value(0);
-    setPops((p) => [...p.slice(-10), { id, x: 10 + Math.random() * 70, text: `+${fmt(value)}`, anim }]);
+    setPops((p) => [...p.slice(-10), { id, x: 10 + Math.random() * 70, text: `+${fmt(value)}`, anim, lucky }]);
     Animated.timing(anim, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: nativeDriver })
       .start(() => setPops((p) => p.filter((q) => q.id !== id)));
   };
 
   return (
     <View style={styles.potWrap}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.glow, {
+          opacity: glow.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.7, 0] }),
+          transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.35] }) }],
+        }]}
+      />
       {/* onPressIn feels snappier for rapid tapping on phones; web only fires onPress reliably. */}
       <Pressable
         onPressIn={Platform.OS === 'web' ? undefined : onTap}
@@ -154,7 +168,7 @@ function HoneyPot() {
         <Animated.Text
           key={p.id}
           pointerEvents="none"
-          style={[styles.pop, {
+          style={[styles.pop, p.lucky && styles.popLucky, {
             left: p.x,
             opacity: p.anim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] }),
             transform: [{ translateY: p.anim.interpolate({ inputRange: [0, 1], outputRange: [10, -70] }) }],
@@ -240,6 +254,8 @@ const styles = StyleSheet.create({
   pot: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: 'rgba(255,255,255,0.7)', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   potArt: { width: 100, height: 100, marginTop: -4 },
   potBear: { position: 'absolute', bottom: -2, right: -2 },
+  glow: { position: 'absolute', left: 0, top: 0, width: 112, height: 112, borderRadius: 56, backgroundColor: '#FFD75E' },
+  popLucky: { color: '#FFE07A' },
   pop: { position: 'absolute', top: 10, fontSize: 18, fontWeight: '900', color: 'white', textShadowColor: 'rgba(74,52,24,0.6)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   info: { flex: 1 },
   honey: { fontSize: 34, fontWeight: '900', color: C.ink },

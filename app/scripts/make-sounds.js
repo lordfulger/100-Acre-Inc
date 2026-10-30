@@ -219,7 +219,14 @@ MAJOR.forEach((m, i) => {
 });
 
 Object.assign(SFX, {
-  lucky: () => { const o = silence(0.9); kalimba(o, 0, 88, 0.6, 5); kalimba(o, 0.07, 93, 0.5, 5); kalimba(o, 0.14, 100, 0.35, 6); return finish(o, 4500); },
+  // A lucky tap: a soft rolled G-major chord that rings on under the tap's own note,
+  // with a warm breath beneath it. Gentle and in key, rather than a bright ping.
+  lucky: () => {
+    const o = silence(1.6);
+    [79, 83, 86].forEach((m, i) => kalimba(o, i * 0.06, m, 0.4 - i * 0.07, 3.2, 1.5));
+    warm(o, 0.02, 55, 0.25, 0.1, 0.08, 0.7);
+    return finish(o, 2600, 1);
+  },
   buy: () => { const o = silence(0.7); marimba(o, 0, 72, 0.7, 7); marimba(o, 0.07, 79, 0.6, 7); return finish(o); },
   hire: () => { const o = silence(1.3); [67, 71, 74, 79].forEach((m, i) => marimba(o, i * 0.09, m, 0.6, 5)); return finish(o); },
   upgrade: () => {
@@ -286,7 +293,8 @@ const MOTIFS = {
 for (const [id, play] of Object.entries(MOTIFS)) SFX[`motif-${id}`] = () => { const o = silence(1.6); play(o); return finish(o, 3500, 0.9); };
 
 writeWav('music', music(), 0.5);
-for (const [name, make] of Object.entries(SFX)) writeWav(name, make(), name.startsWith('tap') || name === 'tick' ? 0.22 : 0.35);
+// Taps (and the lucky chime that plays with them) are quieter than everything else.
+for (const [name, make] of Object.entries(SFX)) writeWav(name, make(), name.startsWith('tap') || name === 'tick' ? 0.22 : name === 'lucky' ? 0.18 : 0.35);
 
 // The game loads sounds by name from this generated list.
 const names = Object.keys(SFX).sort();
