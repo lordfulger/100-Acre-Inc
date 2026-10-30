@@ -193,7 +193,7 @@ export function DailyGift() {
             {opened.gift.boost && <Text style={styles.amount}>×{opened.gift.boost.mult} honey for {opened.gift.boost.mins} min</Text>}
             {found && (
               <Text style={[styles.body, { fontWeight: '900', color: RARITIES[found.rarity].color }]}>
-                {found.def.emoji} {RARITIES[found.rarity].name} {found.def.name}: {found.def.text(found.value)}
+                {found.def.emoji} {found.def.name}: {found.def.text(found.value)}
               </Text>
             )}
             {found && <Text style={styles.body}>It's in your bag on the Trips tab.</Text>}

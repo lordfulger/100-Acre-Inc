@@ -315,11 +315,12 @@ export const combUpgradeValue = (u: CombUpgrade, level: number) => (u.kind === '
 // Things found on trips round the wood. Each comes in four rarities; up to three are
 // on display at once, and only those count. Three of the same make one of the next rarity.
 export type ArtifactKind = 'honey' | 'taps' | 'balloons' | 'away' | 'cheap' | 'prizes' | 'speed' | 'combs';
+/** Treasure qualities, plain to best. The game shows them by colour (and a soft tint behind). */
 export const RARITIES = [
-  { name: 'Common', color: '#8A6D45' },
-  { name: 'Rare', color: '#3F7FC6' },
-  { name: 'Epic', color: '#8E5BCF' },
-  { name: 'Legendary', color: '#D9930B' },
+  { name: 'Common', color: '#8A6D45', tint: '#F4ECDD' },
+  { name: 'Rare', color: '#3F7FC6', tint: '#E4EEFA' },
+  { name: 'Epic', color: '#8E5BCF', tint: '#F0E6FB' },
+  { name: 'Legendary', color: '#D9930B', tint: '#FFF1C9' },
 ];
 const pc = (v: number) => `${+(v * 100).toFixed(1)}%`;
 export const ARTIFACTS: { id: string; name: string; emoji: string; kind: ArtifactKind; values: number[]; text: (v: number) => string }[] = [

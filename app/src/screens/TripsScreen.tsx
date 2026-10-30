@@ -12,14 +12,14 @@ import { play } from '../audio/sound';
 /** "4h", "1.8h" or "36m". */
 const hoursLabel = (h: number) => (h >= 1 ? `${+h.toFixed(1)}h` : `${Math.round(h * 60)}m`);
 
-/** A treasure's name in its rarity's colour, and what it does. */
+/** A treasure's name in its quality's colour, and what it does. */
 export function TreasureLine({ k, big }: { k: string; big?: boolean }) {
   const a = readArtifact(k);
   if (!a) return null;
   return (
     <View style={{ flex: 1 }}>
       <Text style={[big ? styles.bigName : styles.name, { color: RARITIES[a.rarity].color }]}>
-        {RARITIES[a.rarity].name} {a.def.name}
+        {a.def.name}
       </Text>
       <Text style={styles.small}>{a.def.text(a.value)}</Text>
     </View>
@@ -36,7 +36,7 @@ function Finds({ who, keys, onClose }: { who: string; keys: string[]; onClose: (
         {keys.map((k, i) => {
           const a = readArtifact(k)!;
           return (
-            <View key={i} style={[styles.find, { borderColor: RARITIES[a.rarity].color }]}>
+            <View key={i} style={[styles.find, { borderColor: RARITIES[a.rarity].color, backgroundColor: RARITIES[a.rarity].tint }]}>
               <Text style={styles.findEmoji}>{a.def.emoji}</Text>
               <TreasureLine k={k} big />
             </View>
@@ -145,7 +145,7 @@ export function TripsScreen() {
           const canCombine = n >= COMBINE && a.rarity < RARITIES.length - 1;
           const full = s.equipped.length >= DISPLAY_SLOTS && !s.equipped.some((e) => readArtifact(e)?.def.id === a.def.id);
           return (
-            <Card key={k}>
+            <Card key={k} style={{ borderColor: RARITIES[a.rarity].color, backgroundColor: RARITIES[a.rarity].tint, borderWidth: 2 }}>
               <View style={styles.row}>
                 <Text style={styles.slotEmoji}>{a.def.emoji}</Text>
                 <TreasureLine k={k} />
@@ -158,7 +158,7 @@ export function TripsScreen() {
                 />
                 {a.rarity < RARITIES.length - 1 && (
                   <Button
-                    small outline color={C.green} label={`Combine ${COMBINE}`} sub={`→ ${RARITIES[a.rarity + 1].name}`} disabled={!canCombine}
+                    small outline color={C.green} label={`Combine ${COMBINE}`} sub="into a better one" disabled={!canCombine}
                     onPress={() => { if (act((g) => combine(g, k))) { play('magic'); buzz('success'); } }} style={{ flex: 1 }}
                   />
                 )}
@@ -168,7 +168,9 @@ export function TripsScreen() {
           );
         })}
         <Text style={[styles.small, { marginTop: 6 }]}>
-          {ARTIFACTS.length} treasures to find, each {RARITIES.map((r) => r.name).join(', ').replace(/, ([^,]*)$/, ' or $1')}. Three of the same make one of the next rarity.
+          {ARTIFACTS.length} treasures to find. Their colour shows how good they are, from plain to best:{' '}
+          {RARITIES.map((r, i) => <Text key={i} style={{ color: r.color, fontWeight: '900', fontSize: 16 }}>● </Text>)}
+          Three of the same make one in the next colour.
         </Text>
       </ScrollView>
       {finds && <Finds who={finds.who} keys={finds.keys} onClose={() => setFinds(null)} />}
