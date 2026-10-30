@@ -171,9 +171,14 @@ function ContractCard({ c, def }: { c: Contract; def: ContractDef }) {
   );
 }
 
-/** How long until a resting Expotition is ready: "25m" or "2h 10m". */
+/** A round length of time: "20 min", "8h", "7d". */
+const span = (minutes: number) =>
+  minutes < 60 ? `${minutes} min` : minutes < 24 * 60 ? `${+(minutes / 60).toFixed(1)}h` : `${+(minutes / 1440).toFixed(1)}d`;
+
+/** How long until a resting Expotition is ready: "25m", "2h 10m" or "6d 23h". */
 const restLabel = (ms: number) => {
   const min = Math.ceil(ms / 60_000);
+  if (min >= 24 * 60) return fmtTime(min * 60);
   return min < 60 ? `${min}m` : `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}`;
 };
 
@@ -204,13 +209,15 @@ function Expotitions() {
       {c && def && <ContractCard c={c} def={def} />}
       {!active && (
         <Card>
-          <Text style={styles.body}>Team up: all the honey everyone makes counts toward the goal. Every tier pays Golden Honeycombs to everyone, and finishing gives ×2 honey for 20 minutes. Afterwards each one rests for as long as it runs.</Text>
+          <Text style={styles.body}>Team up: all the honey everyone makes counts toward the goal. Every tier pays Golden Honeycombs to everyone, and finishing gives everyone a honey boost: the longer the Expotition, the bigger. Afterwards each one rests for as long as it runs.</Text>
           {net.contracts.map((x) => (
             <View key={x.id} style={styles.contractRow}>
               <Text style={{ fontSize: 26, marginRight: 8 }}>{x.emoji}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.memberName}>{x.name}</Text>
-                <Text style={styles.small}>{fmtTime(x.minutes * 60)} · up to {x.combs.reduce((a, b) => a + b, 0)} ✨ each</Text>
+                <Text style={styles.small}>
+                  {span(x.minutes)} · up to {x.combs.reduce((a, b) => a + b, 0)} ✨ each · finish: ×{x.boost?.mult ?? 2} for {span((x.boost?.secs ?? 1200) / 60)}
+                </Text>
               </View>
               {(net.rests[x.id] || 0) > now
                 ? <Button small outline color={C.soft} label={`💤 ${restLabel(net.rests[x.id] - now)}`} disabled onPress={() => {}} />

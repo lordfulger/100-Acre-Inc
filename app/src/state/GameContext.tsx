@@ -27,7 +27,11 @@ export type Member = {
   stats: { hps?: number; honey?: number; allTime?: number; combs?: number; variety?: number; naps?: number; cards?: number; trophies?: number; buildings?: MapView; bests?: Record<string, number> };
 };
 export type ChatMsg = { id: string; from?: string; name?: string; avatar?: string; text: string; at: number; system?: boolean };
-export type ContractDef = { id: string; name: string; emoji: string; minutes: number; goalSeconds: number; minGoal: number; combs: number[] };
+export type ContractDef = {
+  id: string; name: string; emoji: string; minutes: number; goalSeconds: number; minGoal: number; combs: number[];
+  /** The boost everyone gets for finishing (×2 for 20 minutes if not given). */
+  boost?: { mult: number; secs: number };
+};
 export type Contract = {
   id: string; goal: number; progress: number; contributions: Record<string, number>; tiersReached: number;
   status: 'active' | 'complete' | 'expired'; startedAt: number; endsAt: number; startedBy: string;

@@ -94,6 +94,13 @@ try {
   assert.ok(done.rests.tail > Date.now() + 29 * 60_000, 'a finished Expotition rests for as long as it runs');
   a.send({ t: 'startContract', id: 'tail' });
   await a.wait((m) => m.t === 'error' && /resting/.test(m.text));
+  // The big ones pay their own, bigger, boost for finishing.
+  assert.deepEqual(wa.contracts.find((x) => x.id === 'beyond').boost, { mult: 5, secs: 7200 });
+  a.send({ t: 'startContract', id: 'wolery' });
+  const big = await b.wait((m) => m.t === 'contract' && m.contract.status === 'active' && m.contract.id === 'wolery');
+  b.send({ t: 'contribute', amount: big.contract.goal });
+  const bigDone = await a.wait((m) => m.t === 'reward' && m.contractId === 'wolery' && m.tier === 2);
+  assert.deepEqual([bigDone.combs, bigDone.boost.mult, bigDone.boost.secs], [80, 3, 1800]);
   console.log('✓ co-op Expotition completes and rewards both players');
 
   // The joint map: everyone pays into a building's next level; when it goes up, everyone

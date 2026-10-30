@@ -30,6 +30,12 @@ export const CONTRACTS = [
   { id: 'party', name: "Pooh's Party Feast", emoji: '🎉', minutes: 60, goalSeconds: 1_800, minGoal: 25_000, combs: [2, 4, 8] },
   { id: 'pole', name: 'Expotition to the North Pole', emoji: '🧭', minutes: 180, goalSeconds: 7_200, minGoal: 150_000, combs: [4, 8, 16] },
   { id: 'flood', name: 'Rescue Piglet from the Flood', emoji: '🌧️', minutes: 480, goalSeconds: 25_000, minGoal: 1_000_000, combs: [8, 16, 32] },
+  // The big ones: days long, much bigger rewards, and a bigger boost for finishing.
+  { id: 'birthday', name: "Eeyore's Birthday Party", emoji: '🎂', minutes: 12 * 60, goalSeconds: 38_000, minGoal: 1e7, combs: [12, 24, 48], boost: { mult: 2, secs: 30 * 60 } },
+  { id: 'wolery', name: 'A New Home for Owl', emoji: '🦉', minutes: 24 * 60, goalSeconds: 80_000, minGoal: 1e8, combs: [20, 40, 80], boost: { mult: 3, secs: 30 * 60 } },
+  { id: 'mist', name: 'Lost in the Mist with Tigger', emoji: '🌫️', minutes: 48 * 60, goalSeconds: 165_000, minGoal: 1e9, combs: [35, 70, 140], boost: { mult: 3, secs: 60 * 60 } },
+  { id: 'enchanted', name: 'The Enchanted Place', emoji: '🌳', minutes: 72 * 60, goalSeconds: 255_000, minGoal: 1e10, combs: [55, 110, 220], boost: { mult: 4, secs: 60 * 60 } },
+  { id: 'beyond', name: 'Beyond the Hundred Acre Wood', emoji: '🌄', minutes: 7 * 24 * 60, goalSeconds: 620_000, minGoal: 1e11, combs: [100, 200, 400], boost: { mult: 5, secs: 2 * 60 * 60 } },
 ];
 const TIERS = [0.25, 0.6, 1];
 // After an Expotition ends (finished, run out of time or called off) it rests before it
@@ -73,6 +79,7 @@ const LETTER_MAX = 280;
 const GIFT_SHARE_MAX = 0.5;
 const STICK_DROP_MS = 20_000;
 const STICK_INVITE_MS = 90_000;
+// Finishing an Expotition: ×2 honey for 20 minutes for everyone, unless it says otherwise.
 const FINAL_BOOST = { mult: 2, secs: 20 * 60 };
 
 // ---------- persistence ----------
@@ -288,10 +295,11 @@ function contribute(room, pid, amount) {
     const tier = c.tiersReached;
     c.tiersReached++;
     const final = c.tiersReached === TIERS.length;
-    const reward = { t: 'reward', contractId: c.id, tier, combs: def.combs[tier], boost: final ? FINAL_BOOST : null, name: def.name };
+    const boost = def.boost || FINAL_BOOST;
+    const reward = { t: 'reward', contractId: c.id, tier, combs: def.combs[tier], boost: final ? boost : null, name: def.name };
     for (const member of Object.keys(room.members)) sendTo(room, member, reward, { queue: true });
     system(room, final
-      ? `🏆 "${def.name}" complete! Everyone gets ${def.combs[tier]} Golden Honeycombs and ×${FINAL_BOOST.mult} honey for ${FINAL_BOOST.secs / 60} min!`
+      ? `🏆 "${def.name}" complete! Everyone gets ${def.combs[tier]} Golden Honeycombs and ×${boost.mult} honey for ${boost.secs / 60} min!`
       : `⭐ Tier ${tier + 1} of "${def.name}" reached! +${def.combs[tier]} Golden Honeycombs each.`);
     if (final) {
       endContract(room, 'complete');

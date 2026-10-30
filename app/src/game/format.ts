@@ -21,6 +21,7 @@ export function fmtTime(secs: number): string {
   if (secs < 60) return `${Math.round(secs)}s`;
   if (secs < 3600) return `${Math.floor(secs / 60)}m ${Math.round(secs % 60)}s`;
   const h = Math.floor(secs / 3600);
+  if (h >= 24) return `${Math.floor(h / 24)}d${h % 24 ? ` ${h % 24}h` : ''}`;
   return `${h}h ${Math.floor((secs % 3600) / 60)}m`;
 }
 
