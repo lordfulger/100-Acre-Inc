@@ -11,7 +11,7 @@ import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt } from './calendar';
 import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
-import { catchBalloon } from './engine';
+import { addBoost, catchBalloon } from './engine';
 
 let now = 1_700_000_000_000;
 
@@ -233,7 +233,10 @@ function shop(s: GameState, t: number) {
   if (v.def.kind === 'find') assert.ok(findThing(s, v.place));
   v = visitorToday(s, day(10, 29));
   assert.ok(v.ready, `visitor ${v.def.kind} ready`);
-  assert.ok(thankVisitor(s, day(10, 29)) > 0);
+  s.honey = 1e12;
+  s.runEarned = 5e12;
+  addBoost(s, 'profit', 7, 600, 'Bee Frenzy', day(10, 29));
+  assert.equal(thankVisitor(s, day(10, 29)), 1e12 * 0.05, 'a visitor pays 5% of your honey, boosts or not');
   assert.equal(thankVisitor(s, day(10, 29)), 0, 'once a day');
   assert.ok(!visitorToday(s, day(10, 30)).done, 'a new visitor tomorrow');
 

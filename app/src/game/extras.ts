@@ -198,10 +198,21 @@ export function findThing(s: GameState, home: string) {
   return true;
 }
 
+/** A visitor's thank-you is a share of your honey: this much of what you have now… */
+export const VISITOR_SHARE = 0.05;
+/** …and never less than this much of what you've made since your last nap, so spending first doesn't spoil it. */
+export const VISITOR_RUN_SHARE = 0.01;
+
+/** Proportional to your honey rather than your income, and boosts running at the time don't count. */
+export function visitorPrize(s: GameState, now: number) {
+  const plain = derive({ ...s, boosts: [] }, now);
+  return Math.max(plain.tapValue * 50, s.honey * VISITOR_SHARE, s.runEarned * VISITOR_RUN_SHARE);
+}
+
 export function thankVisitor(s: GameState, now: number) {
   const v = visitorToday(s, now);
   if (!v.ready || v.done) return 0;
-  const honey = prize(s, now, 15);
+  const honey = visitorPrize(s, now);
   earn(s, honey);
   s.visitor.done = true;
   s.stats.visitors++;
