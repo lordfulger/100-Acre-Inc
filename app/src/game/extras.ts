@@ -1,7 +1,7 @@
 // Everything around the honey business: decorations, homes you can go inside,
 // talking with the friends who live there, the daily visitor, trophies and the
 // minigames' prizes.
-import { BIZ_BY_ID, BUSINESSES, jointBonus, POOH_HOUSE } from './catalog';
+import { artifactBonus, BIZ_BY_ID, BUSINESSES, jointBonus, POOH_HOUSE } from './catalog';
 import { bumpEvent, EVENTS, WoodEvent } from './calendar';
 import { ALBUM } from './album';
 import { derive, earn, GameState, runWorth } from './engine';
@@ -21,7 +21,7 @@ const hash = (text: string) => {
 const MIN_PRIZE = 100;
 /** A prize of this share of what you're worth this run. */
 export const runPrize = (s: GameState, part: number) =>
-  Math.max(MIN_PRIZE, runWorth(s) * part * (1 + jointBonus('fair', Number(s.joint.fair) || 0)));
+  Math.max(MIN_PRIZE, runWorth(s) * part * (1 + jointBonus('fair', Number(s.joint.fair) || 0) + artifactBonus(s.equipped, 'prizes')));
 
 /** Some minutes of your honey per second, with a floor early on (prices in the decoration shop). */
 const prize = (s: GameState, now: number, minutes: number) => {

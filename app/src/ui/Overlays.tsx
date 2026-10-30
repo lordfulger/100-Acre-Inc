@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { AVATARS } from '../game/catalog';
+import { AVATARS, RARITIES, readArtifact } from '../game/catalog';
 import { catchBalloon } from '../game/engine';
+import { claimDaily, DAILY, dailyGift } from '../game/trips';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Button, buzz, C, nativeDriver } from './kit';
@@ -154,6 +155,56 @@ export function NapWake({ combs, onClose }: { combs: number; onClose: () => void
   );
 }
 
+/** Once a day: a little present, better for every day in a row, up to day 7. */
+export function DailyGift() {
+  const { s, act, now, toast } = useGame();
+  const [opened, setOpened] = useState<ReturnType<typeof claimDaily>>(null);
+  const g = dailyGift(s, now);
+  if (!g.ready && !opened) return null;
+  const day = opened ? opened.day : g.day;
+  const open = () => {
+    const r = act((st, t) => claimDaily(st, t));
+    if (!r) return;
+    play('gift'); buzz('success');
+    setOpened(r);
+  };
+  const found = opened?.treasure ? readArtifact(opened.treasure) : null;
+  return (
+    <View style={styles.scrim}>
+      <View style={styles.modal}>
+        <Text style={styles.title}>🎁 Your daily gift</Text>
+        <Text style={styles.body}>Day {day} of {DAILY.length}. Come back tomorrow for a better one!</Text>
+        <View style={styles.days}>
+          {DAILY.map((d, i) => (
+            <View key={i} style={[styles.dayBox, i + 1 < day && styles.dayDone, i + 1 === day && styles.dayNow]}>
+              <Text style={styles.dayNum}>{i + 1}</Text>
+              <Text style={{ fontSize: 18 }}>{i + 1 < day ? '✓' : d.emoji}</Text>
+            </View>
+          ))}
+        </View>
+        {!opened ? (
+          <>
+            <Text style={[styles.body, { fontWeight: '800' }]}>{DAILY[day - 1].emoji} {DAILY[day - 1].text}</Text>
+            <Button label="Open it!" onPress={open} />
+          </>
+        ) : (
+          <>
+            {opened.honey > 0 && <Text style={styles.amount}>+{fmt(opened.honey)} honey</Text>}
+            {opened.gift.boost && <Text style={styles.amount}>×{opened.gift.boost.mult} honey for {opened.gift.boost.mins} min</Text>}
+            {found && (
+              <Text style={[styles.body, { fontWeight: '900', color: RARITIES[found.rarity].color }]}>
+                {found.def.emoji} {RARITIES[found.rarity].name} {found.def.name}: {found.def.text(found.value)}
+              </Text>
+            )}
+            {found && <Text style={styles.body}>It's in your bag on the Trips tab.</Text>}
+            <Button label="Lovely!" onPress={() => { setOpened(null); if (found) toast(`${found.def.emoji} Put it on display on the Trips tab!`); }} />
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
 export function Onboarding() {
   const { act } = useGame();
   const [name, setName] = useState('');
@@ -198,6 +249,11 @@ const styles = StyleSheet.create({
   body: { fontSize: 15, color: C.ink, textAlign: 'center', lineHeight: 21 },
   amount: { fontSize: 28, fontWeight: '900', color: C.greenDeep, textAlign: 'center' },
   input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: C.ink, backgroundColor: 'white', fontSize: 17, textAlign: 'center' },
+  days: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
+  dayBox: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: 'white' },
+  dayDone: { backgroundColor: '#ECF6E3', borderColor: C.green },
+  dayNow: { borderColor: '#E0A21B', borderWidth: 2.5, backgroundColor: '#FFF1C9' },
+  dayNum: { fontSize: 11, fontWeight: '900', color: C.soft },
   avatars: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
   avatar: { borderRadius: 26, padding: 2 },
   avatarOn: { backgroundColor: C.ink },

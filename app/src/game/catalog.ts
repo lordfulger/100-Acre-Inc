@@ -265,6 +265,45 @@ export const JOINT_BY_ID = Object.fromEntries(JOINT.map((j) => [j.id, j])) as Re
 /** The bonus a joint building gives everyone at this level. */
 export const jointBonus = (id: JointId, level: number) => JOINT_BY_ID[id].per * level;
 
+// ---------- treasures (brought home from trips) ----------
+
+// Things found on trips round the wood. Each comes in four rarities; up to three are
+// on display at once, and only those count. Three of the same make one of the next rarity.
+export type ArtifactKind = 'honey' | 'taps' | 'balloons' | 'away' | 'cheap' | 'prizes' | 'speed' | 'combs';
+export const RARITIES = [
+  { name: 'Common', color: '#8A6D45' },
+  { name: 'Rare', color: '#3F7FC6' },
+  { name: 'Epic', color: '#8E5BCF' },
+  { name: 'Legendary', color: '#D9930B' },
+];
+const pc = (v: number) => `${+(v * 100).toFixed(1)}%`;
+export const ARTIFACTS: { id: string; name: string; emoji: string; kind: ArtifactKind; values: number[]; text: (v: number) => string }[] = [
+  { id: 'spoon', name: "Pooh's Honey Spoon", emoji: '🥄', kind: 'honey', values: [0.05, 0.1, 0.2, 0.4], text: (v) => `+${pc(v)} honey` },
+  { id: 'spectacles', name: "Owl's Spectacles", emoji: '👓', kind: 'taps', values: [0.1, 0.2, 0.4, 0.8], text: (v) => `+${pc(v)} tap power` },
+  { id: 'balloon', name: "Piglet's Red Balloon", emoji: '🎈', kind: 'balloons', values: [0.05, 0.1, 0.2, 0.4], text: (v) => `balloons ${pc(v)} more often` },
+  { id: 'scarf', name: "Kanga's Woolly Scarf", emoji: '🧣', kind: 'away', values: [0.5, 1, 2, 4], text: (v) => `+${v} hour${v === 1 ? '' : 's'} of honey while you're away` },
+  { id: 'carrot', name: "Rabbit's Prize Carrot", emoji: '🥕', kind: 'cheap', values: [0.02, 0.04, 0.08, 0.15], text: (v) => `homes ${pc(v)} cheaper` },
+  { id: 'tail', name: "Eeyore's Tail (Again)", emoji: '🎀', kind: 'prizes', values: [0.1, 0.2, 0.4, 0.8], text: (v) => `+${pc(v)} prizes from games, secrets and visitors` },
+  { id: 'malt', name: "Tigger's Extract of Malt", emoji: '🫙', kind: 'speed', values: [0.02, 0.04, 0.08, 0.15], text: (v) => `everything works ${pc(v)} faster` },
+  { id: 'stick', name: 'The Winning Poohstick', emoji: '🪵', kind: 'combs', values: [0.001, 0.002, 0.004, 0.008], text: (v) => `each Golden Honeycomb +${pc(v)} more` },
+];
+export const ARTIFACT_BY_ID = Object.fromEntries(ARTIFACTS.map((a) => [a.id, a])) as Record<string, (typeof ARTIFACTS)[number]>;
+/** A treasure in your bag is "id:rarity", e.g. "spoon:2" (an Epic spoon). */
+export const artifactKey = (id: string, rarity: number) => `${id}:${rarity}`;
+export function readArtifact(key: string) {
+  const [id, r] = key.split(':');
+  const def = ARTIFACT_BY_ID[id];
+  const rarity = Number(r);
+  if (!def || !(rarity >= 0 && rarity < RARITIES.length)) return null;
+  return { def, rarity, value: def.values[rarity] };
+}
+/** What the treasures on display add up to for one kind of bonus. */
+export const artifactBonus = (equipped: string[], kind: ArtifactKind) =>
+  equipped.reduce((sum, key) => {
+    const a = readArtifact(key);
+    return a && a.def.kind === kind ? sum + a.value : sum;
+  }, 0);
+
 // ---------- the map (endless levels) ----------
 
 // Every home can be upgraded forever. Each level costs a bit more than the last

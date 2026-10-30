@@ -18,16 +18,19 @@ import { Header } from './src/ui/Header';
 import { C } from './src/ui/kit';
 import { play, startMusic, unlockAudio } from './src/audio/sound';
 import { CloudConflict } from './src/ui/CloudCard';
-import { BalloonLayer, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
+import { BalloonLayer, DailyGift, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
+import { TripsScreen } from './src/screens/TripsScreen';
+import { EXPLORERS, explorerState } from './src/game/trips';
 import { WhatsNew } from './src/ui/WhatsNew';
 import { NEWS_VERSION } from './src/game/news';
 
-type Tab = 'map' | 'hives' | 'shop' | 'games' | 'wood' | 'album' | 'nap';
+type Tab = 'map' | 'hives' | 'shop' | 'games' | 'trips' | 'wood' | 'album' | 'nap';
 const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: 'map', label: 'Map', emoji: '🗺️' },
   { id: 'hives', label: 'Hives', emoji: '🐝' },
   { id: 'shop', label: 'Shop', emoji: '🛍️' },
   { id: 'games', label: 'Games', emoji: '🎲' },
+  { id: 'trips', label: 'Trips', emoji: '🧭' },
   { id: 'wood', label: 'Friends', emoji: '💕' },
   { id: 'album', label: 'Album', emoji: '📖' },
   { id: 'nap', label: 'Nap', emoji: '😴' },
@@ -44,7 +47,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 }
 
 function Game() {
-  const { s, net, welcomeBack } = useGame();
+  const { s, net, welcomeBack, now } = useGame();
   const [tab, setTab] = useState<Tab>('map');
   const accent = varietyAt(s.variety).deep;
 
@@ -54,9 +57,12 @@ function Game() {
   const unread = (tab === 'wood' ? 0 : net.chat.filter((m) => m.at > s.chatSeen && m.from !== net.you).length) + s.letters.filter((l) => !l.read).length;
   const affordable = RESEARCH.filter((r) => canBuyResearch(s, r.id)).length;
   const upgradable = ['pooh', ...BUSINESSES.map((b) => b.id)].filter((id) => homeHasUpgrade(s, id)).length;
+  // Explorers back from a trip with treasure to show you.
+  const back = EXPLORERS.filter((e) => explorerState(s, e.id, now).phase === 'back').length;
   const badges: Partial<Record<Tab, string>> = {
     map: upgradable ? String(upgradable) : undefined,
     shop: affordable ? String(affordable) : undefined,
+    trips: back ? String(back) : undefined,
     wood: unread ? String(unread) : undefined,
     album: s.albumNew.length ? String(s.albumNew.length) : undefined,
   };
@@ -80,6 +86,7 @@ function Game() {
         {tab === 'hives' && <HivesScreen />}
         {tab === 'shop' && <ShopScreen />}
         {tab === 'games' && <GamesScreen />}
+        {tab === 'trips' && <TripsScreen />}
         {tab === 'wood' && <WoodScreen />}
         {tab === 'album' && <AlbumScreen />}
         {tab === 'nap' && <NapScreen />}
@@ -92,6 +99,7 @@ function Game() {
       <CloudConflict />
       {!s.profile.name && <Onboarding />}
       {s.profile.name && s.newsSeen < NEWS_VERSION && !welcomeBack && <WhatsNew />}
+      {s.profile.name && s.newsSeen >= NEWS_VERSION && !welcomeBack && <DailyGift />}
     </SafeAreaView>
   );
 }

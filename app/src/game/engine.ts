@@ -4,7 +4,7 @@
 import {
   Addon, addonsFor, allMilestonesReached, BALLOONS, BalloonKind, BIZ_BY_ID, buildingCost, buildingMult, Business, BUSINESSES,
   COMB_BONUS, COMB_DIVISOR, lookName, lookOf, milestonesReached, MIN_CYCLE, nextAllMilestone, nextMilestone,
-  JointId, jointBonus, POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
+  ArtifactKind, artifactBonus, JointId, jointBonus, POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
 } from './catalog';
 import { ALBUM_BY_ID, albumMult } from './album';
 import { bumpEvent, projectMult, seasonAt } from './calendar';
@@ -38,6 +38,10 @@ export type GameState = {
   eventsWon: string[];
   projects: string[]; // shared projects finished in your wood (each adds honey)
   joint: Record<string, number>; // your wood's joint buildings: id -> level (each level helps everyone)
+  trips: Record<string, { trip: string; until: number }>; // explorers out on a trip: explorer -> where, and when they're back
+  artifacts: Record<string, number>; // treasures in your bag: "id:rarity" -> how many
+  equipped: string[]; // treasures on display (up to 3; only these count)
+  daily: { last: string; streak: number }; // the daily gift: the day last claimed, and how many days in a row
   letters: Letter[];
   newsSeen: number; // the newest "What's new" note already shown
   secrets: string[]; // map secrets found
@@ -49,7 +53,7 @@ export type GameState = {
   pendingContribution: number; // honey earned but not yet reported to the co-op Expotition
   stats: {
     taps: number; balloons: number; naps: number; hugsGot: number; giftsSent: number; startedAt: number;
-    hugsSent: number; upgrades: number; games: number; sticksWon: number; visitors: number; lettersSent: number; expos: number;
+    hugsSent: number; upgrades: number; games: number; sticksWon: number; visitors: number; lettersSent: number; expos: number; trips: number;
   };
   profile: { name: string; avatar: string; secret: string; room: string; server: string; cloud?: { token: string; email: string } };
 };
@@ -80,7 +84,7 @@ const researchSum = (s: GameState, kind: ResearchKind) =>
   RESEARCH.reduce((sum, r) => (r.kind === kind ? sum + r.per * (s.research[r.id] || 0) : sum), 0);
 
 // Discounts from the store.
-export const bizCostMult = (s: GameState) => 1 - researchSum(s, 'bizDiscount');
+export const bizCostMult = (s: GameState) => Math.max(0.5, 1 - researchSum(s, 'bizDiscount') - artifactBonus(s.equipped, 'cheap'));
 export const managerCost = (s: GameState, b: Business) => b.manager.cost * (1 - researchSum(s, 'managerDiscount'));
 export const varietyCost = (s: GameState, i: number) => varietyAt(i).cost * (1 - researchSum(s, 'varietyDiscount'));
 
@@ -100,9 +104,9 @@ export function newGame(now: number): GameState {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
     trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
-    events: {}, eventsWon: [], projects: [], joint: {}, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
+    events: {}, eventsWon: [], projects: [], joint: {}, trips: {}, artifacts: {}, equipped: [], daily: { last: '', streak: 0 }, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
     settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
-    stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0 },
+    stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0, trips: 0 },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
   };
 }
@@ -166,6 +170,10 @@ export function migrate(raw: any, now: number): GameState {
   s.eventsWon = list(raw.eventsWon);
   s.projects = list(raw.projects);
   s.joint = obj(raw.joint);
+  s.trips = obj(raw.trips);
+  s.artifacts = obj(raw.artifacts);
+  s.equipped = list(raw.equipped).filter((k) => (s.artifacts[k] || 0) > 0).slice(0, 3);
+  s.daily = { ...base.daily, ...obj(raw.daily) };
   s.rooms = obj(raw.rooms);
   s.friends = obj(raw.friends);
   s.games = obj(raw.games);
@@ -189,7 +197,7 @@ export function migrate(raw: any, now: number): GameState {
 export const totalCombs = (s: GameState) => s.combsFromNaps + s.combsBonus;
 /** How much honey each Golden Honeycomb adds (2%, plus Comb Polish), at a Comb Polish level (yours by default). */
 export const combPower = (s: GameState, polish = s.research.combs || 0) =>
-  COMB_BONUS + (RESEARCH_BY_ID.combs?.per ?? 0) * polish;
+  COMB_BONUS + (RESEARCH_BY_ID.combs?.per ?? 0) * polish + artifactBonus(s.equipped, 'combs');
 // A fourth root keeps naps rewarding without letting them snowball out of control.
 const combsForHoney = (honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25);
 export const napCombsAvailable = (s: GameState) => Math.max(0, combsForHoney(s.allTimeEarned) - s.combsFromNaps);
@@ -275,19 +283,20 @@ export function derive(s: GameState, now: number): Derived {
   const season = seasonAt(now);
   if (season === 'spring') balloonRate += 0.25;
   if (season === 'winter') offlineHours += 2;
-  // Your wood's joint buildings.
+  // Your wood's joint buildings, and the treasures on display.
   const joint = (id: JointId) => jointBonus(id, Number(s.joint[id]) || 0);
-  offlineHours += joint('lantern');
-  balloonRate += joint('field');
+  const art = (kind: ArtifactKind) => artifactBonus(s.equipped, kind);
+  offlineHours += joint('lantern') + art('away');
+  balloonRate += joint('field') + art('balloons');
   balloonPower += joint('field');
 
-  const speed = 1 + researchSum(s, 'speed');
+  const speed = 1 + researchSum(s, 'speed') + art('speed');
   const combBonus = combPower(s);
 
   const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** allMilestonesReached(minOwned);
   const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album)
-    * projectMult(s.projects) * (1 + joint('market')) * friendMult(s) * (season === 'summer' ? 1.1 : 1);
+    * projectMult(s.projects) * (1 + joint('market')) * (1 + art('honey')) * friendMult(s) * (season === 'summer' ? 1.1 : 1);
   const globalMult = baseMult * boostMult(s, 'profit', now);
 
   const biz: Record<string, BizInfo> = {};
@@ -303,7 +312,7 @@ export function derive(s: GameState, now: number): Derived {
   }
 
   const tapMult = poohTapMult(s.levels.pooh || 0) * addonMult(s, POOH_HOUSE.id, 'taps') * cosyMult(s, POOH_HOUSE.id)
-    * (season === 'autumn' ? 1.25 : 1) * (1 + joint('hive'));
+    * (season === 'autumn' ? 1.25 : 1) * (1 + joint('hive')) * (1 + art('taps'));
   const tapValue = (tapMult * baseMult * boostMult(s, 'profit', now) + hps * tapPct) * boostMult(s, 'tap', now);
   return {
     hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned),

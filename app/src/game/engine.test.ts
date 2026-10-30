@@ -12,6 +12,9 @@ import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt } from './calendar';
 import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
 import { addBoost, catchBalloon, combPower } from './engine';
+import { claimDaily, collectTrip, combine, dailyGift, equip, explorerOpen, explorerState, startTrip } from './trips';
+import { readArtifact } from './catalog';
+import { dayKey } from './extras';
 
 let now = 1_700_000_000_000;
 
@@ -258,6 +261,42 @@ function shop(s: GameState, t: number) {
   const lucky = catchBalloon(s, day(10, 29, 16), () => 0);
   assert.equal(lucky.kind, 'lucky');
   assert.ok(Math.abs(lucky.amount - 3.4e11 * 0.05 * derive(s, day(10, 29, 16)).balloonPower) < 1);
+  // Trips: an explorer goes, comes back when the time is up, and brings treasure home.
+  const t0 = day(10, 29, 17);
+  const naps = s.stats.naps;
+  s.stats.naps = 2;
+  assert.ok(explorerOpen(s, 'robin') && explorerOpen(s, 'roo') && !explorerOpen(s, 'owl'), 'Owl joins after 3 naps');
+  s.stats.naps = naps;
+  assert.ok(startTrip(s, 'robin', 'long', t0));
+  assert.ok(!startTrip(s, 'robin', 'short', t0), 'one trip at a time');
+  assert.deepEqual(collectTrip(s, 'robin', t0 + 11 * 3_600_000), [], 'not back yet');
+  const found = collectTrip(s, 'robin', t0 + 12 * 3_600_000, () => 0);
+  assert.deepEqual(found, ['spoon:0', 'spoon:0'], 'the long trip finds two');
+  assert.equal(explorerState(s, 'robin', t0).phase, 'home');
+  // Treasures on display count; three of a kind make one of the next rarity.
+  const before = derive(s, t0).globalMult;
+  assert.ok(equip(s, 'spoon:0'));
+  assert.ok(Math.abs(derive(s, t0).globalMult / before - 1.05) < 1e-9, 'a Common spoon: +5% honey');
+  s.artifacts['spoon:0'] = 3;
+  assert.equal(combine(s, 'spoon:0'), 'spoon:1');
+  assert.deepEqual(s.equipped, ['spoon:1'], 'the better one goes on display in its place');
+  assert.ok(Math.abs(derive(s, t0).globalMult / before - 1.1) < 1e-9, 'a Rare spoon: +10%');
+  for (const k of ['spectacles:0', 'scarf:0', 'malt:0']) s.artifacts[k] = 1;
+  assert.ok(equip(s, 'spectacles:0') && equip(s, 'scarf:0'));
+  assert.ok(!equip(s, 'malt:0'), 'only three on display');
+  s.equipped = []; s.artifacts = {};
+  // The daily gift: once a day, a streak for days in a row, back to day 1 after a missed day.
+  s.daily = { last: '', streak: 0 };
+  assert.equal(claimDaily(s, day(11, 1, 9))!.day, 1);
+  assert.equal(claimDaily(s, day(11, 1, 20)), null, 'once a day');
+  assert.equal(claimDaily(s, day(11, 2, 9))!.day, 2);
+  assert.equal(dailyGift(s, day(11, 4, 9)).day, 1, 'missed a day');
+  s.daily = { last: dayKey(day(11, 7, 9)), streak: 6 };
+  const seventh = claimDaily(s, day(11, 8, 9), () => 0.5)!;
+  assert.equal(seventh.day, 7);
+  assert.ok(seventh.honey > 0 && seventh.treasure && readArtifact(seventh.treasure)!.rarity >= 1, 'day 7: honey and a rare treasure');
+  assert.equal(dailyGift(s, day(11, 9, 9)).day, 1, 'and round again');
+  s.artifacts = {};
   // Comb Polish makes every Golden Honeycomb worth more: +0.1% each a level.
   assert.ok(Math.abs(combPower(s, 5) - 0.025) < 1e-12);
   assert.equal(combPower(s, 0), 0.02);

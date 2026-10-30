@@ -47,6 +47,16 @@ export const NEWS: News[] = [
       ['🏆', 'Leaderboards and high scores', 'See who leads the wood on the Friends tab, and every game\'s high scores on the Games tab.'],
     ],
   },
+  {
+    v: 5,
+    title: 'Trips and treasures',
+    items: [
+      ['🧭', 'Trips round the wood', 'On the new Trips tab, send Christopher Robin exploring for 1, 4 or 12 hours. Roo joins after your first nap, and Owl after three.'],
+      ['🏺', 'Treasures', "Friends come home with treasures like Pooh's Honey Spoon and Owl's Spectacles. Put three on display for their bonuses. Longer trips find rarer ones."],
+      ['✨', 'Combine', 'Three of the same treasure make one of the next rarity: Common, Rare, Epic, then Legendary.'],
+      ['🎁', 'A daily gift', 'A present every day you visit, better each day in a row. Day 7 has a rare treasure.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;
