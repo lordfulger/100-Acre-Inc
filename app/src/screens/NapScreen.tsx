@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { varietyAt } from '../game/catalog';
-import { buyVariety, combPower, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
+import { COMB_UPGRADES, combUpgradeCost, combUpgradeValue, varietyAt } from '../game/catalog';
+import { buyCombUpgrade, buyVariety, combPower, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
@@ -10,6 +10,43 @@ import { SoundCard } from '../ui/SoundCard';
 import { NapWake } from '../ui/Overlays';
 import { play } from '../audio/sound';
 import { Bar, Button, buzz, C, Card, Section } from '../ui/kit';
+
+/** Spend Golden Honeycombs on upgrades that last through every nap. */
+function CombStore() {
+  const { s, act } = useGame();
+  const combs = totalCombs(s);
+  const each = Number((combPower(s) * 100).toFixed(1));
+  return (
+    <>
+      <Section title="✨ The Comb Store" />
+      <Text style={[styles.small, { marginBottom: 8, marginTop: -4 }]}>
+        Spend Golden Honeycombs on upgrades that last through every nap. Each comb you spend stops adding its +{each}% honey, so choose well!
+        You have {fmt(combs)} ✨.
+      </Text>
+      {COMB_UPGRADES.map((u) => {
+        const lv = s.combStore[u.id] || 0;
+        const maxed = !!u.max && lv >= u.max;
+        const cost = combUpgradeCost(u, lv);
+        return (
+          <Card key={u.id} style={styles.storeRow}>
+            <Text style={styles.storeEmoji}>{u.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.storeName}>{u.name} <Text style={styles.small}>Lv {lv}{u.max ? ` / ${u.max}` : ''}</Text></Text>
+              <Text style={styles.small}>{lv ? u.text(combUpgradeValue(u, lv)) : 'Not bought yet'}</Text>
+              {!maxed && <Text style={[styles.small, { color: C.greenDeep }]}>Next: {u.text(combUpgradeValue(u, lv + 1))}</Text>}
+            </View>
+            {maxed ? <Text style={styles.storeMax}>Maxed!</Text> : (
+              <Button
+                small label="Buy" sub={`${fmt(cost)} ✨`} disabled={combs < cost}
+                onPress={() => { if (act((g) => buyCombUpgrade(g, u.id))) { buzz('success'); play('magic'); } }}
+              />
+            )}
+          </Card>
+        );
+      })}
+    </>
+  );
+}
 
 export function NapScreen() {
   const { s, act, toast, now, startOver, save } = useGame();
@@ -91,6 +128,8 @@ export function NapScreen() {
           />
           <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
         </Card>
+
+        <CombStore />
   
         <Section title="🧸 You" />
         {/* Keyed by name so the box shows a name loaded from the cloud. */}
@@ -148,6 +187,10 @@ const styles = StyleSheet.create({
   varDot: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
   big: { fontSize: 20, fontWeight: '900', color: C.ink },
   body: { color: C.ink, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  storeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  storeEmoji: { fontSize: 30 },
+  storeName: { fontSize: 15, fontWeight: '900', color: C.ink },
+  storeMax: { fontWeight: '900', color: C.greenDeep },
   actionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
   comb: { width: 96, height: 96, alignSelf: 'center', marginTop: 8 },
   stats: { flexDirection: 'row', marginVertical: 12 },

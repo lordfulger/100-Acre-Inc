@@ -265,6 +265,28 @@ export const JOINT_BY_ID = Object.fromEntries(JOINT.map((j) => [j.id, j])) as Re
 /** The bonus a joint building gives everyone at this level. */
 export const jointBonus = (id: JointId, level: number) => JOINT_BY_ID[id].per * level;
 
+// ---------- the Comb Store (spend Golden Honeycombs) ----------
+
+// Permanent upgrades bought with Golden Honeycombs, kept through naps. A comb spent
+// here no longer adds its +% honey, so each one is a choice. Costs grow every level.
+export type CombKind = 'honeyMult' | 'speed' | 'taps' | 'cheap' | 'dream' | 'away' | 'balloons' | 'trips';
+export type CombUpgrade = { id: string; name: string; emoji: string; kind: CombKind; per: number; base: number; growth: number; max?: number; text: (v: number) => string };
+export const COMB_UPGRADES: CombUpgrade[] = [
+  { id: 'queen', name: "The Queen Bee's Blessing", emoji: '👑', kind: 'honeyMult', per: 1.15, base: 2, growth: 1.6, text: (v) => `all honey ×${+v.toPrecision(3)}` },
+  { id: 'touch', name: 'Golden Touch', emoji: '👆', kind: 'taps', per: 0.3, base: 1, growth: 1.5, text: (v) => `+${Math.round(v * 100)}% tap power` },
+  { id: 'busy', name: 'Busy Managers', emoji: '🐝', kind: 'speed', per: 0.1, base: 3, growth: 1.8, max: 20, text: (v) => `everything works ${Math.round(v * 100)}% faster` },
+  { id: 'bargain', name: "Rabbit's Bargains", emoji: '🧺', kind: 'cheap', per: 0.03, base: 2, growth: 1.9, max: 10, text: (v) => `homes ${Math.round(v * 100)}% cheaper` },
+  { id: 'dream', name: 'Dream Deeper', emoji: '💭', kind: 'dream', per: 0.05, base: 5, growth: 2, max: 20, text: (v) => `naps give ${Math.round(v * 100)}% more Golden Honeycombs` },
+  { id: 'liein', name: 'A Long Lie-in', emoji: '🛌', kind: 'away', per: 1, base: 2, growth: 1.7, max: 20, text: (v) => `+${v} hour${v === 1 ? '' : 's'} of honey while you're away` },
+  { id: 'balloons', name: 'Balloon Lover', emoji: '🎈', kind: 'balloons', per: 0.1, base: 2, growth: 1.8, max: 10, text: (v) => `balloons ${Math.round(v * 100)}% more often and stronger` },
+  { id: 'kit', name: "Explorer's Kit", emoji: '🎒', kind: 'trips', per: 0.1, base: 4, growth: 2.2, max: 5, text: (v) => `trips ${Math.round(v * 100)}% shorter` },
+];
+export const COMB_UPGRADE_BY_ID = Object.fromEntries(COMB_UPGRADES.map((u) => [u.id, u])) as Record<string, CombUpgrade>;
+/** Golden Honeycombs for the next level of a Comb Store upgrade. */
+export const combUpgradeCost = (u: CombUpgrade, level: number) => Math.ceil(u.base * u.growth ** level);
+/** What an upgrade does at a level (a multiplier for honeyMult, otherwise an amount). */
+export const combUpgradeValue = (u: CombUpgrade, level: number) => (u.kind === 'honeyMult' ? u.per ** level : u.per * level);
+
 // ---------- treasures (brought home from trips) ----------
 
 // Things found on trips round the wood. Each comes in four rarities; up to three are

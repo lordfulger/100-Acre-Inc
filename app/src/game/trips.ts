@@ -1,7 +1,7 @@
 // Trips round the wood and the treasures friends bring home from them, and the
 // daily gift. Pure game logic, like engine.ts.
 import { ARTIFACTS, artifactKey, RARITIES, readArtifact } from './catalog';
-import { addBoost, earn, GameState, runWorth } from './engine';
+import { addBoost, combUpgrade, earn, GameState, runWorth } from './engine';
 import { dayKey } from './extras';
 import type { PortraitId } from '../ui/Portrait';
 
@@ -27,6 +27,9 @@ export const DISPLAY_SLOTS = 3;
 /** How many of one treasure make one of the next rarity. */
 export const COMBINE = 3;
 
+/** How long a trip takes you (shorter with the Explorer's Kit). */
+export const tripHours = (s: GameState, trip: string) => (TRIP_BY_ID[trip]?.hours ?? 0) * (1 - combUpgrade(s, 'trips'));
+
 export const explorerOpen = (s: GameState, id: string) => s.stats.naps >= (EXPLORERS.find((e) => e.id === id)?.naps ?? Infinity);
 
 /** Where an explorer is: at home, out on a trip, or back with something to show you. */
@@ -40,7 +43,7 @@ export function explorerState(s: GameState, id: string, now: number) {
 export function startTrip(s: GameState, explorer: string, trip: string, now: number) {
   const def = TRIP_BY_ID[trip];
   if (!def || !explorerOpen(s, explorer) || s.trips[explorer]) return false;
-  s.trips[explorer] = { trip, until: now + def.hours * 3_600_000 };
+  s.trips[explorer] = { trip, until: now + tripHours(s, trip) * 3_600_000 };
   return true;
 }
 

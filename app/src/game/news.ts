@@ -57,6 +57,15 @@ export const NEWS: News[] = [
       ['🎁', 'A daily gift', 'A present every day you visit, better each day in a row. Day 7 has a rare treasure.'],
     ],
   },
+  {
+    v: 6,
+    title: 'The Comb Store',
+    items: [
+      ['✨', 'Spend your Golden Honeycombs', 'On the Nap tab: upgrades that last through every nap, like the Queen Bee\'s Blessing (×1.15 honey a level), Golden Touch and Busy Managers.'],
+      ['🤔', 'Choose well', 'A comb you spend stops adding its +% honey, so each one is a choice: keep it, or turn it into something bigger.'],
+      ['💭', 'Dream Deeper', 'Naps give more Golden Honeycombs. The Explorer\'s Kit makes trips shorter.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;

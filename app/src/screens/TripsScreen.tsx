@@ -3,11 +3,14 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ARTIFACTS, RARITIES, readArtifact } from '../game/catalog';
 import { fmtTime } from '../game/format';
-import { collectTrip, COMBINE, combine, DISPLAY_SLOTS, equip, EXPLORERS, explorerOpen, explorerState, startTrip, TRIPS, unequip } from '../game/trips';
+import { collectTrip, COMBINE, combine, DISPLAY_SLOTS, equip, EXPLORERS, explorerOpen, explorerState, startTrip, TRIPS, tripHours, unequip } from '../game/trips';
 import { useGame } from '../state/GameContext';
 import { Button, buzz, C, Card, Section } from '../ui/kit';
 import { Portrait } from '../ui/Portrait';
 import { play } from '../audio/sound';
+
+/** "4h", "1.8h" or "36m". */
+const hoursLabel = (h: number) => (h >= 1 ? `${+h.toFixed(1)}h` : `${Math.round(h * 60)}m`);
 
 /** A treasure's name in its rarity's colour, and what it does. */
 export function TreasureLine({ k, big }: { k: string; big?: boolean }) {
@@ -86,7 +89,7 @@ function Explorer({ id, onFound }: { id: string; onFound: (who: string, keys: st
         <View style={styles.trips}>
           {TRIPS.map((t) => (
             <Button
-              key={t.id} small outline color={C.green} label={`${t.emoji} ${t.hours}h`} sub={t.finds > 1 ? 'finds 2' : t.hours > 1 ? 'rarer finds' : 'quick look'}
+              key={t.id} small outline color={C.green} label={`${t.emoji} ${hoursLabel(tripHours(s, t.id))}`} sub={t.finds > 1 ? 'finds 2' : t.hours > 1 ? 'rarer finds' : 'quick look'}
               onPress={() => { if (act((g, now2) => startTrip(g, id, t.id, now2))) play('whoosh'); }}
               style={{ flex: 1 }}
             />

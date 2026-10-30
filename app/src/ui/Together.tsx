@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { projectBonus } from '../game/calendar';
-import { derive, receiveGift } from '../game/engine';
+import { derive, receiveGift, totalCombs } from '../game/engine';
 import { fmt, fmtWait, timeAgo } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, Card, Section } from './kit';
@@ -39,7 +39,7 @@ export function WoodLeaderboard() {
   const { s, d, net } = useGame();
   const [board, setBoard] = useState<Board>('hps');
   const mine: Record<Board, number> = {
-    hps: d.hps, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, cards: s.album.length, trophies: s.trophies.length,
+    hps: d.hps, allTime: s.allTimeEarned, combs: totalCombs(s), cards: s.album.length, trophies: s.trophies.length,
   };
   const rows = net.roster
     .map((m) => ({ m, me: m.id === net.you, value: m.id === net.you ? mine[board] : m.stats[board] || 0 }))

@@ -4,7 +4,7 @@
 import {
   Addon, addonsFor, allMilestonesReached, BALLOONS, BalloonKind, BIZ_BY_ID, buildingCost, buildingMult, Business, BUSINESSES,
   COMB_BONUS, COMB_DIVISOR, lookName, lookOf, milestonesReached, MIN_CYCLE, nextAllMilestone, nextMilestone,
-  ArtifactKind, artifactBonus, JointId, jointBonus, POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
+  ArtifactKind, artifactBonus, COMB_UPGRADE_BY_ID, COMB_UPGRADES, CombKind, combUpgradeCost, combUpgradeValue, JointId, jointBonus, POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
 } from './catalog';
 import { ALBUM_BY_ID, albumMult } from './album';
 import { bumpEvent, projectMult, seasonAt } from './calendar';
@@ -20,6 +20,8 @@ export type GameState = {
   allTimeEarned: number;
   combsFromNaps: number;
   combsBonus: number;
+  combsSpent: number; // Golden Honeycombs spent in the Comb Store (they no longer add honey)
+  combStore: Record<string, number>; // Comb Store upgrades: id -> level (kept through naps)
   variety: number;
   biz: Record<string, BizState>;
   research: Record<string, number>; // Rabbit's General Store item levels
@@ -84,7 +86,8 @@ const researchSum = (s: GameState, kind: ResearchKind) =>
   RESEARCH.reduce((sum, r) => (r.kind === kind ? sum + r.per * (s.research[r.id] || 0) : sum), 0);
 
 // Discounts from the store.
-export const bizCostMult = (s: GameState) => Math.max(0.5, 1 - researchSum(s, 'bizDiscount') - artifactBonus(s.equipped, 'cheap'));
+export const bizCostMult = (s: GameState) =>
+  Math.max(0.5, 1 - researchSum(s, 'bizDiscount') - artifactBonus(s.equipped, 'cheap') - combUpgrade(s, 'cheap'));
 export const managerCost = (s: GameState, b: Business) => b.manager.cost * (1 - researchSum(s, 'managerDiscount'));
 export const varietyCost = (s: GameState, i: number) => varietyAt(i).cost * (1 - researchSum(s, 'varietyDiscount'));
 
@@ -101,7 +104,7 @@ export function newGame(now: number): GameState {
   for (const b of BUSINESSES) biz[b.id] = freshBiz();
   biz.beetree.owned = 1;
   return {
-    v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
+    v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, combsSpent: 0, combStore: {}, variety: 0,
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
     trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
     events: {}, eventsWon: [], projects: [], joint: {}, trips: {}, artifacts: {}, equipped: [], daily: { last: '', streak: 0 }, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
@@ -170,6 +173,8 @@ export function migrate(raw: any, now: number): GameState {
   s.eventsWon = list(raw.eventsWon);
   s.projects = list(raw.projects);
   s.joint = obj(raw.joint);
+  s.combStore = obj(raw.combStore);
+  s.combsSpent = Number.isFinite(raw.combsSpent) && raw.combsSpent > 0 ? raw.combsSpent : 0;
   s.trips = obj(raw.trips);
   s.artifacts = obj(raw.artifacts);
   s.equipped = list(raw.equipped).filter((k) => (s.artifacts[k] || 0) > 0).slice(0, 3);
@@ -194,18 +199,40 @@ export function migrate(raw: any, now: number): GameState {
 
 // ---------- multipliers ----------
 
-export const totalCombs = (s: GameState) => s.combsFromNaps + s.combsBonus;
+/** Your Golden Honeycombs: from naps and Expotitions, less those spent in the Comb Store. */
+export const totalCombs = (s: GameState) => Math.max(0, s.combsFromNaps + s.combsBonus - s.combsSpent);
+/** What your Comb Store upgrades of one kind add up to (a multiplier for honeyMult). */
+export function combUpgrade(s: GameState, kind: CombKind) {
+  let v = kind === 'honeyMult' ? 1 : 0;
+  for (const u of COMB_UPGRADES) {
+    const lv = s.combStore[u.id] || 0;
+    if (u.kind !== kind || !lv) continue;
+    v = kind === 'honeyMult' ? v * combUpgradeValue(u, lv) : v + combUpgradeValue(u, lv);
+  }
+  return v;
+}
+export function buyCombUpgrade(s: GameState, id: string) {
+  const u = COMB_UPGRADE_BY_ID[id];
+  if (!u) return false;
+  const lv = s.combStore[id] || 0;
+  const cost = combUpgradeCost(u, lv);
+  if ((u.max && lv >= u.max) || totalCombs(s) < cost) return false;
+  s.combsSpent += cost;
+  s.combStore[id] = lv + 1;
+  return true;
+}
 /** How much honey each Golden Honeycomb adds (2%, plus Comb Polish), at a Comb Polish level (yours by default). */
 export const combPower = (s: GameState, polish = s.research.combs || 0) =>
   COMB_BONUS + (RESEARCH_BY_ID.combs?.per ?? 0) * polish + artifactBonus(s.equipped, 'combs');
 // A fourth root keeps naps rewarding without letting them snowball out of control.
-const combsForHoney = (honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25);
-export const napCombsAvailable = (s: GameState) => Math.max(0, combsForHoney(s.allTimeEarned) - s.combsFromNaps);
+/** Combs your all-time honey is worth from naps, with Dream Deeper. */
+const napCombsFor = (s: GameState, honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25 * (1 + combUpgrade(s, 'dream')));
+export const napCombsAvailable = (s: GameState) => Math.max(0, napCombsFor(s, s.allTimeEarned) - s.combsFromNaps);
 
 /** All-time honey needed before the next nap comb unlocks. */
 export function nextCombAt(s: GameState) {
-  const next = combsForHoney(s.allTimeEarned) + 1;
-  return (next / 5) ** 4 * COMB_DIVISOR;
+  const next = napCombsFor(s, s.allTimeEarned) + 1;
+  return (next / 5 / (1 + combUpgrade(s, 'dream'))) ** 4 * COMB_DIVISOR;
 }
 
 function bizCycle(b: Business, owned: number, speed: number) {
@@ -286,17 +313,18 @@ export function derive(s: GameState, now: number): Derived {
   // Your wood's joint buildings, and the treasures on display.
   const joint = (id: JointId) => jointBonus(id, Number(s.joint[id]) || 0);
   const art = (kind: ArtifactKind) => artifactBonus(s.equipped, kind);
-  offlineHours += joint('lantern') + art('away');
-  balloonRate += joint('field') + art('balloons');
+  offlineHours += joint('lantern') + art('away') + combUpgrade(s, 'away');
+  balloonRate += joint('field') + art('balloons') + combUpgrade(s, 'balloons');
+  balloonPower += combUpgrade(s, 'balloons');
   balloonPower += joint('field');
 
-  const speed = 1 + researchSum(s, 'speed') + art('speed');
+  const speed = 1 + researchSum(s, 'speed') + art('speed') + combUpgrade(s, 'speed');
   const combBonus = combPower(s);
 
   const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** allMilestonesReached(minOwned);
   const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album)
-    * projectMult(s.projects) * (1 + joint('market')) * (1 + art('honey')) * friendMult(s) * (season === 'summer' ? 1.1 : 1);
+    * projectMult(s.projects) * (1 + joint('market')) * (1 + art('honey')) * combUpgrade(s, 'honeyMult') * friendMult(s) * (season === 'summer' ? 1.1 : 1);
   const globalMult = baseMult * boostMult(s, 'profit', now);
 
   const biz: Record<string, BizInfo> = {};
@@ -312,7 +340,7 @@ export function derive(s: GameState, now: number): Derived {
   }
 
   const tapMult = poohTapMult(s.levels.pooh || 0) * addonMult(s, POOH_HOUSE.id, 'taps') * cosyMult(s, POOH_HOUSE.id)
-    * (season === 'autumn' ? 1.25 : 1) * (1 + joint('hive')) * (1 + art('taps'));
+    * (season === 'autumn' ? 1.25 : 1) * (1 + joint('hive')) * (1 + art('taps')) * (1 + combUpgrade(s, 'taps'));
   const tapValue = (tapMult * baseMult * boostMult(s, 'profit', now) + hps * tapPct) * boostMult(s, 'tap', now);
   return {
     hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned),

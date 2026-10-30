@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, tick } from '../game/engine';
+import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, tick, totalCombs } from '../game/engine';
 import { fmt } from '../game/format';
 import { checkAlbum } from '../game/album';
 import { bumpEvent } from '../game/calendar';
@@ -291,7 +291,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const d = derive(s, Date.now());
     client.send({
       t: 'stats',
-      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: s.combsFromNaps + s.combsBonus, variety: s.variety, naps: s.stats.naps, cards: s.album.length, trophies: s.trophies.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s), bests: bestScores(s) },
+      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: totalCombs(s), variety: s.variety, naps: s.stats.naps, cards: s.album.length, trophies: s.trophies.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s), bests: bestScores(s) },
     });
   }, [client]);
 

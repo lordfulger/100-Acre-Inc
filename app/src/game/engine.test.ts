@@ -11,8 +11,8 @@ import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt } from './calendar';
 import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
-import { addBoost, catchBalloon, combPower } from './engine';
-import { claimDaily, collectTrip, combine, dailyGift, equip, explorerOpen, explorerState, startTrip } from './trips';
+import { addBoost, buyCombUpgrade, catchBalloon, combPower, napCombsAvailable, nextCombAt, totalCombs } from './engine';
+import { claimDaily, collectTrip, combine, dailyGift, equip, explorerOpen, explorerState, startTrip, tripHours } from './trips';
 import { readArtifact } from './catalog';
 import { dayKey } from './extras';
 
@@ -297,6 +297,28 @@ function shop(s: GameState, t: number) {
   assert.ok(seventh.honey > 0 && seventh.treasure && readArtifact(seventh.treasure)!.rarity >= 1, 'day 7: honey and a rare treasure');
   assert.equal(dailyGift(s, day(11, 9, 9)).day, 1, 'and round again');
   s.artifacts = {};
+  // The Comb Store: spending Golden Honeycombs on upgrades kept through naps.
+  {
+    const keep = { fromNaps: s.combsFromNaps, bonus: s.combsBonus, spent: s.combsSpent, store: s.combStore };
+    s.combsFromNaps = 0; s.combsBonus = 10; s.combsSpent = 0; s.combStore = {};
+    const t1 = day(10, 29, 18);
+    const plain = derive(s, t1).globalMult / (1 + combPower(s) * 10);
+    assert.ok(buyCombUpgrade(s, 'queen'), 'the first level costs 2');
+    assert.equal(totalCombs(s), 8, 'spent combs are gone');
+    assert.ok(Math.abs(derive(s, t1).globalMult / (plain * (1 + combPower(s) * 8)) - 1.15) < 1e-9, "the Queen Bee's Blessing: ×1.15 honey");
+    assert.ok(buyCombUpgrade(s, 'queen') && totalCombs(s) === 4, 'the second level costs 4 (2 × 1.6, rounded up)');
+    assert.ok(!buyCombUpgrade(s, 'dream'), 'not enough combs');
+    s.combsBonus += 1000;
+    for (let i = 0; i < 25; i++) buyCombUpgrade(s, 'kit');
+    assert.equal(s.combStore.kit, 5, "the Explorer's Kit stops at level 5");
+    assert.equal(tripHours(s, 'long'), 6, 'trips half as long');
+    s.allTimeEarned = Math.max(s.allTimeEarned, 1e15);
+    const plainNap = napCombsAvailable(s);
+    assert.ok(buyCombUpgrade(s, 'dream'));
+    assert.ok(napCombsAvailable(s) > plainNap, 'Dream Deeper: naps give more combs');
+    assert.ok(nextCombAt(s) > s.allTimeEarned, 'the next comb is still ahead');
+    Object.assign(s, { combsFromNaps: keep.fromNaps, combsBonus: keep.bonus, combsSpent: keep.spent, combStore: keep.store });
+  }
   // Comb Polish makes every Golden Honeycomb worth more: +0.1% each a level.
   assert.ok(Math.abs(combPower(s, 5) - 0.025) < 1e-12);
   assert.equal(combPower(s, 0), 0.02);
