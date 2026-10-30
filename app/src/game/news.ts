@@ -101,6 +101,15 @@ export const NEWS: News[] = [
       ['🍯', 'Your honey per second will be lower', 'That is expected. Naps are still worth taking, and the bigger your nap, the bigger the boost.'],
     ],
   },
+  {
+    v: 11,
+    title: 'Time for a nap?',
+    items: [
+      ['😴', 'Naps pay for this run', 'Each nap now pays Golden Honeycombs for the honey made since your last nap, not all-time. Napping regularly earns far more combs than one very long run.'],
+      ['💤', 'Pooh gets sleepy', 'A 💤 on the Nap tab means a nap now would at least double your combs.'],
+      ['🌙', 'No more giant naps', 'One nap brings at most 10× the combs you already have. A run left going for ages stops paying more, so nap when Pooh is sleepy.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;

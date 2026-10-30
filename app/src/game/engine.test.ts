@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { BUSINESSES, RESEARCH, varietyAt } from './catalog';
 import {
   addonList, applyOffline, buildingNext, buyAddon, buyBiz, buyResearch, buyVariety, derive, GameState, hireManager, migrate,
-  nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, varietyCost, setCombFull, effectiveCombs, combBonusOf, COMB_FULL,
+  nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, varietyCost, setCombFull, effectiveCombs, combBonusOf, COMB_FULL, napCap, napCapped,
 } from './engine';
 // Try other comb settings in the simulation: COMB_FULL=1e12 counts every comb in full (the old way).
 if (process.env.COMB_FULL) setCombFull(Number(process.env.COMB_FULL));
@@ -141,7 +141,7 @@ function shop(s: GameState, t: number) {
 
   // Nap keeps combs and variety, resets levels and the store.
   const s = newGame(now);
-  s.allTimeEarned = 1e15;
+  s.allTimeEarned = s.runEarned = 1e15;
   s.levels = { pooh: 7 };
   s.research = { busy: 3 };
   s.addons = ['garden:0'];
@@ -165,7 +165,7 @@ function shop(s: GameState, t: number) {
   const mult = derive(s, now).globalMult;
   s.album.push('owl');
   assert.ok(Math.abs(derive(s, now).globalMult / mult - 1.03 / 1.02) < 1e-9, 'each card adds +1% honey');
-  s.allTimeEarned = 1e15;
+  s.allTimeEarned = s.runEarned = 1e15;
   nap(s, now);
   assert.ok(s.album.includes('piglet'), 'naps keep the album');
   // Old saves get Pooh; junk and duplicates are dropped (the album adds honey).
@@ -322,7 +322,7 @@ function shop(s: GameState, t: number) {
     for (let i = 0; i < 25; i++) buyCombUpgrade(s, 'kit');
     assert.equal(s.combStore.kit, 5, "the Explorer's Kit stops at level 5");
     assert.equal(tripHours(s, 'long'), 6, 'trips half as long');
-    s.allTimeEarned = Math.max(s.allTimeEarned, 1e15);
+    s.allTimeEarned = s.runEarned = Math.max(s.runEarned, 1e15);
     const plainNap = napCombsAvailable(s);
     assert.ok(buyCombUpgrade(s, 'dream'));
     assert.ok(napCombsAvailable(s) > plainNap, 'Dream Deeper: naps give more combs');
@@ -332,7 +332,7 @@ function shop(s: GameState, t: number) {
     assert.equal(napCombsAvailable(napped), 0);
     assert.ok(buyCombUpgrade(napped, 'dream'));
     assert.equal(napCombsAvailable(napped), 0, "Dream Deeper doesn't pay out combs already napped for");
-    assert.ok(nextCombAt(s) > s.allTimeEarned, 'the next comb is still ahead');
+    assert.ok(nextCombAt(s) > s.runEarned, 'the next comb is still ahead');
     Object.assign(s, { combsFromNaps: keep.fromNaps, combsBonus: keep.bonus, combsSpent: keep.spent, combStore: keep.store });
   }
   // The real weather outside, when a player turns it on, replaces the wood's own for a while.
@@ -393,5 +393,20 @@ function shop(s: GameState, t: number) {
     g.combsBonus = 2_000_000;
     assert.ok(combBonusOf(g) < 1000, '2 million combs no longer means x40,000 honey');
   }
+}
+{
+  const one = newGame(now);
+  one.runEarned = one.allTimeEarned = 2e20;
+  const big = napCombsAvailable(one);
+  const half = newGame(now);
+  half.runEarned = half.allTimeEarned = 1e20;
+  assert.ok(2 * napCombsAvailable(half) > 1.6 * big, 'napping twice earns more combs than one long run');
+  // One nap brings at most 10× your combs: your giant 25.85No run with 10.86K combs pays 108.6K, not 2M.
+  const giant = newGame(now);
+  giant.combsFromNaps = 10_860;
+  giant.runEarned = giant.allTimeEarned = 2.585e31;
+  assert.equal(napCombsAvailable(giant), 108_600);
+  assert.ok(napCapped(giant));
+  assert.ok(napCombsAvailable(newGame(now)) === 0 && napCap(newGame(now)) === 100, 'a new game can still nap for up to 100');
 }
 console.log('All engine checks passed 🍯');

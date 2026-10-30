@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { RESEARCH, varietyAt } from './src/game/catalog';
-import { canBuyResearch, homeHasUpgrade } from './src/game/engine';
+import { canBuyResearch, homeHasUpgrade, napDue } from './src/game/engine';
 import { BUSINESSES } from './src/game/catalog';
 import { AlbumScreen } from './src/screens/AlbumScreen';
 import { GamesScreen, SticksLive } from './src/screens/GamesScreen';
@@ -65,6 +65,8 @@ function Game() {
     trips: back ? String(back) : undefined,
     wood: unread ? String(unread) : undefined,
     album: s.albumNew.length ? String(s.albumNew.length) : undefined,
+    // Pooh is sleepy: a nap would at least double your combs.
+    nap: napDue(s) ? '💤' : undefined,
   };
 
   return (

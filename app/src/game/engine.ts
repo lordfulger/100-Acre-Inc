@@ -246,21 +246,37 @@ export const effectiveCombs = (combs: number) => (combs <= COMB_FULL ? combs : C
 /** The honey bonus from combs (0.5 is +50%), with Comb Polish at `polish` (yours by default). */
 export const combBonusOf = (s: GameState, combs = totalCombs(s), polish = s.research.combs || 0) =>
   combPower(s, polish) * effectiveCombs(combs);
-// A fourth root keeps naps rewarding without letting them snowball out of control.
-/** Combs your all-time honey is worth from naps (before Dream Deeper). */
+// A nap pays for the honey made in this run (since the last nap), through a fourth root.
+// The root means two naps of half the honey earn more combs (about 1.7×) than one big one,
+// so napping regularly beats letting one run go on and on.
+/** Combs a run's honey is worth (before Dream Deeper). */
 const napBaseFor = (honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25);
-/** The next nap's combs: those your honey has earned since the last nap, with Dream Deeper on top (it only helps combs still to come). */
-export const napCombsAvailable = (s: GameState) =>
-  Math.floor(Math.max(0, napBaseFor(s.allTimeEarned) - s.napBase) * (1 + combUpgrade(s, 'dream')));
+/**
+ * One nap brings at most this many times the combs you already have (and at least 100, so
+ * early naps are never held back). Napping when combs would double never comes close; a
+ * run left going for ages stops paying more, so there's no point banking a giant nap.
+ */
+export const NAP_CAP_TIMES = 10;
+export const napCap = (s: GameState) => Math.max(100, NAP_CAP_TIMES * totalCombs(s));
+/** This run's combs before the cap: its honey, with Dream Deeper on top. */
+const napCombsUncapped = (s: GameState) => Math.floor(napBaseFor(s.runEarned) * (1 + combUpgrade(s, 'dream')));
+/** The next nap's combs. */
+export const napCombsAvailable = (s: GameState) => Math.min(napCombsUncapped(s), napCap(s));
+/** True once this run's honey has reached the most one nap can bring. */
+export const napCapped = (s: GameState) => napCombsUncapped(s) >= napCap(s);
 
-/** All-time honey needed before the next nap comb unlocks. */
+/** This run's honey needed before the next nap comb unlocks. */
 export function nextCombAt(s: GameState) {
   const dream = 1 + combUpgrade(s, 'dream');
   // The fewest base combs that make one more comb than now, with Dream Deeper.
-  const have = napCombsAvailable(s);
-  const base = s.napBase + Math.ceil((have + 1) / dream);
+  const base = Math.ceil((napCombsUncapped(s) + 1) / dream);
   return (base / 5) ** 4 * COMB_DIVISOR;
 }
+/** A nap is due once it would at least double your combs (Pooh is getting sleepy). */
+export const napDue = (s: GameState) => {
+  const pending = napCombsAvailable(s);
+  return pending >= 10 && pending >= totalCombs(s);
+};
 
 function bizCycle(b: Business, owned: number, speed: number) {
   const m = milestonesReached(owned);
@@ -603,7 +619,6 @@ export function nap(s: GameState, now: number) {
   if (gained < 1) return 0;
   const fresh = newGame(now);
   s.combsFromNaps += gained;
-  s.napBase = Math.max(s.napBase, napBaseFor(s.allTimeEarned));
   s.honey = 0;
   s.runEarned = 0;
   s.biz = fresh.biz;

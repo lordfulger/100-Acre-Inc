@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { COMB_UPGRADES, combUpgradeCost, combUpgradeValue, varietyAt } from '../game/catalog';
-import { buyCombUpgrade, buyVariety, COMB_FULL, combBonusOf, combPower, nap, napCombsAvailable, nextCombAt, totalCombs, varietyCost } from '../game/engine';
+import { buyCombUpgrade, buyVariety, COMB_FULL, combBonusOf, combPower, nap, NAP_CAP_TIMES, napCapped, napCombsAvailable, napDue, nextCombAt, totalCombs, varietyCost } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
@@ -111,8 +111,21 @@ export function NapScreen() {
             <View style={styles.stat}><Text style={[styles.statNum, { color: C.green }]}>+{fmt(pending)}</Text><Text style={styles.statLabel}>if you nap</Text></View>
             <View style={styles.stat}><Text style={styles.statNum}>+{fmt(newBonus)}%</Text><Text style={styles.statLabel}>bonus after</Text></View>
           </View>
-          <Text style={styles.small}>Next comb at {fmt(nextAt)} all-time honey (you have {fmt(s.allTimeEarned)})</Text>
-          <Bar value={s.allTimeEarned / nextAt} color={v.deep} />
+          {napCapped(s) ? (
+            <Text style={[styles.small, { color: C.red, fontWeight: '900' }]}>
+              🌙 That's as much as one nap can bring: at most {NAP_CAP_TIMES}× the combs you have. More honey this run won't add more, so nap now!
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.small}>Next comb at {fmt(nextAt)} honey made this run (you've made {fmt(s.runEarned)})</Text>
+              <Bar value={s.runEarned / nextAt} color={v.deep} />
+            </>
+          )}
+          {napDue(s) && (
+            <Text style={[styles.small, { color: C.green, fontWeight: '900', marginTop: 6 }]}>
+              💤 Pooh is sleepy: a nap now would at least double your combs. Each nap pays for this run's honey, so waiting much longer earns fewer combs than napping and building again.
+            </Text>
+          )}
           <Button
             style={{ marginTop: 12 }}
             color={confirm ? C.red : C.blue}
