@@ -1,12 +1,12 @@
 // Inside a home: the room, whoever lives there, and the decorations you've put up.
-// Opens once you've taken enough naps (see INTERIOR_NAPS).
-import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+// Its door is opened once with Golden Honeycombs and stays open through every nap.
+import React, { useMemo, useRef, useState } from 'react';
+import { Animated, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
 import { seasonAt, SEASONS, weatherAt } from '../game/calendar';
 import { COSY_BONUS, HEART_BONUS } from '../game/engine';
 import {
-  buyDecor, DECOR, DECOR_BY_ID, decorCost, MAX_HEARTS, placeDecor, placedIn, resident, ROOM_SLOTS, takeDownDecor, talk,
+  buyDecor, DECOR, DECOR_BY_ID, decorCost, MAX_HEARTS, moveDecor, placeDecor, placedIn, resident, ROOM_SLOTS, takeDownDecor, talk,
 } from '../game/extras';
 import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
@@ -33,9 +33,51 @@ function DecorIcon({ id, size }: { id: string; size: number }) {
   return <Text style={{ fontSize: size * 0.75 }}>{DECOR_BY_ID[id]?.emoji}</Text>;
 }
 
+const ICON = 60;
+
+/**
+ * A decoration standing in the room. Drag it anywhere; a quick tap (barely moving)
+ * takes it down. `spot` is where its middle is, as fractions of the room's size.
+ */
+function Placed({ id, w, h, spot, onMove, onTap, onDragging }: {
+  id: string; w: number; h: number; spot: [number, number];
+  onMove: (x: number, y: number) => void; onTap: () => void; onDragging: (on: boolean) => void;
+}) {
+  const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  // The latest props for the gesture (it's made once).
+  const latest = useRef({ spot, w, h, onMove, onTap, onDragging });
+  latest.current = { spot, w, h, onMove, onTap, onDragging };
+  const pan = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    // Once a decoration is picked up, the page doesn't take the gesture away to scroll.
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => latest.current.onDragging(true),
+    onPanResponderMove: Animated.event([null, { dx: drag.x, dy: drag.y }], { useNativeDriver: false }),
+    onPanResponderRelease: (_, g) => {
+      const c = latest.current;
+      c.onDragging(false);
+      drag.setValue({ x: 0, y: 0 });
+      if (Math.abs(g.dx) + Math.abs(g.dy) < 6) c.onTap();
+      else c.onMove(c.spot[0] + g.dx / c.w, c.spot[1] + g.dy / c.h);
+    },
+    onPanResponderTerminate: () => { latest.current.onDragging(false); drag.setValue({ x: 0, y: 0 }); },
+  }), [drag]);
+  return (
+    <Animated.View
+      {...pan.panHandlers}
+      accessibilityLabel={`${DECOR_BY_ID[id].name}: drag to move, tap to take down`}
+      style={[styles.placed, { left: spot[0] * w - ICON / 2, top: spot[1] * h - ICON / 2, transform: drag.getTranslateTransform() }]}
+    >
+      <DecorIcon id={id} size={ICON} />
+    </Animated.View>
+  );
+}
+
 export function HomeInside({ id, onClose }: { id: string; onClose: () => void }) {
-  const { s, act, toast, now } = useGame();
+  const { s, act, toast, now, save } = useGame();
   const { width } = useWindowDimensions();
+  const [dragging, setDragging] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const [tab, setTab] = useState<'mine' | 'store'>('mine');
   const who = resident(id);
@@ -65,7 +107,7 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
         <Text style={styles.title} numberOfLines={1}>🚪 {name}</Text>
         <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Leave"><Text style={styles.close}>✕</Text></Pressable>
       </View>
-      <ScrollView contentContainerStyle={styles.list}>
+      <ScrollView contentContainerStyle={styles.list} scrollEnabled={!dragging}>
         <View style={[styles.room, { width: w, height: h, backgroundColor: WALLS[id] || '#F3D9A0' }]}>
           {ROOM_IMAGES[id] ? (
             // Sized exactly (inside the 3px frame): on the web an image only stretched by its edges shows at full size.
@@ -77,14 +119,13 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
             </>
           )}
           {room.map((d, i) => DECOR_BY_ID[d] && (
-            <Pressable
-              key={d}
-              onPress={() => { if (act((g) => takeDownDecor(g, id, d))) { play('tick'); toast(`${DECOR_BY_ID[d].emoji} Taken down. It's back in your things.`); } }}
-              style={[styles.placed, { left: SLOTS[i][0] * w - 24, top: SLOTS[i][1] * h - 24 }]}
-              accessibilityLabel={`Take down ${DECOR_BY_ID[d].name}`}
-            >
-              <DecorIcon id={d} size={60} />
-            </Pressable>
+            <Placed
+              key={d} id={d} w={w} h={h}
+              spot={s.roomSpots[id]?.[d] ?? SLOTS[i % SLOTS.length]}
+              onDragging={setDragging}
+              onMove={(x, y) => { if (act((g) => moveDecor(g, id, d, x, y))) save(); }}
+              onTap={() => { if (act((g) => takeDownDecor(g, id, d))) { play('tick'); save(); toast(`${DECOR_BY_ID[d].emoji} Taken down. It's back in your things.`); } }}
+            />
           ))}
           <Pressable onPress={chat} style={[styles.resident, { left: w / 2 - 45, top: h * 0.42 }]} accessibilityLabel={`Talk to ${who.name}`}>
             <Portrait id={who.portrait} size={90} />
@@ -97,7 +138,7 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
           <Button small label={`💬 Talk to ${who.name}`} color={C.pink} onPress={chat} />
         </View>
         <Text style={styles.note}>
-          Talk every day to grow your friendship: each heart adds +{HEART_BONUS * 100}% to all honey. Each decoration here adds +{COSY_BONUS * 100}% to this home's {id === 'pooh' ? 'taps' : 'honey'} ({room.length}/{ROOM_SLOTS} spots used). Tap one in the room to take it down.
+          Talk every day to grow your friendship: each heart adds +{HEART_BONUS * 100}% to all honey. Each decoration here adds +{COSY_BONUS * 100}% to this home's {id === 'pooh' ? 'taps' : 'honey'} ({room.length}/{ROOM_SLOTS} spots used). Drag them anywhere in the room; tap one to take it down.
         </Text>
 
         <View style={styles.tabs}>
@@ -155,7 +196,7 @@ const styles = StyleSheet.create({
   room: { borderRadius: 18, overflow: 'hidden', borderWidth: 3, borderColor: '#8A6440', alignSelf: 'center' },
   floor: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '36%', backgroundColor: '#B98B5C', borderTopWidth: 3, borderTopColor: '#8A6440' },
   window: { position: 'absolute', top: '8%', width: 68, height: 52, borderRadius: 8, backgroundColor: '#CFE6F5', borderWidth: 3, borderColor: '#8A6440', alignItems: 'center', justifyContent: 'center' },
-  placed: { position: 'absolute', width: 60, height: 60, marginLeft: -6, marginTop: -6, alignItems: 'center', justifyContent: 'center' },
+  placed: { position: 'absolute', width: ICON, height: ICON, alignItems: 'center', justifyContent: 'center' },
   resident: { position: 'absolute' },
   bubble: { position: 'absolute', width: 220, backgroundColor: 'white', borderRadius: 14, padding: 9, borderWidth: 1.5, borderColor: '#D9C48E' },
   bubbleText: { fontSize: 14, color: C.ink, fontWeight: '600', textAlign: 'center' },

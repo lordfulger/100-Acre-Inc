@@ -38,6 +38,9 @@ export type GameState = {
   trophies: string[];
   decor: string[]; // decorations collected
   rooms: Record<string, string[]>; // decorations placed inside each home
+  roomSpots: Record<string, Record<string, [number, number]>>; // where each decoration stands in its room (fractions of its size)
+  doors: string[]; // homes whose doors you've opened with Golden Honeycombs (open for good)
+  lastNap: number; // when you last napped (Pooh rests between naps)
   friends: Record<string, { hearts: number; day: string }>; // friendship with whoever lives in each home
   games: Record<string, { last: number; best: number }>; // minigames: last rewarded play and best score
   visitor: { day: string; idx: number; base: number; place: string; found: boolean; done: boolean };
@@ -112,7 +115,7 @@ export function newGame(now: number): GameState {
   return {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, napBase: 0, combsBonus: 0, combsSpent: 0, combStore: {}, variety: 0,
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
-    trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
+    trophies: [], decor: [], rooms: {}, roomSpots: {}, doors: [], lastNap: 0, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
     events: {}, eventsWon: [], projects: [], joint: {}, trips: {}, artifacts: {}, equipped: [], daily: { last: '', streak: 0 }, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
     settings: { music: true, sfx: true, voices: true, localWeather: false, effects: 'auto' }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0, trips: 0 },
@@ -188,6 +191,15 @@ export function migrate(raw: any, now: number): GameState {
   s.equipped = list(raw.equipped).filter((k) => (s.artifacts[k] || 0) > 0).slice(0, 3);
   s.daily = { ...base.daily, ...obj(raw.daily) };
   s.rooms = obj(raw.rooms);
+  s.roomSpots = obj(raw.roomSpots);
+  s.lastNap = Number.isFinite(raw.lastNap) ? raw.lastNap : 0;
+  if (Array.isArray(raw.doors)) s.doors = list(raw.doors);
+  else {
+    // Before doors were bought with combs: homes that were already open, or had things put up, stay open.
+    const open = new Set(Object.keys(s.rooms).filter((h) => s.rooms[h]?.length));
+    if (s.stats.naps >= 15) { open.add('pooh'); for (const b of BUSINESSES) if (s.biz[b.id]?.owned > 0) open.add(b.id); }
+    s.doors = [...open];
+  }
   s.friends = obj(raw.friends);
   s.games = obj(raw.games);
   s.events = obj(raw.events);
@@ -273,9 +285,9 @@ export function nextCombAt(s: GameState) {
   return (base / 5) ** 4 * COMB_DIVISOR;
 }
 /** A nap is due once it would at least double your combs (Pooh is getting sleepy). */
-export const napDue = (s: GameState) => {
+export const napDue = (s: GameState, now = Date.now()) => {
   const pending = napCombsAvailable(s);
-  return pending >= 10 && pending >= totalCombs(s);
+  return pending >= 10 && pending >= totalCombs(s) && napRestLeft(s, now) === 0;
 };
 
 function bizCycle(b: Business, owned: number, speed: number) {
@@ -614,9 +626,17 @@ export function buyVariety(s: GameState) {
 }
 
 /** Pooh's Nap: start over with Golden Honeycombs. Varieties are kept. */
+/** Pooh rests this long after a nap before the next one (the first few naps don't need it). */
+export const NAP_REST_MS = 12 * 3600_000;
+export const FREE_NAPS = 3;
+/** Milliseconds until Pooh can nap again (0 when he can). */
+export const napRestLeft = (s: GameState, now: number) =>
+  s.stats.naps < FREE_NAPS ? 0 : Math.max(0, s.lastNap + NAP_REST_MS - now);
+
 export function nap(s: GameState, now: number) {
   const gained = napCombsAvailable(s);
-  if (gained < 1) return 0;
+  if (gained < 1 || napRestLeft(s, now) > 0) return 0;
+  s.lastNap = now;
   const fresh = newGame(now);
   s.combsFromNaps += gained;
   s.honey = 0;

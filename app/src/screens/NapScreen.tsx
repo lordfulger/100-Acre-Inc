@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { COMB_UPGRADES, combUpgradeCost, combUpgradeValue, varietyAt } from '../game/catalog';
-import { buyCombUpgrade, buyVariety, COMB_FULL, combBonusOf, combPower, nap, NAP_CAP_TIMES, napCapped, napCombsAvailable, napDue, nextCombAt, totalCombs, varietyCost } from '../game/engine';
+import { buyCombUpgrade, buyVariety, COMB_FULL, combBonusOf, combPower, nap, NAP_CAP_TIMES, FREE_NAPS, NAP_REST_MS, napCapped, napCombsAvailable, napDue, napRestLeft, nextCombAt, totalCombs, varietyCost } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { CloudCard } from '../ui/CloudCard';
@@ -71,6 +71,7 @@ export function NapScreen() {
   const shown = Array.from({ length: 7 }, (_, k) => first + k);
   const combs = totalCombs(s);
   const pending = napCombsAvailable(s);
+  const rest = napRestLeft(s, now);
   const nextAt = nextCombAt(s);
   const newBonus = combBonusOf(s, combs + pending) * 100;
 
@@ -121,7 +122,7 @@ export function NapScreen() {
               <Bar value={s.runEarned / nextAt} color={v.deep} />
             </>
           )}
-          {napDue(s) && (
+          {napDue(s, now) && (
             <Text style={[styles.small, { color: C.green, fontWeight: '900', marginTop: 6 }]}>
               💤 Pooh is sleepy: a nap now would at least double your combs. Each nap pays for this run's honey, so waiting much longer earns fewer combs than napping and building again.
             </Text>
@@ -129,8 +130,8 @@ export function NapScreen() {
           <Button
             style={{ marginTop: 12 }}
             color={confirm ? C.red : C.blue}
-            label={confirm ? 'Tap again to nap — this resets your businesses!' : pending > 0 ? `Take a nap (+${fmt(pending)} combs)` : 'Not sleepy yet'}
-            disabled={pending < 1}
+            label={rest > 0 ? `😴 Pooh is resting · nap again in ${fmtTime(rest / 1000)}` : confirm ? 'Tap again to nap — this resets your businesses!' : pending > 0 ? `Take a nap (+${fmt(pending)} combs)` : 'Not sleepy yet'}
+            disabled={pending < 1 || rest > 0}
             onPress={() => {
               if (!confirm) return setConfirm(true);
               const got = act((g, t) => nap(g, t));
@@ -139,7 +140,7 @@ export function NapScreen() {
               if (got) { setWoke(got); save(); }
             }}
           />
-          <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs.</Text>
+          <Text style={[styles.small, { marginTop: 8 }]}>Tip: a nap is worth it once it would roughly double your combs. After your first {FREE_NAPS} naps, Pooh rests {NAP_REST_MS / 3600_000} hours between naps.</Text>
         </Card>
 
         <CombStore />

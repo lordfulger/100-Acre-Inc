@@ -12,7 +12,7 @@ if (process.env.COMB_FULL) setCombFull(Number(process.env.COMB_FULL));
 import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt, setLiveWeather, weatherAt, weatherFromCode, woodWeather } from './calendar';
-import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
+import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, doorCost, homeOpen, moveDecor, openDoor, placeDecor, talk, thankVisitor, visitorToday } from './extras';
 import { addBoost, buyCombUpgrade, catchBalloon, combPower, nextCombAt, steadyHps } from './engine';
 import { claimDaily, collectTrip, combine, dailyGift, equip, explorerOpen, explorerState, startTrip, tripHours } from './trips';
 import { readArtifact } from './catalog';
@@ -210,18 +210,43 @@ function shop(s: GameState, t: number) {
   assert.ok(s.decor.includes('halloween'));
   assert.ok(checkAlbum(s).some((c) => c.id === 'halloween'));
 
-  // Homes open after enough naps; decorations go in, one place at a time, and add honey.
-  assert.equal(placeDecor(s, 'pooh', 'halloween'), false, 'doors shut before the naps');
-  s.stats.naps = INTERIOR_NAPS;
+  // Doors open with combs, once, for good; decorations go in, one place at a time, and add honey.
+  assert.equal(placeDecor(s, 'pooh', 'halloween'), false, 'the door is shut');
+  assert.ok(!openDoor(s, 'pooh'), 'not enough combs');
+  s.combsBonus = 1000;
+  assert.ok(openDoor(s, 'pooh') && totalCombs(s) === 1000 - doorCost('pooh'), 'opening costs combs');
   s.honey = 1e9;
   assert.ok(buyDecor(s, 'rug', day(10, 29)));
   assert.ok(!buyDecor(s, 'rug', day(10, 29)), 'each only once');
   const taps = derive(s, day(10, 29)).tapValue;
   assert.ok(placeDecor(s, 'pooh', 'rug'));
   assert.ok(derive(s, day(10, 29)).tapValue > taps);
+  assert.ok(!openDoor(s, 'haycorn'), "Piglet's House isn't bought yet");
   s.biz.haycorn.owned = 1;
+  assert.ok(openDoor(s, 'haycorn'));
   assert.ok(placeDecor(s, 'haycorn', 'rug'));
   assert.deepEqual([s.rooms.pooh, s.rooms.haycorn], [[], ['rug']], 'moving takes it from the other home');
+  // Drag it somewhere; it stays there, kept inside the room.
+  assert.ok(moveDecor(s, 'haycorn', 'rug', 0.5, 2));
+  assert.deepEqual(s.roomSpots.haycorn.rug, [0.5, 0.94]);
+  // A nap resets the homes, but the door and what's inside stay.
+  const napped = migrate(JSON.parse(JSON.stringify(s)), day(10, 29));
+  napped.allTimeEarned = napped.runEarned = 1e12;
+  assert.ok(nap(napped, day(10, 29)) > 0);
+  assert.ok(homeOpen(napped, 'haycorn') && napped.rooms.haycorn.includes('rug'), 'open for good, through naps');
+  // Pooh rests 12 hours between naps once the first few are done.
+  const sleepy = newGame(now);
+  sleepy.stats.naps = 5;
+  sleepy.runEarned = sleepy.allTimeEarned = 1e15;
+  assert.ok(nap(sleepy, now) > 0);
+  sleepy.runEarned = sleepy.allTimeEarned = 1e18;
+  assert.equal(nap(sleepy, now + 11 * 3600_000), 0, 'still resting');
+  assert.ok(nap(sleepy, now + 12 * 3600_000) > 0, 'rested');
+  const fresh = newGame(now);
+  fresh.runEarned = fresh.allTimeEarned = 1e15;
+  assert.ok(nap(fresh, now) > 0);
+  fresh.runEarned = fresh.allTimeEarned = 1e15;
+  assert.ok(nap(fresh, now + 1000) > 0, 'the first few naps need no rest');
 
   // Talking: one heart a day.
   assert.ok(talk(s, 'pooh', day(10, 29)).gained);

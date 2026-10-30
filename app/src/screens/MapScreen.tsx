@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BIZ_BY_ID, buildingMult, BUSINESSES, LEVEL_STEP, lookName, lookOf, perkFor, POOH_HOUSE, poohTapMult } from '../game/catalog';
 import { addonEffectText } from '../game/catalog';
-import { addonList, buildingNext, buyAddon, buyBiz, canUpgradeBuilding, hireManager, homeHasUpgrade, managerCost, mapView, quote, upgradeBuilding } from '../game/engine';
+import { addonList, buildingNext, buyAddon, buyBiz, canUpgradeBuilding, hireManager, homeHasUpgrade, managerCost, mapView, quote, totalCombs, upgradeBuilding } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, nativeDriver } from '../ui/kit';
@@ -10,7 +10,7 @@ import { Portrait, portraitFor } from '../ui/Portrait';
 import { HAND, HomeCloseUp, WoodMap } from '../ui/WoodMap';
 import { play, playLevel } from '../audio/sound';
 import { activeEvent, eventProgress, seasonAt, SEASONS, WEATHER_NAMES, weatherAt } from '../game/calendar';
-import { findThing, gameForHome, GameId, GAMES, gameReady, gameWait, homeOpen, INTERIOR_NAPS, interiorsOpen, thankVisitor, visitorToday } from '../game/extras';
+import { findThing, gameForHome, GameId, GAMES, gameReady, gameWait, doorCost, homeOpen, openDoor, thankVisitor, visitorToday } from '../game/extras';
 import { GameRunner } from './GamesScreen';
 import { MapLife, wanderers, Weather } from '../ui/MapLife';
 import { skyAt } from '../ui/MapAlive';
@@ -101,7 +101,7 @@ function TopBar() {
 }
 
 function BuildingSheet({ id, onClose, onEnter, onPlay }: { id: string; onClose: () => void; onEnter: () => void; onPlay: (g: GameId) => void }) {
-  const { s, d, act, toast, now } = useGame();
+  const { s, d, act, toast, now, save } = useGame();
   const isPooh = id === POOH_HOUSE.id;
   const b = isPooh ? null : BIZ_BY_ID[id];
   const name = isPooh ? POOH_HOUSE.name : b!.name;
@@ -148,10 +148,18 @@ function BuildingSheet({ id, onClose, onEnter, onPlay }: { id: string; onClose: 
           />
         );
       })()}
-      {(!b || owned > 0) && (
+      {/* An opened door stays open for good, through naps, even before the home is bought back. */}
+      {(homeOpen(s, id) || !b || owned > 0) && (
         homeOpen(s, id)
           ? <Button label={`🚪 Go inside${s.rooms[id]?.length ? ` (${s.rooms[id].length} 🛋️)` : ''}`} color={C.pink} onPress={() => { play('pop'); onEnter(); }} style={{ marginBottom: 6 }} />
-          : !interiorsOpen(s) && <Text style={styles.locked}>🚪 The door is shut for now. Homes open their doors after {INTERIOR_NAPS} naps ({s.stats.naps}/{INTERIOR_NAPS}).</Text>
+          : (
+            <Button
+              label={`🔑 Open the door · ${fmt(doorCost(id))} ✨`} sub="Combs, once: it stays open through every nap"
+              color={C.pink} outline disabled={totalCombs(s) < doorCost(id)}
+              onPress={() => { if (act((g) => openDoor(g, id))) { buzz('success'); play('unlock'); save(); toast('🚪 The door is open for good. Come in!'); } }}
+              style={{ marginBottom: 6 }}
+            />
+          )
       )}
       {b && owned === 0 ? (
         <View style={styles.row}>

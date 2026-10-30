@@ -4,7 +4,7 @@
 import { artifactBonus, BIZ_BY_ID, BUSINESSES, jointBonus, POOH_HOUSE } from './catalog';
 import { bumpEvent, EVENTS, WoodEvent } from './calendar';
 import { ALBUM } from './album';
-import { derive, earn, GameState, runWorth, sharePrize } from './engine';
+import { derive, earn, GameState, runWorth, sharePrize, totalCombs } from './engine';
 export { runWorth };
 import type { PortraitId } from '../ui/Portrait';
 
@@ -93,11 +93,22 @@ export function checkDecor(s: GameState): Decor[] {
 
 // ---------- going inside homes ----------
 
-/** Homes open their doors once you've taken this many naps. */
-export const INTERIOR_NAPS = 15;
+/** Each home's door is opened once with Golden Honeycombs and stays open, through every nap. */
+const DOOR_ORDER = [POOH_HOUSE.id, ...BUSINESSES.map((b) => b.id)];
+/** Combs to open a home's door: 25 for Pooh's, and 1.6× more for each home further into the wood. */
+export const doorCost = (home: string) => Math.ceil(25 * 1.6 ** Math.max(0, DOOR_ORDER.indexOf(home)));
+export function openDoor(s: GameState, home: string) {
+  const cost = doorCost(home);
+  const lived = home === POOH_HOUSE.id || s.biz[home]?.owned > 0;
+  if (s.doors.includes(home) || !lived || totalCombs(s) < cost) return false;
+  s.combsSpent += cost;
+  s.doors.push(home);
+  return true;
+}
 export const ROOM_SLOTS = 6;
-export const interiorsOpen = (s: GameState) => s.stats.naps >= INTERIOR_NAPS;
-export const homeOpen = (s: GameState, home: string) => interiorsOpen(s) && (home === POOH_HOUSE.id || s.biz[home]?.owned > 0);
+export const homeOpen = (s: GameState, home: string) => s.doors.includes(home);
+/** True once any home's door is open (somewhere to put decorations). */
+export const anyDoorOpen = (s: GameState) => s.doors.length > 0;
 
 /** Where a decoration is, if it's been put up somewhere. */
 export const placedIn = (s: GameState, id: string) => Object.keys(s.rooms).find((home) => s.rooms[home].includes(id)) || null;
@@ -107,14 +118,23 @@ export function placeDecor(s: GameState, home: string, id: string) {
   const room = s.rooms[home] || [];
   if (room.includes(id) || room.length >= ROOM_SLOTS) return false;
   const from = placedIn(s, id);
-  if (from) s.rooms[from] = s.rooms[from].filter((x) => x !== id);
+  if (from) { s.rooms[from] = s.rooms[from].filter((x) => x !== id); delete s.roomSpots[from]?.[id]; }
   s.rooms[home] = [...room, id];
+  return true;
+}
+
+/** Moves a decoration to a spot in its room (fractions of the room's width and height). */
+export function moveDecor(s: GameState, home: string, id: string, x: number, y: number) {
+  if (!s.rooms[home]?.includes(id)) return false;
+  const keep = (v: number) => Math.min(0.94, Math.max(0.06, v));
+  s.roomSpots[home] = { ...(s.roomSpots[home] || {}), [id]: [keep(x), keep(y)] };
   return true;
 }
 
 export function takeDownDecor(s: GameState, home: string, id: string) {
   if (!s.rooms[home]?.includes(id)) return false;
   s.rooms[home] = s.rooms[home].filter((x) => x !== id);
+  delete s.roomSpots[home]?.[id];
   return true;
 }
 

@@ -66,7 +66,7 @@ function Game() {
     wood: unread ? String(unread) : undefined,
     album: s.albumNew.length ? String(s.albumNew.length) : undefined,
     // Pooh is sleepy: a nap would at least double your combs.
-    nap: napDue(s) ? '💤' : undefined,
+    nap: napDue(s, Date.now()) ? '💤' : undefined,
   };
 
   return (

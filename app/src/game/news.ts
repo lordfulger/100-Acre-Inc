@@ -14,7 +14,7 @@ export const NEWS: News[] = [
       ['🔨', 'Build together', 'Pay into shared projects on the Friends tab. Each one appears on the map and raises honey for good.'],
       ['✉️', 'Letters', 'Leave each other notes, with honey tucked inside if you like.'],
       ['📖', 'Card sets and trophies', 'New cards to find, bonuses for full sets, and trophies to show off.'],
-      ['🛋️', 'Inside the homes', 'After 15 naps the doors open: decorate each room and chat with whoever lives there.'],
+      ['🛋️', 'Inside the homes', "Open a home's door with Golden Honeycombs: decorate each room and chat with whoever lives there."],
     ],
   },
   {
@@ -108,6 +108,15 @@ export const NEWS: News[] = [
       ['😴', 'Naps pay for this run', 'Each nap now pays Golden Honeycombs for the honey made since your last nap, not all-time. Napping regularly earns far more combs than one very long run.'],
       ['💤', 'Pooh gets sleepy', 'A 💤 on the Nap tab means a nap now would at least double your combs.'],
       ['🌙', 'No more giant naps', 'One nap brings at most 10× the combs you already have. A run left going for ages stops paying more, so nap when Pooh is sleepy.'],
+    ],
+  },
+  {
+    v: 12,
+    title: 'Homes for good',
+    items: [
+      ['🔑', 'Open a door with combs', "Each home's door now opens with Golden Honeycombs, once, and stays open through every nap, so your rooms stay just as you left them. Doors you already had are still open."],
+      ['🖐️', 'Arrange your rooms', 'Drag decorations anywhere in a room. A quick tap still takes one down.'],
+      ['😴', 'Pooh rests between naps', 'After your first 3 naps, Pooh needs 12 hours of rest before the next one.'],
     ],
   },
 ];
