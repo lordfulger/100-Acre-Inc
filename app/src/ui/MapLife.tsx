@@ -11,6 +11,7 @@ import { Portrait } from './Portrait';
 import { HAND, MAP_H, MAP_W, PLACES } from './WoodMap';
 import { MapAlive, Speech, TOP_ROOM } from './MapAlive';
 import { lightEffects } from './effects';
+import { play } from '../audio/sound';
 
 // Open spots on the map for holiday decorations.
 const HOLIDAY_SPOTS: [number, number][] = [
@@ -109,18 +110,48 @@ function Flake({ char, w, h, ms, drift, size, i }: { char: string; w: number; h:
     const start = setTimeout(() => loop.start(), (i * ms) / 8);
     return () => { clearTimeout(start); loop.stop(); };
   }, [v, ms, i]);
+  // Tap it and it goes poof; another drifts in a while later.
+  const [gone, setGone] = useState(false);
+  const puff = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!gone) return;
+    const id = setTimeout(() => setGone(false), ms);
+    return () => clearTimeout(id);
+  }, [gone, ms]);
+  const poof = () => {
+    if (gone) return;
+    setGone(true);
+    play('pop');
+    puff.setValue(0);
+    Animated.timing(puff, { toValue: 1, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: nativeDriver }).start();
+  };
   return (
-    <Animated.Text
+    <Animated.View
+      pointerEvents="box-none"
       style={[styles.flake, {
-        fontSize: size, left: x0,
+        left: x0,
         transform: [
           { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-30, h + 30] }) },
           { translateX: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, drift * 0.6, drift] }) },
         ],
       }]}
     >
-      {char}
-    </Animated.Text>
+      <Pressable onPress={poof} disabled={gone} hitSlop={10} accessibilityLabel={`A falling ${char}`}>
+        {gone ? (
+          <Animated.Text
+            style={{
+              fontSize: size,
+              opacity: puff.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+              transform: [{ scale: puff.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.9] }) }],
+            }}
+          >
+            💨
+          </Animated.Text>
+        ) : (
+          <Text style={{ fontSize: size }}>{char}</Text>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -131,7 +162,8 @@ export function Weather({ now }: { now: number }) {
   const char = weather === 'rain' ? '💧' : weather === 'snow' ? '❄️' : weather === 'windy' ? '🍂' : weather === 'cloudy' ? '☁️' : season.particle;
   const f = FALL[weather];
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+    // The weather itself can be tapped; taps anywhere else go through to the map.
+    <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
       {Array.from({ length: f.n }, (_, i) => (
         <Flake key={`${weather}${i}`} char={char} w={width} h={height} ms={f.ms} drift={weather === 'windy' ? -f.drift : f.drift} size={f.size} i={i} />
       ))}
