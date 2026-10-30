@@ -50,7 +50,7 @@ function Finds({ who, keys, onClose }: { who: string; keys: string[]; onClose: (
 }
 
 function Explorer({ id, onFound }: { id: string; onFound: (who: string, keys: string[]) => void }) {
-  const { s, act, now } = useGame();
+  const { s, act, now, save } = useGame();
   const e = EXPLORERS.find((x) => x.id === id)!;
   if (!explorerOpen(s, id)) {
     return (
@@ -78,7 +78,7 @@ function Explorer({ id, onFound }: { id: string; onFound: (who: string, keys: st
         </View>
         {st.phase === 'back' && (
           <Button small label="🎒 Welcome back" onPress={() => {
-            const keys = act((g, t) => collectTrip(g, id, t));
+            const keys = act((g, t) => collectTrip(g, id, t)); save(); // straight away, so closing the app can't undo it and pay out again
             if (!keys.length) return;
             play('fanfare'); buzz('success');
             onFound(e.name, keys);

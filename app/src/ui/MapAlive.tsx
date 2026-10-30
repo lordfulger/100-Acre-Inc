@@ -264,7 +264,7 @@ function HomeLights({ k, bright, still }: { k: number; bright: boolean; still: b
 // ---------- hidden secrets ----------
 
 function Secrets({ k }: { k: number }) {
-  const { s, act, toast } = useGame();
+  const { s, act, toast, save } = useGame();
   const twinkle = clock(2600);
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => {
@@ -280,7 +280,7 @@ function Secrets({ k }: { k: number }) {
         const tap = () => {
           setOpen(x.id);
           if (found) return play('tick');
-          const honey = act((g, t) => findSecret(g, x.id, t));
+          const honey = act((g, t) => findSecret(g, x.id, t)); save(); // straight away, so closing the app can't undo it and pay out again
           play('unlock');
           toast(`🔍 You found a secret! +${fmt(honey)} honey (${s.secrets.length}/${SECRETS.length})`);
         };

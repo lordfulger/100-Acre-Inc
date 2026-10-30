@@ -44,13 +44,13 @@ function CloseUp({ id, look, addons }: { id: string; look: number; addons: strin
 
 /** The season, the weather, any holiday event, and today's visitor, along the top of the map. */
 function TopBar() {
-  const { s, act, toast, now } = useGame();
+  const { s, act, toast, now, save } = useGame();
   const [open, setOpen] = useState(false);
   const season = SEASONS[seasonAt(now)];
   const event = activeEvent(now);
   const v = visitorToday(s, now);
   const thank = () => {
-    const honey = act((g, t) => thankVisitor(g, t));
+    const honey = act((g, t) => thankVisitor(g, t)); save(); // straight away, so closing the app can't undo it and pay out again
     if (!honey) return;
     buzz('success');
     play('fanfare');

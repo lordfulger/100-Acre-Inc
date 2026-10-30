@@ -26,14 +26,14 @@ type Result = { score: number; honey: number; newBest: boolean; best: number };
 
 /** Runs one game full-screen and pays out when it ends. Used by the Games tab and the map. */
 export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void }) {
-  const { s, act, toast } = useGame();
+  const { s, act, toast, save } = useGame();
   const [soloRace, setSoloRace] = useState<StickRace | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const finished = useRef(false);
   const done = (score: number, won?: boolean) => {
     if (finished.current) return;
     finished.current = true;
-    const r = act((g, t) => finishGame(g, id, score, t, won));
+    const r = act((g, t) => finishGame(g, id, score, t, won)); save(); // straight away, so closing the app can't undo it and pay out again
     if (id === 'sticks') {
       // Poohsticks shows its own finish, so just say what was won.
       onClose();

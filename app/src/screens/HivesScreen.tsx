@@ -26,6 +26,8 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
   const progress = cycleProgress(s, d, b.id, now);
   const locked = st.owned === 0;
   const idle = !locked && !st.managed && !st.running;
+  // A managed home finishing cycles faster than once a second reads better as a rate.
+  const fast = st.managed && info.cycle < 1;
 
   if (locked) {
     return (
@@ -58,11 +60,12 @@ function BusinessRow({ b, mode }: { b: Business; mode: BuyMode }) {
           <View style={styles.barWrap}>
             <Bar value={progress} color={v.deep} height={16} />
             <Text style={styles.barText} numberOfLines={1}>
-              {st.managed ? `${fmt(info.perSec)}/s` : `${fmt(info.perCycle)} · ${fmtTime(info.cycle)}`}
+              {/* What the bar pays when it fills, and how long it takes; per second only when a cycle is too quick to watch. */}
+              {fast ? `${fmt(info.perSec)}/s` : `${fmt(info.perCycle)} · ${fmtTime(info.cycle)}`}
             </Text>
           </View>
           <Text style={styles.hint} numberOfLines={1}>
-            {idle ? '👆 Tap the icon to collect!' : `Next ×2 at ${nextAt} (${st.owned}/${nextAt})`}
+            {idle ? '👆 Tap the icon to make honey!' : `${st.managed && !fast ? `${fmt(info.perSec)}/s · ` : ''}Next ×2 at ${nextAt} (${st.owned}/${nextAt})`}
           </Text>
         </View>
         <Button

@@ -649,7 +649,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setSticks(null);
       if (!race) return;
       const won = race.winner === net.you;
-      const r = act((g, t) => finishGame(g, 'sticks', won ? 1 : 0, t, won));
+      const r = act((g, t) => finishGame(g, 'sticks', won ? 1 : 0, t, won)); save(); // straight away, so closing the app can't undo it and pay out again
       if (r.honey > 0) toast(`🥢 ${won ? 'You won' : 'Good race'}! +${fmt(r.honey)} honey`);
     },
   };

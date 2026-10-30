@@ -157,13 +157,13 @@ export function NapWake({ combs, onClose }: { combs: number; onClose: () => void
 
 /** Once a day: a little present, better for every day in a row, up to day 7. */
 export function DailyGift() {
-  const { s, act, now, toast } = useGame();
+  const { s, act, now, toast, save } = useGame();
   const [opened, setOpened] = useState<ReturnType<typeof claimDaily>>(null);
   const g = dailyGift(s, now);
   if (!g.ready && !opened) return null;
   const day = opened ? opened.day : g.day;
   const open = () => {
-    const r = act((st, t) => claimDaily(st, t));
+    const r = act((st, t) => claimDaily(st, t)); save(); // straight away, so closing the app can't undo it and pay out again
     if (!r) return;
     play('gift'); buzz('success');
     setOpened(r);
