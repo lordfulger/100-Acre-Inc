@@ -1,3 +1,5 @@
+import { fmt } from './format';
+
 // Everything you can own, hire, buy or discover in the Hundred Acre Wood.
 // Characters are from A. A. Milne's original (public-domain) books.
 
@@ -133,7 +135,11 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 export function researchEffect(r: Research, level: number) {
   const v = r.per * level;
   switch (r.kind) {
-    case 'globalMult': return `All honey ×${Number((r.per ** level).toPrecision(3))}`;
+    // A lasting boost to everything you make (per second and taps), not to the honey you have.
+    case 'globalMult': {
+      const m = r.per ** level;
+      return `Everything you make ×${m < 1000 ? Number(m.toPrecision(3)) : fmt(m)} (×${r.per} a level)`;
+    }
     case 'tapPct': return `Taps also earn ${pct(v)} of your honey/sec`;
     case 'offlineHours': return `Managers work ${4 + v}h while you're away`;
     case 'balloonRate': return `Balloons come ${pct(v)} more often`;
