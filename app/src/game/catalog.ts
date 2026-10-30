@@ -11,6 +11,8 @@ export type Business = {
   cycle: number; // seconds per production cycle
   revenue: number; // honey per unit per cycle
   manager: { name: string; emoji: string; cost: number };
+  /** Homes Beyond the Wood have their own "own N of every one" bonus, apart from the Hundred Acre Wood's. */
+  zone?: 'beyond';
 };
 
 export const BUSINESSES: Business[] = [
@@ -30,13 +32,16 @@ export const BUSINESSES: Business[] = [
   { id: 'camp', name: 'Expotition Camp', emoji: '⛺', blurb: 'Base camp for finding the North Pole. Mostly used for honey breaks.', baseCost: 6.4e15, growth: 1.28, cycle: 28_800, revenue: 6e14 / 2, manager: { name: 'The Bees', emoji: '🐝', cost: 8e17 * 3 } },
   { id: 'pines', name: 'Heffalump Pines', emoji: '🌲', blurb: 'Big round footprints between the pines. Something very large likes honey too.', baseCost: 1.3e17, growth: 1.29, cycle: 57_600, revenue: 1e16 / 2, manager: { name: 'The Heffalump', emoji: '🐘', cost: 1.6e19 * 3 } },
   // Beyond the Wood: past the North Pole, where the numbers get very big indeed.
-  { id: 'pole', name: 'The North Pole', emoji: '🧭', blurb: 'Pooh found it. It is a long stick in the ground, and the bees have moved in all round it.', baseCost: 5.2e18, growth: 1.3, cycle: 86_400, revenue: 2.56e17 / 2, manager: { name: 'The Whole Expotition', emoji: '🧒', cost: 6.4e20 * 3 } },
-  { id: 'mist', name: 'The Misty Hollow', emoji: '🌫️', blurb: 'Where Rabbit tried to lose Tigger and lost himself instead. The fog smells of honey.', baseCost: 2.1e20, growth: 1.31, cycle: 129_600, revenue: 6.5e18 / 2, manager: { name: 'Rabbit (Lost)', emoji: '🐰', cost: 2.56e22 * 3 } },
-  { id: 'spot', name: "Pooh's Thoughtful Spot", emoji: '💭', blurb: 'Halfway between Pooh\'s house and Piglet\'s, for thinking. The honey thinks too.', baseCost: 8.3e21, growth: 1.32, cycle: 194_400, revenue: 1.66e20 / 2, manager: { name: 'Thoughtful Pooh', emoji: '🐻', cost: 1e24 * 3 } },
-  { id: 'bluebell', name: 'The Bluebell Wood', emoji: '🔔', blurb: 'A blue carpet as far as you can see, and a bee in every bell.', baseCost: 3.3e23, growth: 1.33, cycle: 291_600, revenue: 4.2e21 / 2, manager: { name: "Piglet's Grandfather", emoji: '🐷', cost: 4.1e25 * 3 } },
-  { id: 'summit', name: 'The Highest Hill', emoji: '⛰️', blurb: 'So high you can see the sea. Everyone comes up for the view and stays for the honey.', baseCost: 1.3e25, growth: 1.34, cycle: 437_400, revenue: 1.08e23 / 2, manager: { name: 'Pooh and Everybody', emoji: '🐻🐷', cost: 1.6e27 * 3 } },
+  { id: 'pole', name: 'The North Pole', emoji: '🧭', blurb: 'Pooh found it. It is a long stick in the ground, and the bees have moved in all round it.', baseCost: 5.2e18, growth: 1.3, cycle: 86_400, revenue: 2.56e17 / 2, manager: { name: 'The Whole Expotition', emoji: '🧒', cost: 6.4e20 * 3 }, zone: 'beyond' },
+  { id: 'mist', name: 'The Misty Hollow', emoji: '🌫️', blurb: 'Where Rabbit tried to lose Tigger and lost himself instead. The fog smells of honey.', baseCost: 2.1e20, growth: 1.31, cycle: 129_600, revenue: 6.5e18 / 2, manager: { name: 'Rabbit (Lost)', emoji: '🐰', cost: 2.56e22 * 3 }, zone: 'beyond' },
+  { id: 'spot', name: "Pooh's Thoughtful Spot", emoji: '💭', blurb: 'Halfway between Pooh\'s house and Piglet\'s, for thinking. The honey thinks too.', baseCost: 8.3e21, growth: 1.32, cycle: 194_400, revenue: 1.66e20 / 2, manager: { name: 'Thoughtful Pooh', emoji: '🐻', cost: 1e24 * 3 }, zone: 'beyond' },
+  { id: 'bluebell', name: 'The Bluebell Wood', emoji: '🔔', blurb: 'A blue carpet as far as you can see, and a bee in every bell.', baseCost: 3.3e23, growth: 1.33, cycle: 291_600, revenue: 4.2e21 / 2, manager: { name: "Piglet's Grandfather", emoji: '🐷', cost: 4.1e25 * 3 }, zone: 'beyond' },
+  { id: 'summit', name: 'The Highest Hill', emoji: '⛰️', blurb: 'So high you can see the sea. Everyone comes up for the view and stays for the honey.', baseCost: 1.3e25, growth: 1.34, cycle: 437_400, revenue: 1.08e23 / 2, manager: { name: 'Pooh and Everybody', emoji: '🐻🐷', cost: 1.6e27 * 3 }, zone: 'beyond' },
 ];
 
+/** The Hundred Acre Wood's homes, and those Beyond the Wood (each group has its own "own N of every one" bonus). */
+export const WOOD_HOMES = BUSINESSES.filter((b) => !b.zone);
+export const BEYOND_HOMES = BUSINESSES.filter((b) => b.zone === 'beyond');
 export const BIZ_BY_ID = Object.fromEntries(BUSINESSES.map((b) => [b.id, b])) as Record<string, Business>;
 
 // ---------- milestones (endless) ----------
@@ -54,7 +59,8 @@ export function nextMilestone(owned: number) {
   return MILESTONE_START.find((t) => t > owned) ?? (Math.floor(owned / 100) + 1) * 100;
 }
 
-// Owning this many of EVERY business doubles all honey. Endless too.
+// Owning this many of EVERY home in the Hundred Acre Wood doubles all honey, and the same
+// again for every home Beyond the Wood. Endless too.
 const ALL_START = [25, 50, 100, 200];
 export function allMilestonesReached(minOwned: number) {
   let m = 0;
@@ -283,11 +289,11 @@ export const jointBonus = (id: JointId, level: number) => JOINT_BY_ID[id].per * 
 export type CombKind = 'honeyMult' | 'speed' | 'taps' | 'cheap' | 'dream' | 'away' | 'balloons' | 'trips';
 export type CombUpgrade = { id: string; name: string; emoji: string; kind: CombKind; per: number; base: number; growth: number; max?: number; text: (v: number) => string };
 export const COMB_UPGRADES: CombUpgrade[] = [
-  { id: 'queen', name: "The Queen Bee's Blessing", emoji: '👑', kind: 'honeyMult', per: 1.15, base: 2, growth: 1.6, text: (v) => `all honey ×${+v.toPrecision(3)}` },
-  { id: 'touch', name: 'Golden Touch', emoji: '👆', kind: 'taps', per: 0.3, base: 1, growth: 1.5, text: (v) => `+${Math.round(v * 100)}% tap power` },
+  { id: 'queen', name: "The Queen Bee's Blessing", emoji: '👑', kind: 'honeyMult', per: 1.1, base: 2, growth: 2.2, text: (v) => `all honey ×${+v.toPrecision(3)}` },
+  { id: 'touch', name: 'Golden Touch', emoji: '👆', kind: 'taps', per: 0.3, base: 1, growth: 1.8, text: (v) => `+${Math.round(v * 100)}% tap power` },
   { id: 'busy', name: 'Busy Managers', emoji: '🐝', kind: 'speed', per: 0.1, base: 3, growth: 1.8, max: 20, text: (v) => `everything works ${Math.round(v * 100)}% faster` },
   { id: 'bargain', name: "Rabbit's Bargains", emoji: '🧺', kind: 'cheap', per: 0.03, base: 2, growth: 1.9, max: 10, text: (v) => `homes ${Math.round(v * 100)}% cheaper` },
-  { id: 'dream', name: 'Dream Deeper', emoji: '💭', kind: 'dream', per: 0.05, base: 5, growth: 2, max: 20, text: (v) => `naps give ${Math.round(v * 100)}% more Golden Honeycombs` },
+  { id: 'dream', name: 'Dream Deeper', emoji: '💭', kind: 'dream', per: 0.05, base: 5, growth: 2.6, max: 20, text: (v) => `naps give ${Math.round(v * 100)}% more Golden Honeycombs` },
   { id: 'liein', name: 'A Long Lie-in', emoji: '🛌', kind: 'away', per: 1, base: 2, growth: 1.7, max: 20, text: (v) => `+${v} hour${v === 1 ? '' : 's'} of honey while you're away` },
   { id: 'balloons', name: 'Balloon Lover', emoji: '🎈', kind: 'balloons', per: 0.1, base: 2, growth: 1.8, max: 10, text: (v) => `balloons ${Math.round(v * 100)}% more often and stronger` },
   { id: 'kit', name: "Explorer's Kit", emoji: '🎒', kind: 'trips', per: 0.1, base: 4, growth: 2.2, max: 5, text: (v) => `trips ${Math.round(v * 100)}% shorter` },

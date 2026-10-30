@@ -184,8 +184,12 @@ export function Tail({ onDone, onQuit }: GameProps) {
     step(swaps);
     return () => { cancelled = true; };
   }, [phase, round, xs, slots]);
+  // One answer per round: a second tap (even a quick double tap) waits for the next round.
+  const answered = useRef(false);
+  useEffect(() => { if (phase === 'pick') answered.current = false; }, [phase]);
   const choose = (bush: number) => {
-    if (phase !== 'pick') return;
+    if (phase !== 'pick' || answered.current) return;
+    answered.current = true;
     setChosen(bush);
     if (bush === tailBush) {
       play('pop');

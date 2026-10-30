@@ -1,8 +1,8 @@
 // Trips round the wood and the treasures friends bring home from them, and the
 // daily gift. Pure game logic, like engine.ts.
 import { ARTIFACTS, artifactKey, RARITIES, readArtifact } from './catalog';
-import { addBoost, combUpgrade, earn, GameState, runWorth } from './engine';
-import { dayKey } from './extras';
+import { addBoost, combUpgrade, earn, GameState, sharePrize } from './engine';
+import { dayKey, yesterdayKey } from './extras';
 import type { PortraitId } from '../ui/Portrait';
 
 // ---------- trips ----------
@@ -116,7 +116,7 @@ export const DAILY: { emoji: string; text: string; honey?: number; boost?: { mul
 export function dailyGift(s: GameState, now: number) {
   const today = dayKey(now);
   if (s.daily.last === today) return { day: ((s.daily.streak - 1) % DAILY.length) + 1, ready: false };
-  const yesterday = dayKey(now - 86_400_000);
+  const yesterday = yesterdayKey(now);
   const streak = s.daily.last === yesterday ? s.daily.streak + 1 : 1;
   return { day: ((streak - 1) % DAILY.length) + 1, ready: true };
 }
@@ -126,8 +126,9 @@ export function claimDaily(s: GameState, now: number, rand = Math.random) {
   const g = dailyGift(s, now);
   if (!g.ready) return null;
   const gift = DAILY[g.day - 1];
-  s.daily = { last: dayKey(now), streak: s.daily.last === dayKey(now - 86_400_000) ? s.daily.streak + 1 : 1 };
-  const honey = gift.honey ? Math.max(100, runWorth(s) * gift.honey) : 0;
+  s.daily = { last: dayKey(now), streak: s.daily.last === yesterdayKey(now) ? s.daily.streak + 1 : 1 };
+  // Up to 20 minutes of income for each 1% (so day 7's 10% is up to a little over 3 hours).
+  const honey = gift.honey ? Math.max(100, sharePrize(s, now, gift.honey, gift.honey * 2000)) : 0;
   if (honey) earn(s, honey);
   if (gift.boost) addBoost(s, 'profit', gift.boost.mult, gift.boost.mins * 60, 'Daily gift', now);
   const treasure = gift.treasure ? rollArtifact(gift.treasure, rand) : null;

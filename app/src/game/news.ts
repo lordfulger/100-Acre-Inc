@@ -61,7 +61,7 @@ export const NEWS: News[] = [
     v: 6,
     title: 'The Comb Store',
     items: [
-      ['✨', 'Spend your Golden Honeycombs', 'On the Nap tab: upgrades that last through every nap, like the Queen Bee\'s Blessing (×1.15 honey a level), Golden Touch and Busy Managers.'],
+      ['✨', 'Spend your Golden Honeycombs', 'On the Nap tab: upgrades that last through every nap, like the Queen Bee\'s Blessing (×1.1 honey a level), Golden Touch and Busy Managers.'],
       ['🤔', 'Choose well', 'A comb you spend stops adding its +% honey, so each one is a choice: keep it, or turn it into something bigger.'],
       ['💭', 'Dream Deeper', 'Naps give more Golden Honeycombs. The Explorer\'s Kit makes trips shorter.'],
     ],
@@ -81,6 +81,16 @@ export const NEWS: News[] = [
     items: [
       ['🌦️', 'The wood can match outside', "Turn on My real weather on the Nap tab and the wood rains, snows, blows or shines when it does where you are. It uses your rough location, only to ask a weather service, and never sends it to the game."],
       ['☁️', 'Cloudy days', 'The wood has cloudy days now too.'],
+    ],
+  },
+  {
+    v: 9,
+    title: 'Fairer and steadier',
+    items: [
+      ['⭐', 'Every home, twice over', 'Owning lots of every home in the Hundred Acre Wood doubles your honey again, as before. The homes Beyond the Wood now have a doubling of their own instead of resetting it.'],
+      ['🎈', 'Prizes keep pace with you', "Lucky Honey, minigame prizes, secrets, visitors and the daily gift are now a share of your honey or a few minutes of your income, whichever is less. No more snowballing, and no tiny prizes once you're rich."],
+      ['💭', 'Dream Deeper', 'Now helps every nap from here on, rather than paying out for naps you already took. The Queen Bee gives ×1.1 a level.'],
+      ['🧭', 'Steady goals', "Expotitions and Our Wood are set from what your wood steadily earns, so they're the same size whether or not someone has just napped."],
     ],
   },
 ];

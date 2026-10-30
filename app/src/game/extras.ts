@@ -4,13 +4,19 @@
 import { artifactBonus, BIZ_BY_ID, BUSINESSES, jointBonus, POOH_HOUSE } from './catalog';
 import { bumpEvent, EVENTS, WoodEvent } from './calendar';
 import { ALBUM } from './album';
-import { derive, earn, GameState, runWorth } from './engine';
+import { derive, earn, GameState, runWorth, sharePrize } from './engine';
 export { runWorth };
 import type { PortraitId } from '../ui/Portrait';
 
 export const dayKey = (now: number) => {
   const t = new Date(now);
   return `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;
+};
+/** Yesterday's day, by the calendar (24 hours ago isn't always yesterday when the clocks change). */
+export const yesterdayKey = (now: number) => {
+  const t = new Date(now);
+  t.setDate(t.getDate() - 1);
+  return dayKey(t.getTime());
 };
 const hash = (text: string) => {
   let h = 2166136261;
@@ -20,8 +26,8 @@ const hash = (text: string) => {
 /** The smallest prize, so a brand-new game still gets something. */
 const MIN_PRIZE = 100;
 /** A prize of this share of what you're worth this run. */
-export const runPrize = (s: GameState, part: number) =>
-  Math.max(MIN_PRIZE, runWorth(s) * part * (1 + jointBonus('fair', Number(s.joint.fair) || 0) + artifactBonus(s.equipped, 'prizes')));
+export const runPrize = (s: GameState, now: number, part: number, minutes: number) =>
+  Math.max(MIN_PRIZE, sharePrize(s, now, part, minutes) * (1 + jointBonus('fair', Number(s.joint.fair) || 0) + artifactBonus(s.equipped, 'prizes')));
 
 /** Some minutes of your honey per second, with a floor early on (prices in the decoration shop). */
 const prize = (s: GameState, now: number, minutes: number) => {
@@ -211,13 +217,14 @@ export function findThing(s: GameState, home: string) {
   return true;
 }
 
-/** A visitor's thank-you: this share of what you're worth this run. */
+/** A visitor's thank-you: this share of what you're worth this run, or this many minutes of income if that's less. */
 export const VISITOR_SHARE = 0.05;
+export const VISITOR_MINUTES = 30;
 
 export function thankVisitor(s: GameState, now: number) {
   const v = visitorToday(s, now);
   if (!v.ready || v.done) return 0;
-  const honey = runPrize(s, VISITOR_SHARE);
+  const honey = runPrize(s, now, VISITOR_SHARE, VISITOR_MINUTES);
   earn(s, honey);
   s.visitor.done = true;
   s.stats.visitors++;
@@ -240,13 +247,14 @@ export const SECRETS: Secret[] = [
   { id: 'bottle', x: 40, y: 575, emoji: '🍾', text: "A message in a bottle: \"HELP! PIGLET (ME)\". Don't worry, it's an old one." },
 ];
 
-/** Finding a secret pays this share of what you're worth this run. */
+/** Finding a secret pays this share of what you're worth this run, or this many minutes of income if that's less. */
 export const SECRET_SHARE = 0.02;
+export const SECRET_MINUTES = 10;
 
 export function findSecret(s: GameState, id: string, now: number) {
   if (s.secrets.includes(id) || !SECRETS.some((x) => x.id === id)) return 0;
   s.secrets.push(id);
-  const honey = runPrize(s, SECRET_SHARE);
+  const honey = runPrize(s, now, SECRET_SHARE, SECRET_MINUTES);
   earn(s, honey);
   return honey;
 }
@@ -348,8 +356,9 @@ export const gameForHome = (home: string) => GAME_IDS.find((id) => GAMES[id].hom
 export const gameOpen = (s: GameState, id: GameId) => GAMES[id].home === POOH_HOUSE.id || s.biz[GAMES[id].home]?.owned > 0;
 /** After you play a game it rests for this many minutes before you can play it again. */
 export const GAME_COOLDOWN_MIN = 30;
-/** A game's best prize (a top score, or beating Pooh at Poohsticks): this share of what you're worth this run. */
+/** A game's best prize (a top score, or beating Pooh at Poohsticks): this share of what you're worth this run, or this many minutes of income if that's less. */
 export const GAME_SHARE = 0.02;
+export const GAME_MINUTES = 5;
 /** The score worth the full prize is the one that earns this many points' worth (score × perPoint). */
 const FULL_PRIZE_POINTS = 600;
 
@@ -369,7 +378,7 @@ export function finishGame(s: GameState, id: GameId, score: number, now: number,
   const newBest = score > rec.best;
   const ready = gameReady(s, id, now);
   const part = id === 'sticks' ? (won ? 1 : 0.3) : Math.min(1, (score * GAMES[id].perPoint) / FULL_PRIZE_POINTS);
-  const honey = ready && part > 0 ? runPrize(s, GAME_SHARE * part) : 0;
+  const honey = ready && part > 0 ? runPrize(s, now, GAME_SHARE * part, GAME_MINUTES * part) : 0;
   if (honey > 0) earn(s, honey);
   s.games[id] = { last: ready ? now : rec.last, best: Math.max(rec.best, score) };
   s.stats.games++;

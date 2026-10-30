@@ -2,7 +2,7 @@
 // be tested on its own and reused by any screen.
 
 import {
-  Addon, addonsFor, allMilestonesReached, BALLOONS, BalloonKind, BIZ_BY_ID, buildingCost, buildingMult, Business, BUSINESSES,
+  Addon, addonsFor, allMilestonesReached, BALLOONS, BEYOND_HOMES, WOOD_HOMES, BalloonKind, BIZ_BY_ID, buildingCost, buildingMult, Business, BUSINESSES,
   COMB_BONUS, COMB_DIVISOR, lookName, lookOf, milestonesReached, MIN_CYCLE, nextAllMilestone, nextMilestone,
   ArtifactKind, artifactBonus, COMB_UPGRADE_BY_ID, COMB_UPGRADES, CombKind, combUpgradeCost, combUpgradeValue, JointId, jointBonus, POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
 } from './catalog';
@@ -19,6 +19,7 @@ export type GameState = {
   runEarned: number;
   allTimeEarned: number;
   combsFromNaps: number;
+  napBase: number; // how much of your all-time honey's nap combs (before Dream Deeper) you've already napped for
   combsBonus: number;
   combsSpent: number; // Golden Honeycombs spent in the Comb Store (they no longer add honey)
   combStore: Record<string, number>; // Comb Store upgrades: id -> level (kept through naps)
@@ -72,6 +73,7 @@ export type Derived = {
   balloonRate: number;
   balloonPower: number;
   allMilestoneNext: number;
+  beyondMilestoneNext: number;
   critChance: number;
   autoTaps: number; // taps per second from Bouncy Helper
   frenzyMult: number;
@@ -104,7 +106,7 @@ export function newGame(now: number): GameState {
   for (const b of BUSINESSES) biz[b.id] = freshBiz();
   biz.beetree.owned = 1;
   return {
-    v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, combsSpent: 0, combStore: {}, variety: 0,
+    v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, napBase: 0, combsBonus: 0, combsSpent: 0, combStore: {}, variety: 0,
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
     trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
     events: {}, eventsWon: [], projects: [], joint: {}, trips: {}, artifacts: {}, equipped: [], daily: { last: '', streak: 0 }, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
@@ -174,6 +176,8 @@ export function migrate(raw: any, now: number): GameState {
   s.projects = list(raw.projects);
   s.joint = obj(raw.joint);
   s.combStore = obj(raw.combStore);
+  // Saves from before Dream Deeper had napped for exactly the combs they hold from naps.
+  s.napBase = Number.isFinite(raw.napBase) ? raw.napBase : s.combsFromNaps;
   s.combsSpent = Number.isFinite(raw.combsSpent) && raw.combsSpent > 0 ? raw.combsSpent : 0;
   s.trips = obj(raw.trips);
   s.artifacts = obj(raw.artifacts);
@@ -225,14 +229,19 @@ export function buyCombUpgrade(s: GameState, id: string) {
 export const combPower = (s: GameState, polish = s.research.combs || 0) =>
   COMB_BONUS + (RESEARCH_BY_ID.combs?.per ?? 0) * polish + artifactBonus(s.equipped, 'combs');
 // A fourth root keeps naps rewarding without letting them snowball out of control.
-/** Combs your all-time honey is worth from naps, with Dream Deeper. */
-const napCombsFor = (s: GameState, honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25 * (1 + combUpgrade(s, 'dream')));
-export const napCombsAvailable = (s: GameState) => Math.max(0, napCombsFor(s, s.allTimeEarned) - s.combsFromNaps);
+/** Combs your all-time honey is worth from naps (before Dream Deeper). */
+const napBaseFor = (honey: number) => Math.floor(5 * (honey / COMB_DIVISOR) ** 0.25);
+/** The next nap's combs: those your honey has earned since the last nap, with Dream Deeper on top (it only helps combs still to come). */
+export const napCombsAvailable = (s: GameState) =>
+  Math.floor(Math.max(0, napBaseFor(s.allTimeEarned) - s.napBase) * (1 + combUpgrade(s, 'dream')));
 
 /** All-time honey needed before the next nap comb unlocks. */
 export function nextCombAt(s: GameState) {
-  const next = napCombsFor(s, s.allTimeEarned) + 1;
-  return (next / 5 / (1 + combUpgrade(s, 'dream'))) ** 4 * COMB_DIVISOR;
+  const dream = 1 + combUpgrade(s, 'dream');
+  // The fewest base combs that make one more comb than now, with Dream Deeper.
+  const have = napCombsAvailable(s);
+  const base = s.napBase + Math.ceil((have + 1) / dream);
+  return (base / 5) ** 4 * COMB_DIVISOR;
 }
 
 function bizCycle(b: Business, owned: number, speed: number) {
@@ -321,8 +330,9 @@ export function derive(s: GameState, now: number): Derived {
   const speed = 1 + researchSum(s, 'speed') + art('speed') + combUpgrade(s, 'speed');
   const combBonus = combPower(s);
 
-  const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
-  const allMult = 2 ** allMilestonesReached(minOwned);
+  const minOwned = Math.min(...WOOD_HOMES.map((b) => s.biz[b.id].owned));
+  const minBeyond = Math.min(...BEYOND_HOMES.map((b) => s.biz[b.id].owned));
+  const allMult = 2 ** (allMilestonesReached(minOwned) + allMilestonesReached(minBeyond));
   const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album)
     * projectMult(s.projects) * (1 + joint('market')) * (1 + art('honey')) * combUpgrade(s, 'honeyMult') * friendMult(s) * (season === 'summer' ? 1.1 : 1);
   const globalMult = baseMult * boostMult(s, 'profit', now);
@@ -343,7 +353,7 @@ export function derive(s: GameState, now: number): Derived {
     * (season === 'autumn' ? 1.25 : 1) * (1 + joint('hive')) * (1 + art('taps')) * (1 + combUpgrade(s, 'taps'));
   const tapValue = (tapMult * baseMult * boostMult(s, 'profit', now) + hps * tapPct) * boostMult(s, 'tap', now);
   return {
-    hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned),
+    hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned), beyondMilestoneNext: nextAllMilestone(minBeyond),
     critChance: researchSum(s, 'critChance'),
     autoTaps: researchSum(s, 'autoTap'),
     frenzyMult: BALLOONS.frenzy.mult + researchSum(s, 'frenzyPower'),
@@ -569,6 +579,7 @@ export function nap(s: GameState, now: number) {
   if (gained < 1) return 0;
   const fresh = newGame(now);
   s.combsFromNaps += gained;
+  s.napBase = Math.max(s.napBase, napBaseFor(s.allTimeEarned));
   s.honey = 0;
   s.runEarned = 0;
   s.biz = fresh.biz;
@@ -597,8 +608,19 @@ export function receiveGift(s: GameState, amount: number) {
  * make your income jump straight after a nap, long before your honey catches up).
  */
 export const runWorth = (s: GameState) => Math.max(s.honey, s.runEarned * 0.2);
-/** A Lucky Honey balloon: this share of what you're worth this run (more with balloon upgrades)… */
-export const LUCKY_SHARE = 0.05;
+/** Honey per second without any boosts running: what you steadily earn. */
+export const steadyHps = (s: GameState, now: number) => derive({ ...s, boosts: [] }, now).hps;
+/**
+ * A prize worth `share` of what you're worth this run, but never more than `minutes` of
+ * your steady income. The share keeps prizes small when your income is far ahead of your
+ * honey (just after a nap); the income cap stops prizes that come often from snowballing
+ * (a share of your honey, again and again, would grow it with no end).
+ */
+export const sharePrize = (s: GameState, now: number, share: number, minutes: number) =>
+  Math.min(runWorth(s) * share, steadyHps(s, now) * minutes * 60);
+/** A Lucky Honey balloon: this share of what you're worth this run, or this many minutes of income if that's less (both more with balloon upgrades)… */
+export const LUCKY_SHARE = 0.02;
+export const LUCKY_MINUTES = 1;
 /** …and never less than this, for a brand-new game. */
 const MIN_LUCKY = 100;
 
@@ -614,7 +636,7 @@ export function catchBalloon(s: GameState, now: number, rand = Math.random) {
   bumpEvent(s, 'balloon', now);
   const def = BALLOONS[kind];
   if (kind === 'lucky') {
-    const amount = Math.max(MIN_LUCKY, runWorth(s) * LUCKY_SHARE * d.balloonPower);
+    const amount = Math.max(MIN_LUCKY, sharePrize(s, now, LUCKY_SHARE, LUCKY_MINUTES) * d.balloonPower);
     earn(s, amount);
     return { kind, title: def.title, amount, mult: 0, secs: 0 };
   }

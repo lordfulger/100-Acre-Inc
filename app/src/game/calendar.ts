@@ -46,10 +46,10 @@ export function woodWeather(now: number): Weather {
   const slot = Math.floor(now / 7_200_000);
   const r = Math.abs(Math.sin(slot * 12.9898) * 43758.5453) % 1;
   switch (seasonAt(now)) {
-    case 'winter': return r < 0.45 ? 'snow' : 'clear';
-    case 'autumn': return r < 0.3 ? 'windy' : r < 0.5 ? 'rain' : 'clear';
-    case 'spring': return r < 0.3 ? 'rain' : r < 0.4 ? 'windy' : 'clear';
-    default: return r < 0.15 ? 'rain' : 'clear';
+    case 'winter': return r < 0.45 ? 'snow' : r < 0.65 ? 'cloudy' : 'clear';
+    case 'autumn': return r < 0.3 ? 'windy' : r < 0.5 ? 'rain' : r < 0.65 ? 'cloudy' : 'clear';
+    case 'spring': return r < 0.3 ? 'rain' : r < 0.4 ? 'windy' : r < 0.55 ? 'cloudy' : 'clear';
+    default: return r < 0.15 ? 'rain' : r < 0.25 ? 'cloudy' : 'clear';
   }
 }
 

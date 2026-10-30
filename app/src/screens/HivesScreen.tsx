@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Business, BUSINESSES, varietyAt } from '../game/catalog';
+import { Business, BUSINESSES, varietyAt, BEYOND_HOMES } from '../game/catalog';
 import { buyBiz, BuyMode, cycleProgress, hireManager, managerCost, quote, startCycle } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
@@ -113,7 +113,12 @@ export function HivesScreen() {
         {(
 
           <Text style={styles.more}>
-            ⭐ Own {next} of every business for ×2 all honey{next === 25 ? '' : ' again'}.
+            ⭐ Own {next} of every home in the Hundred Acre Wood for ×2 all honey{next === 25 ? '' : ' again'}.
+          </Text>
+        )}
+        {BEYOND_HOMES.some((b) => s.biz[b.id].owned > 0) && (
+          <Text style={styles.more}>
+            🧭 Own {d.beyondMilestoneNext} of every home Beyond the Wood for another ×2{d.beyondMilestoneNext === 25 ? '' : ' again'}.
           </Text>
         )}
       </ScrollView>

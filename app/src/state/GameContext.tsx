@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, tick, totalCombs } from '../game/engine';
+import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, steadyHps, tick, totalCombs } from '../game/engine';
 import { fmt } from '../game/format';
 import { checkAlbum } from '../game/album';
 import { bumpEvent } from '../game/calendar';
@@ -296,7 +296,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const d = derive(s, Date.now());
     client.send({
       t: 'stats',
-      stats: { hps: d.hps, honey: s.honey, allTime: s.allTimeEarned, combs: totalCombs(s), variety: s.variety, naps: s.stats.naps, cards: s.album.length, trophies: s.trophies.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s), bests: bestScores(s) },
+      stats: { hps: d.hps, steady: steadyHps(s, Date.now()), honey: s.honey, allTime: s.allTimeEarned, combs: totalCombs(s), variety: s.variety, naps: s.stats.naps, cards: s.album.length, trophies: s.trophies.length, name: s.profile.name, avatar: s.profile.avatar, buildings: mapView(s), bests: bestScores(s) },
     });
   }, [client]);
 
@@ -362,6 +362,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           toast(`🏆 ${m.name}: +${m.combs} Golden Honeycombs${m.boost ? ` and ×${m.boost.mult} honey!` : ''}`);
           save();
           break;
+        case 'giftWaits': setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) })); break;
         case 'giftSent':
           setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) }));
           // Paid for once the server has it, so a dropped connection can't lose the honey.
@@ -442,6 +443,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           break;
         case 'error':
           if (m.giftWaits) setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) }));
+          // A refused gift or letter: the honey held back for it is free again.
+          if (m.asked) giftsPending.current = Math.max(0, giftsPending.current - (Number(m.asked) || 0));
           if (client.status !== 'online') {
             client.close();
             setNet((n) => ({ ...n, error: m.text }));
@@ -490,7 +493,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const localWeatherOn = ready && !!sRef.current?.settings.localWeather;
   useEffect(() => {
     if (!localWeatherOn) { stopLocalWeather(); return; }
+    let off = false;
     const check = () => refreshLocalWeather(false).then((r) => {
+      // Turned off while the weather was on its way: don't show it.
+      if (off) { stopLocalWeather(); return; }
       if (r === 'denied') {
         sRef.current!.settings = { ...sRef.current!.settings, localWeather: false };
         rerender();
@@ -499,7 +505,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     check();
     const id = setInterval(check, 30 * 60_000);
     const sub = AppState.addEventListener('change', (state) => { if (state === 'active') check(); });
-    return () => { clearInterval(id); sub.remove(); };
+    return () => { off = true; clearInterval(id); sub.remove(); };
   }, [localWeatherOn, rerender]);
 
   // ---------- cloud save (Google) ----------
@@ -653,6 +659,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     fresh.trophies = [...s.trophies];
     fresh.newsSeen = s.newsSeen;
     fresh.blocked = [...s.blocked];
+    // The wood's projects and joint buildings belong to the wood, not this run.
+    fresh.projects = [...s.projects];
+    fresh.joint = { ...s.joint };
     sRef.current = fresh;
     save();
     setWelcomeBack(null);

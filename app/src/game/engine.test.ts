@@ -11,7 +11,7 @@ import { fmt, fmtTime } from './format';
 import { ALBUM, checkAlbum } from './album';
 import { activeEvent, seasonAt, setLiveWeather, weatherAt, weatherFromCode, woodWeather } from './calendar';
 import { buyDecor, checkTrophies, findThing, finishGame, gameOpen, gameReady, INTERIOR_NAPS, placeDecor, talk, thankVisitor, visitorToday } from './extras';
-import { addBoost, buyCombUpgrade, catchBalloon, combPower, napCombsAvailable, nextCombAt, totalCombs } from './engine';
+import { addBoost, buyCombUpgrade, catchBalloon, combPower, nextCombAt, steadyHps } from './engine';
 import { claimDaily, collectTrip, combine, dailyGift, equip, explorerOpen, explorerState, startTrip, tripHours } from './trips';
 import { readArtifact } from './catalog';
 import { dayKey } from './extras';
@@ -239,7 +239,9 @@ function shop(s: GameState, t: number) {
   s.honey = 1e12;
   s.runEarned = 5e12;
   addBoost(s, 'profit', 7, 600, 'Bee Frenzy', day(10, 29));
-  assert.equal(thankVisitor(s, day(10, 29)), 1e12 * 0.05, 'a visitor pays 5% of your honey, boosts or not');
+  // 5% of your honey or 30 minutes of steady income (boosts left out), whichever is less.
+  const steady = steadyHps(s, day(10, 29));
+  assert.equal(thankVisitor(s, day(10, 29)), Math.max(100, Math.min(1e12 * 0.05, steady * 1800)), 'a visitor: 5% of your honey or 30 minutes of income');
   assert.equal(thankVisitor(s, day(10, 29)), 0, 'once a day');
   assert.ok(!visitorToday(s, day(10, 30)).done, 'a new visitor tomorrow');
 
@@ -253,14 +255,20 @@ function shop(s: GameState, t: number) {
   // honey in the millions and a big income, a top score pays 2% of the honey you have.
   s.honey = 3e6; s.runEarned = 4e6;
   addBoost(s, 'profit', 7, 3600, 'Bee Frenzy', day(10, 29, 14));
-  assert.equal(finishGame(s, 'tracks', 99, day(10, 29, 14)).honey, 3e6 * 0.02);
+  const inc = steadyHps(s, day(10, 29, 14));
+  assert.equal(finishGame(s, 'tracks', 99, day(10, 29, 14)).honey, Math.max(100, Math.min(3e6 * 0.02, inc * 300)), 'a top score: 2% of your honey or 5 minutes of income');
   const had = s.honey;
-  assert.equal(finishGame(s, 'stretch', 1, day(10, 29, 14)).honey, had * 0.02 * (40 / 600), 'smaller scores, smaller shares');
+  assert.equal(finishGame(s, 'stretch', 1, day(10, 29, 14)).honey, Math.max(100, Math.min(had * 0.02, inc * 300) * (40 / 600)), 'smaller scores, smaller shares');
   // A Lucky Honey balloon pays 5% of what you're worth this run, not minutes of income.
   s.honey = 3.4e11; s.runEarned = 5e11;
   const lucky = catchBalloon(s, day(10, 29, 16), () => 0);
   assert.equal(lucky.kind, 'lucky');
-  assert.ok(Math.abs(lucky.amount - 3.4e11 * 0.05 * derive(s, day(10, 29, 16)).balloonPower) < 1);
+  const power = derive(s, day(10, 29, 16)).balloonPower;
+  assert.ok(Math.abs(lucky.amount - Math.max(100, Math.min(3.4e11 * 0.02, steadyHps(s, day(10, 29, 16)) * 60) * power)) < 1, 'Lucky Honey: 2% of your honey or a minute of income');
+  // However rich you get, Lucky Honey can't outgrow your income: with a huge pile of honey it's still about a minute's worth.
+  s.honey = 1e40;
+  const rich = catchBalloon(s, day(10, 29, 16), () => 0).amount;
+  assert.ok(rich <= steadyHps(s, day(10, 29, 16)) * 60 * power + 100 + 1e-6 * rich, 'no snowballing');
   // Trips: an explorer goes, comes back when the time is up, and brings treasure home.
   const t0 = day(10, 29, 17);
   const naps = s.stats.naps;
@@ -305,8 +313,8 @@ function shop(s: GameState, t: number) {
     const plain = derive(s, t1).globalMult / (1 + combPower(s) * 10);
     assert.ok(buyCombUpgrade(s, 'queen'), 'the first level costs 2');
     assert.equal(totalCombs(s), 8, 'spent combs are gone');
-    assert.ok(Math.abs(derive(s, t1).globalMult / (plain * (1 + combPower(s) * 8)) - 1.15) < 1e-9, "the Queen Bee's Blessing: ×1.15 honey");
-    assert.ok(buyCombUpgrade(s, 'queen') && totalCombs(s) === 4, 'the second level costs 4 (2 × 1.6, rounded up)');
+    assert.ok(Math.abs(derive(s, t1).globalMult / (plain * (1 + combPower(s) * 8)) - 1.1) < 1e-9, "the Queen Bee's Blessing: ×1.1 honey");
+    assert.ok(buyCombUpgrade(s, 'queen') && totalCombs(s) === 3, 'the second level costs 5 (2 × 2.2, rounded up)');
     assert.ok(!buyCombUpgrade(s, 'dream'), 'not enough combs');
     s.combsBonus += 1000;
     for (let i = 0; i < 25; i++) buyCombUpgrade(s, 'kit');
@@ -316,6 +324,12 @@ function shop(s: GameState, t: number) {
     const plainNap = napCombsAvailable(s);
     assert.ok(buyCombUpgrade(s, 'dream'));
     assert.ok(napCombsAvailable(s) > plainNap, 'Dream Deeper: naps give more combs');
+    // …but only combs still to come: straight after a nap there's nothing extra to collect.
+    const napped: GameState = JSON.parse(JSON.stringify(s));
+    nap(napped, t1);
+    assert.equal(napCombsAvailable(napped), 0);
+    assert.ok(buyCombUpgrade(napped, 'dream'));
+    assert.equal(napCombsAvailable(napped), 0, "Dream Deeper doesn't pay out combs already napped for");
     assert.ok(nextCombAt(s) > s.allTimeEarned, 'the next comb is still ahead');
     Object.assign(s, { combsFromNaps: keep.fromNaps, combsBonus: keep.bonus, combsSpent: keep.spent, combStore: keep.store });
   }
