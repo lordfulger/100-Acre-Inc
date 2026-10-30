@@ -971,3 +971,6 @@ export const WoodMap = React.memo(
     String(a.tints) === String(b.tints) &&
     JSON.stringify(a.view) === JSON.stringify(b.view),
 );
+
+// The drawing helpers and colours, for other drawn maps (the wood's joint map).
+export { Bees, Bunting, Glow, Grass, Hive, PineTree, Pot, Sign, Star, Tree, GOLD, HONEY, INK, LEAF, LEAF_DARK, SAND, TRUNK, WATER, WATER_EDGE };

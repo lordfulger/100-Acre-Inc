@@ -34,6 +34,8 @@ export type Contract = {
 };
 export type Project = { id: string; goal: number; progress: number; contributions: Record<string, number> };
 export type ProjectDef = { id: string; name: string; emoji: string };
+/** A joint building on the wood's shared map: its level, and the honey paid toward the next one. */
+export type JointSite = { level: number; goal: number; progress: number; contributions: Record<string, number> };
 export type Net = {
   status: NetStatus; you: string | null; room: string | null; roster: Member[]; chat: ChatMsg[];
   contract: Contract | null; contracts: ContractDef[]; tiers: number[]; error: string | null;
@@ -42,6 +44,8 @@ export type Net = {
   pushKey: string | null; pushOn: boolean;
   /** When each Expotition can be started again (it rests after it ends). */
   rests: Record<string, number>;
+  /** The wood's joint buildings. */
+  joint: Record<string, JointSite>;
 };
 export type StickPlayer = { pid: string; name: string; avatar: string };
 export type StickRace = { sticks: (StickPlayer & { q: number; time: number })[]; winner: string; seed: number };
@@ -61,9 +65,13 @@ export type CloudState = {
   conflict?: { data: any; allTime: number; honey: number; savedAt: string };
 };
 
+/** Just the levels, from the server's joint buildings. */
+const jointLevels = (joint: Record<string, JointSite> | undefined) =>
+  Object.fromEntries(Object.entries(joint || {}).map(([id, j]) => [id, Number(j?.level) || 0]));
+
 const emptyNet: Net = {
   status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null,
-  project: null, projectDef: null, built: [], pushKey: null, pushOn: false, rests: {},
+  project: null, projectDef: null, built: [], pushKey: null, pushOn: false, rests: {}, joint: {},
 };
 
 /** The online server baked into app.json (`extra.serverUrl`), if any. */
@@ -108,6 +116,8 @@ type Ctx = {
     abandonContract: () => void;
     balloon: () => void;
     donate: (amount: number) => void;
+    /** Pay honey toward a joint building's next level. */
+    giveJoint: (id: string, amount: number) => void;
     letter: (to: string, text: string, amount: number) => void;
     /** Asks the phone for permission and turns notifications on. */
     notifications: () => void;
@@ -296,8 +306,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setNet((n) => ({
             ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null,
             project: m.project || null, projectDef: m.projectDef || null, built: m.built || [],
-            pushKey: m.pushKey || null, pushOn: !!m.pushOn, rests: m.rests || {},
+            pushKey: m.pushKey || null, pushOn: !!m.pushOn, rests: m.rests || {}, joint: m.joint || {},
           }));
+          s.joint = jointLevels(m.joint);
           // Already allowed on this phone: keep the server's copy of the address fresh.
           if (m.pushKey && pushAllowed()) {
             subscribe(m.pushKey, false).then((sub) => { if (sub) client.send({ t: 'push', sub }); }).catch(() => {});
@@ -352,6 +363,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           client.close(); // no reconnecting to a wood we were asked to leave
           s.profile.room = '';
           s.projects = [];
+          s.joint = {};
           save();
           setNet(emptyNet);
           toast('🚪 You were asked to leave that wood.');
@@ -362,6 +374,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           toast('💕 Hug sent!');
           break;
         case 'pushOn': setNet((n) => ({ ...n, pushOn: true })); break;
+        case 'joint':
+          setNet((n) => ({ ...n, joint: m.joint || {} }));
+          s.joint = jointLevels(m.joint);
+          break;
+        case 'jointUp':
+          s.joint[m.id] = Math.max(Number(s.joint[m.id]) || 0, Number(m.level) || 0);
+          if (m.boost) addBoost(s, 'profit', m.boost.mult, m.boost.secs, `${m.name} level ${m.level}`, now);
+          play('fanfare');
+          toast(`${m.emoji} ${m.name} is level ${m.level}! ×${m.boost?.mult ?? 2} honey for everyone for ${Math.round((m.boost?.secs ?? 600) / 60)} min.`);
+          save();
+          break;
         case 'project': setNet((n) => ({ ...n, project: m.project, projectDef: m.projectDef, built: m.built })); break;
         case 'projectDone':
           if (!s.projects.includes(m.id)) s.projects.push(m.id);
@@ -526,6 +549,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       client.close();
       s.profile.room = '';
       s.projects = [];
+      s.joint = {};
       setNet(emptyNet);
       save();
     },
@@ -539,6 +563,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     startContract: (id) => { client.send({ t: 'startContract', id }); },
     abandonContract: () => { client.send({ t: 'abandonContract' }); },
     balloon: () => { client.send({ t: 'balloon' }); },
+    giveJoint: (id, amount) => {
+      if (!(amount > 0) || amount > s.honey - giftsPending.current) return;
+      if (client.send({ t: 'jointGive', id, amount })) giftsPending.current += amount;
+      else toast('Oh bother: not connected to the wood right now.');
+    },
     donate: (amount) => {
       if (!(amount > 0) || amount > s.honey - giftsPending.current) return;
       if (client.send({ t: 'donate', amount })) giftsPending.current += amount;

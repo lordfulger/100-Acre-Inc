@@ -8,6 +8,7 @@ import { Bar, Button, C, Card, Section } from '../ui/kit';
 import { HAND, WoodMap } from '../ui/WoodMap';
 import { Portrait } from '../ui/Portrait';
 import { Letters, NotifyCard, Projects, WoodLeaderboard } from '../ui/Together';
+import { JointMap } from '../ui/JointMap';
 
 /** A room code from an invite link (…/?wood=CODE), if the game was opened from one. */
 function invitedCode() {
@@ -171,6 +172,22 @@ const restLabel = (ms: number) => {
   return min < 60 ? `${min}m` : `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}`;
 };
 
+/** The wood's joint map: buildings everyone pays into together. */
+function OurWood() {
+  const [width, setWidth] = useState(0);
+  return (
+    <>
+      <Section title="🗺️ Our Wood" />
+      <Card>
+        <Text style={[styles.small, { marginBottom: 8 }]}>Everyone in the wood builds these together. Levels cost a lot more than your own homes, but every level helps everyone, for good.</Text>
+        <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+          {width > 0 && <JointMap width={width} />}
+        </View>
+      </Card>
+    </>
+  );
+}
+
 function Expotitions() {
   const { net, wood, now } = useGame();
   const c = net.contract;
@@ -288,6 +305,7 @@ export function WoodScreen() {
           {others.map((m) => <MemberCard key={m.id} m={m} me={false} onVisit={() => setVisiting(m.id)} />)}
           {me && <MemberCard m={me} me onVisit={() => {}} />}
           <WoodLeaderboard />
+          <OurWood />
           <Projects />
           <Expotitions />
           <Letters />

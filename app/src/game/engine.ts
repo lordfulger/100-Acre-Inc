@@ -4,7 +4,7 @@
 import {
   Addon, addonsFor, allMilestonesReached, BALLOONS, BalloonKind, BIZ_BY_ID, buildingCost, buildingMult, Business, BUSINESSES,
   COMB_BONUS, COMB_DIVISOR, lookName, lookOf, milestonesReached, MIN_CYCLE, nextAllMilestone, nextMilestone,
-  POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
+  JointId, jointBonus, POOH_HOUSE, poohCost, poohTapMult, RESEARCH, RESEARCH_BY_ID, researchCost, ResearchKind, varietyAt,
 } from './catalog';
 import { ALBUM_BY_ID, albumMult } from './album';
 import { bumpEvent, projectMult, seasonAt } from './calendar';
@@ -37,6 +37,7 @@ export type GameState = {
   events: Record<string, number>; // holiday event progress, per event and year
   eventsWon: string[];
   projects: string[]; // shared projects finished in your wood (each adds honey)
+  joint: Record<string, number>; // your wood's joint buildings: id -> level (each level helps everyone)
   letters: Letter[];
   newsSeen: number; // the newest "What's new" note already shown
   secrets: string[]; // map secrets found
@@ -99,7 +100,7 @@ export function newGame(now: number): GameState {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, combsBonus: 0, variety: 0,
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
     trophies: [], decor: [], rooms: {}, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
-    events: {}, eventsWon: [], projects: [], letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
+    events: {}, eventsWon: [], projects: [], joint: {}, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
     settings: { music: true, sfx: true, voices: true }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0 },
     profile: { name: '', avatar: '🐻', secret: randomSecret(), room: '', server: '' },
@@ -164,6 +165,7 @@ export function migrate(raw: any, now: number): GameState {
   s.decor = list(raw.decor);
   s.eventsWon = list(raw.eventsWon);
   s.projects = list(raw.projects);
+  s.joint = obj(raw.joint);
   s.rooms = obj(raw.rooms);
   s.friends = obj(raw.friends);
   s.games = obj(raw.games);
@@ -270,6 +272,11 @@ export function derive(s: GameState, now: number): Derived {
   const season = seasonAt(now);
   if (season === 'spring') balloonRate += 0.25;
   if (season === 'winter') offlineHours += 2;
+  // Your wood's joint buildings.
+  const joint = (id: JointId) => jointBonus(id, Number(s.joint[id]) || 0);
+  offlineHours += joint('lantern');
+  balloonRate += joint('field');
+  balloonPower += joint('field');
 
   const speed = 1 + researchSum(s, 'speed');
   const combBonus = COMB_BONUS + researchSum(s, 'combPower');
@@ -277,7 +284,7 @@ export function derive(s: GameState, now: number): Derived {
   const minOwned = Math.min(...BUSINESSES.map((b) => s.biz[b.id].owned));
   const allMult = 2 ** allMilestonesReached(minOwned);
   const baseMult = varietyAt(s.variety).mult * (1 + combBonus * totalCombs(s)) * globalUpg * allMult * albumMult(s.album)
-    * projectMult(s.projects) * friendMult(s) * (season === 'summer' ? 1.1 : 1);
+    * projectMult(s.projects) * (1 + joint('market')) * friendMult(s) * (season === 'summer' ? 1.1 : 1);
   const globalMult = baseMult * boostMult(s, 'profit', now);
 
   const biz: Record<string, BizInfo> = {};
@@ -293,7 +300,7 @@ export function derive(s: GameState, now: number): Derived {
   }
 
   const tapMult = poohTapMult(s.levels.pooh || 0) * addonMult(s, POOH_HOUSE.id, 'taps') * cosyMult(s, POOH_HOUSE.id)
-    * (season === 'autumn' ? 1.25 : 1);
+    * (season === 'autumn' ? 1.25 : 1) * (1 + joint('hive'));
   const tapValue = (tapMult * baseMult * boostMult(s, 'profit', now) + hps * tapPct) * boostMult(s, 'tap', now);
   return {
     hps, tapValue, globalMult, biz, offlineHours, balloonRate, balloonPower, allMilestoneNext: nextAllMilestone(minOwned),

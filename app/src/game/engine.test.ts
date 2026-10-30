@@ -253,6 +253,14 @@ function shop(s: GameState, t: number) {
   assert.equal(finishGame(s, 'tracks', 99, day(10, 29, 14)).honey, 3e6 * 0.02);
   const had = s.honey;
   assert.equal(finishGame(s, 'stretch', 1, day(10, 29, 14)).honey, had * 0.02 * (40 / 600), 'smaller scores, smaller shares');
+  // The wood's joint buildings help everyone in it, more with every level.
+  const plain = derive(s, day(10, 29, 15));
+  s.joint = { market: 2, hive: 3, lantern: 4, field: 1 };
+  const helped = derive(s, day(10, 29, 15));
+  assert.ok(Math.abs(helped.globalMult / plain.globalMult - 1.1) < 1e-9, 'Honey Market: +5% honey a level');
+  assert.equal(helped.offlineHours - plain.offlineHours, 2, 'Lantern Tree: +half an hour away a level');
+  assert.ok(Math.abs(helped.balloonRate - plain.balloonRate - 0.05) < 1e-9, 'Balloon Field: balloons more often');
+  s.joint = {};
   // Any finished game rests, even with no score; locked homes have no game.
   finishGame(s, 'garden', 0, day(10, 29, 13));
   assert.ok(!gameReady(s, 'garden', day(10, 29, 13) + 29 * 60_000) && gameReady(s, 'garden', day(10, 29, 13) + 30 * 60_000));

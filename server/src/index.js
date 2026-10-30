@@ -44,6 +44,22 @@ export const PROJECTS = [
   { id: 'pot', name: 'The Really Big Honey Pot', emoji: '🍯', goalSeconds: 24 * 3600, minGoal: 1e8 },
   { id: 'pole', name: 'A Proper North Pole Sign', emoji: '🪧', goalSeconds: 48 * 3600, minGoal: 1e9 },
 ];
+// The joint map: buildings in the middle of the wood that everyone in it pays into,
+// level after level with no top level. A level's cost is `hours` of the whole wood's
+// honey per second (fixed when the level starts), 25% more each level. Every level
+// gives everyone a bonus for good (the bonuses live in the app: JOINT in catalog.ts),
+// and everyone gets a celebration boost when one goes up.
+export const JOINT = [
+  { id: 'market', name: 'The Honey Market', emoji: '🏪', hours: 8, minGoal: 1e6 },
+  { id: 'hive', name: 'The Great Hive', emoji: '🐝', hours: 4, minGoal: 5e5 },
+  { id: 'field', name: 'The Balloon Field', emoji: '🎈', hours: 4, minGoal: 5e5 },
+  { id: 'fair', name: 'The Fairground', emoji: '🎡', hours: 5, minGoal: 5e5 },
+  { id: 'lantern', name: 'The Lantern Tree', emoji: '🏮', hours: 6, minGoal: 8e5 },
+];
+const JOINT_GROWTH = 1.25;
+// Every level up: ×2 honey for 10 minutes; every 5th level: ×3 for 30.
+const jointBoost = (level) => (level % 5 === 0 ? { mult: 3, secs: 30 * 60 } : { mult: 2, secs: 10 * 60 });
+
 export function projectDef(n) {
   if (n < PROJECTS.length) return PROJECTS[n];
   const k = n - PROJECTS.length + 1;
@@ -326,6 +342,40 @@ function donate(room, pid, amount) {
   broadcast(room, { t: 'project', ...projectInfo(room) });
 }
 
+// ---------- the joint map ----------
+
+/** One joint building, with the goal for its next level set from the wood's honey now if it isn't yet. */
+function jointSite(room, def) {
+  room.joint ||= {};
+  const j = (room.joint[def.id] ||= { level: 0, goal: 0, progress: 0, contributions: {} });
+  if (!j.goal) {
+    const grow = JOINT_GROWTH ** j.level;
+    j.goal = Math.round(Math.max(def.minGoal, roomHps(room) * def.hours * 3600) * grow);
+    markDirty();
+  }
+  return j;
+}
+const jointInfo = (room) => ({ joint: Object.fromEntries(JOINT.map((def) => [def.id, jointSite(room, def)])) });
+
+function giveJoint(room, pid, def, amount) {
+  const j = jointSite(room, def);
+  j.progress += amount;
+  j.contributions[pid] = (j.contributions[pid] || 0) + amount;
+  if (j.progress >= j.goal) {
+    j.level++;
+    Object.assign(j, { goal: 0, progress: 0, contributions: {} });
+    jointSite(room, def);
+    const boost = jointBoost(j.level);
+    for (const member of Object.keys(room.members)) sendTo(room, member, { t: 'jointUp', id: def.id, level: j.level, name: def.name, emoji: def.emoji, boost }, { queue: true });
+    system(room, `${def.emoji} ${def.name} is now level ${j.level}! Everyone gets ×${boost.mult} honey for ${boost.secs / 60} min.`);
+    if (j.level % 5 === 0) {
+      for (const member of Object.keys(room.members)) notify(room, member, `${def.emoji} ${def.name} reached level ${j.level}!`, `×${boost.mult} honey for everyone for ${boost.secs / 60} minutes.`, 'joint');
+    }
+  }
+  markDirty();
+  broadcast(room, { t: 'joint', ...jointInfo(room) });
+}
+
 // ---------- Poohsticks ----------
 
 // Races live only in memory: an invite, both players drop their sticks, then the
@@ -453,7 +503,7 @@ wss.on('connection', (ws) => {
       sockets.get(key).add(ws);
       markDirty();
 
-      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, rests: r.rests || {}, ...projectInfo(r), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
+      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, rests: r.rests || {}, ...projectInfo(r), ...jointInfo(r), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
       for (const [raceId, race] of races) {
         if (race.room === r && race.b === id && race.phase === 'invited') {
           const from = r.members[race.a];
@@ -544,6 +594,14 @@ wss.on('connection', (ws) => {
         if (!amount) return;
         send(ws, { t: 'donated', amount });
         donate(room, pid, amount);
+        break;
+      }
+      case 'jointGive': {
+        const def = JOINT.find((d) => d.id === msg.id);
+        const amount = num(Number(msg.amount));
+        if (!def || !amount) return;
+        send(ws, { t: 'donated', amount });
+        giveJoint(room, pid, def, amount);
         break;
       }
       case 'letter': {

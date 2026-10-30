@@ -37,6 +37,16 @@ export const NEWS: News[] = [
       ['🚫', 'Block', "Under More on someone's card. You won't see their chat or get anything from them."],
     ],
   },
+  {
+    v: 4,
+    title: 'Our Wood',
+    items: [
+      ['🗺️', 'A map you share', "Every wood now has its own map on the Friends tab, with five buildings everyone pays into: the Honey Market, the Great Hive, the Balloon Field, the Fairground and the Lantern Tree."],
+      ['⬆️', 'Endless levels', 'Each level costs a lot, but helps everyone in the wood for good: more honey, stronger taps, more balloons, bigger prizes, or longer earning while you are away.'],
+      ['🎉', 'Celebrations', 'When a building goes up a level, everyone gets ×2 honey for 10 minutes (×3 for 30 minutes every 5th level).'],
+      ['🏆', 'Leaderboards and high scores', 'See who leads the wood on the Friends tab, and every game\'s high scores on the Games tab.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;

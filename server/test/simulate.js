@@ -90,6 +90,20 @@ try {
   await a.wait((m) => m.t === 'error' && /resting/.test(m.text));
   console.log('✓ co-op Expotition completes and rewards both players');
 
+  // The joint map: everyone pays into a building's next level; when it goes up, everyone
+  // gets a boost, and the next level costs 25% more.
+  const market = wa.joint.market;
+  assert.equal(market.level, 0);
+  a.send({ t: 'jointGive', id: 'market', amount: market.goal / 2 });
+  b.send({ t: 'jointGive', id: 'market', amount: market.goal / 2 });
+  const up = await b.wait((m) => m.t === 'jointUp' && m.id === 'market');
+  assert.deepEqual([up.level, up.boost.mult], [1, 2]);
+  const levelled = await a.wait((m) => m.t === 'joint' && m.joint.market.level === 1);
+  assert.equal(levelled.joint.market.progress, 0);
+  assert.ok(levelled.joint.market.goal >= market.goal * 1.25 - 1, 'the next level costs more');
+  a.send({ t: 'jointGive', id: 'nope', amount: 5 });
+  console.log('✓ joint buildings levelled up together');
+
   // Shared projects: honey donated by both builds them, then the next one starts.
   assert.equal(wa.project.id, 'eeyore');
   a.send({ t: 'donate', amount: wa.project.goal / 2 });

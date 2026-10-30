@@ -248,6 +248,23 @@ export const QUICK_PHRASES = [
   'Thank you for the honey! 💛', 'I caught a balloon! 🎈', 'Bouncy bouncy! 🐯', "You're the best! 💛", 'Night night 😴',
 ];
 
+// ---------- the joint map (shared by everyone in a wood) ----------
+
+// Buildings everyone in a wood pays into together, with no top level. Levels are
+// much dearer than your own homes (the server sets each one from the whole wood's
+// honey per second), and every level gives everyone in the wood a bonus for good.
+export type JointId = 'market' | 'hive' | 'field' | 'fair' | 'lantern';
+export const JOINT: { id: JointId; name: string; emoji: string; per: number; perk: (bonus: number) => string }[] = [
+  { id: 'market', name: 'The Honey Market', emoji: '🏪', per: 0.05, perk: (b) => `+${Math.round(b * 100)}% honey` },
+  { id: 'hive', name: 'The Great Hive', emoji: '🐝', per: 0.1, perk: (b) => `+${Math.round(b * 100)}% tap power` },
+  { id: 'field', name: 'The Balloon Field', emoji: '🎈', per: 0.05, perk: (b) => `balloons +${Math.round(b * 100)}% more often and stronger` },
+  { id: 'fair', name: 'The Fairground', emoji: '🎡', per: 0.05, perk: (b) => `+${Math.round(b * 100)}% prizes from games, secrets and visitors` },
+  { id: 'lantern', name: 'The Lantern Tree', emoji: '🏮', per: 0.5, perk: (b) => `+${b} hours of honey while you're away` },
+];
+export const JOINT_BY_ID = Object.fromEntries(JOINT.map((j) => [j.id, j])) as Record<JointId, (typeof JOINT)[number]>;
+/** The bonus a joint building gives everyone at this level. */
+export const jointBonus = (id: JointId, level: number) => JOINT_BY_ID[id].per * level;
+
 // ---------- the map (endless levels) ----------
 
 // Every home can be upgraded forever. Each level costs a bit more than the last
