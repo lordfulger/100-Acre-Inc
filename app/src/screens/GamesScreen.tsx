@@ -155,7 +155,7 @@ function HighScores() {
             <Text style={styles.rank}>{GAMES[id].emoji}</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.boardName} numberOfLines={1}>{GAMES[id].name}</Text>
-              <Text style={styles.small}>{top.me ? '🥇 You lead!' : `🥇 ${top.name} ${top.score}`}</Text>
+              <Text style={styles.small}>{top.me ? '🥇 You lead!' : `🥇 ${top.name}: ${top.score}`}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.boardScore}>{mine || '–'}</Text>
