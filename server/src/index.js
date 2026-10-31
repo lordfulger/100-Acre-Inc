@@ -213,6 +213,15 @@ function cleanBuildings(b) {
     managed: pick(b.managed, (v) => v === true),
     addons: Array.isArray(b.addons) ? b.addons.filter((a) => /^[a-z]{2,12}:[0-9]$/.test(a)).slice(0, 240) : [],
     rooms: pick(b.rooms, (v) => (Array.isArray(v) ? v.filter((d) => /^[a-z]{2,12}$/.test(d)).slice(0, 6) : [])),
+    doors: Array.isArray(b.doors) ? b.doors.filter((d) => /^[a-z]{2,12}$/.test(d)).slice(0, 30) : [],
+    // Where each decoration stands: numbers between 0 and 1 only.
+    roomSpots: pick(b.roomSpots, (spots) => {
+      const out = {};
+      for (const [d, xy] of Object.entries(spots || {}).slice(0, 6)) {
+        if (/^[a-z]{2,12}$/.test(d) && Array.isArray(xy) && xy.length === 2 && xy.every((n) => Number.isFinite(n) && n >= 0 && n <= 1)) out[d] = [xy[0], xy[1]];
+      }
+      return out;
+    }),
   };
 }
 const publicId = (secret) => createHash('sha256').update(String(secret)).digest('hex').slice(0, 12);
@@ -307,8 +316,8 @@ function contribute(room, pid, amount) {
     const reward = { t: 'reward', contractId: c.id, tier, combs: def.combs[tier], boost: final ? boost : null, name: def.name };
     for (const member of Object.keys(room.members)) sendTo(room, member, reward, { queue: true });
     system(room, final
-      ? `🏆 "${def.name}" complete! Everyone gets ${def.combs[tier]} Golden Honeycombs and ×${boost.mult} honey for ${boost.secs / 60} min!`
-      : `⭐ Tier ${tier + 1} of "${def.name}" reached! +${def.combs[tier]} Golden Honeycombs each.`);
+      ? `🏆 "${def.name}" complete! Everyone gets Golden Honeycombs (${def.combs[tier]}% of what their run is worth) and ×${boost.mult} honey for ${boost.secs / 60} min!`
+      : `⭐ Tier ${tier + 1} of "${def.name}" reached! Golden Honeycombs for everyone: ${def.combs[tier]}% of what their run is worth.`);
     if (final) {
       endContract(room, 'complete');
       for (const member of Object.keys(room.members)) notify(room, member, `🏆 ${def.name} complete!`, 'Golden Honeycombs and double honey for everyone.', 'expo');
@@ -754,6 +763,27 @@ wss.on('connection', (ws) => {
         markDirty();
         broadcast(room, { t: 'roster', roster: roster(room) });
         system(room, `${name} has left the wood.`);
+        break;
+      }
+      case 'challenge': {
+        // "Beat my score": sent to a friend, waiting for them if they're away.
+        const to = String(msg.to || '');
+        const game = String(msg.game || '');
+        const score = Math.min(1e6, num(Number(msg.score)));
+        if (!room.members[to] || to === pid || !/^[a-z]{2,12}$/.test(game) || !score) return;
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        sendTo(room, to, { t: 'challenge', challenge: { id, from: pid, name: me.name, avatar: me.avatar, game, score, at: Date.now() } }, { queue: true });
+        notify(room, to, `⚔️ ${me.name} challenges you!`, `Can you beat ${score}? It's in your Games tab.`, `challenge-${id}`);
+        send(ws, { t: 'challengeSent', name: room.members[to].name });
+        break;
+      }
+      case 'challengeResult': {
+        const to = String(msg.to || '');
+        if (!room.members[to] || to === pid) return;
+        const score = Math.min(1e6, num(Number(msg.score)));
+        const beat = msg.beat === true;
+        sendTo(room, to, { t: 'challengeResult', from: pid, name: me.name, avatar: me.avatar, game: String(msg.game || '').slice(0, 12), theirScore: score, beat }, { queue: true });
+        system(room, beat ? `⚔️ ${me.name} beat ${room.members[to].name}'s score!` : `⚔️ ${room.members[to].name}'s score held up against ${me.name}.`);
         break;
       }
       case 'leave': {

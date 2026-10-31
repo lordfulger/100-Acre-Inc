@@ -2,11 +2,11 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { addBoost, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, steadyHps, tick, totalCombs } from '../game/engine';
+import { addBoost, Challenge, groupRewardCombs, applyOffline, derive, Derived, GameState, mapView, MapView, migrate, newGame, receiveGift, steadyHps, tick, totalCombs } from '../game/engine';
 import { fmt } from '../game/format';
 import { checkAlbum } from '../game/album';
 import { bumpEvent } from '../game/calendar';
-import { bestScores, checkDecor, checkTrophies, finishGame, anyDoorOpen } from '../game/extras';
+import { bestScores, checkDecor, checkTrophies, finishGame, anyDoorOpen, winChallenge } from '../game/extras';
 import { applySoundSettings, play, setAppActive } from '../audio/sound';
 import { say } from '../audio/voices';
 import * as Cloud from '../net/cloud';
@@ -135,6 +135,10 @@ type Ctx = {
     letter: (to: string, text: string, amount: number) => void;
     /** Asks the phone for permission and turns notifications on. */
     notifications: () => void;
+    /** Send a friend your score in a minigame to beat. */
+    challenge: (to: string, game: string, score: number) => void;
+    /** Tell the challenger how it went, and clear the challenge. */
+    challengeDone: (c: Challenge, score: number) => void;
     /** Ignore (or stop ignoring) someone: their chat, hugs, gifts, letters and challenges. */
     block: (id: string, on: boolean) => void;
     /** For whoever looks after the wood: ask someone to leave for good, or hand the wood over. */
@@ -362,9 +366,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           break;
         case 'reward':
           play('fanfare');
-          s.combsBonus += m.combs;
+          // The server's number is a percent of what this player's current run is worth.
+          const got = groupRewardCombs(s, Number(m.combs) || 0);
+          s.combsBonus += got;
           if (m.boost) { addBoost(s, 'profit', m.boost.mult, m.boost.secs, m.name, now); s.stats.expos++; }
-          toast(`🏆 ${m.name}: +${m.combs} Golden Honeycombs${m.boost ? ` and ×${m.boost.mult} honey!` : ''}`);
+          toast(`🏆 ${m.name}: +${fmt(got)} Golden Honeycombs${m.boost ? ` and ×${m.boost.mult} honey!` : ''}`);
           save();
           break;
         case 'giftWaits': setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) })); break;
@@ -386,6 +392,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           save();
           setNet(emptyNet);
           toast('🚪 You were asked to leave that wood.');
+          break;
+        case 'challenge': {
+          const c = m.challenge as Challenge;
+          if (!c || s.challenges.some((x) => x.id === c.id)) break;
+          s.challenges = [c, ...s.challenges].slice(0, 10);
+          play('pop');
+          toast(`⚔️ ${c.avatar} ${c.name} challenges you to beat ${fmt(c.score)}! See the Games tab.`);
+          save();
+          break;
+        }
+        case 'challengeSent': toast(`⚔️ Challenge sent to ${m.name}!`); break;
+        case 'challengeResult':
+          if (m.beat) toast(`⚔️ ${m.avatar} ${m.name} beat your score with ${fmt(m.theirScore)}!`);
+          else {
+            const honey = winChallenge(s, now);
+            play('fanfare');
+            toast(`⚔️ Your score held up against ${m.avatar} ${m.name}! +${fmt(honey)} honey`);
+            save();
+          }
           break;
         case 'hugSent':
           s.stats.hugsSent++;
@@ -617,6 +642,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (!(amount > 0) || amount > s.honey - giftsPending.current) return;
       if (client.send({ t: 'donate', amount })) giftsPending.current += amount;
       else toast('Oh bother: not connected to the wood right now.');
+    },
+    challenge: (to, game, score) => {
+      if (!client.send({ t: 'challenge', to, game, score })) toast('Oh bother: not connected to the wood right now.');
+    },
+    challengeDone: (c, score) => {
+      const beat = score > c.score;
+      act((g, t) => {
+        g.challenges = g.challenges.filter((x) => x.id !== c.id);
+        if (beat) winChallenge(g, t);
+      });
+      save();
+      client.send({ t: 'challengeResult', to: c.from, game: c.game, score, beat });
     },
     block: (id, on) => {
       act((g) => { g.blocked = on ? [...new Set([...g.blocked, id])] : g.blocked.filter((x) => x !== id); });

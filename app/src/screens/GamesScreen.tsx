@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { activeEvent, eventProgress } from '../game/calendar';
 import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
 import { finishGame, GAME_COOLDOWN_MIN, GAME_IDS, GameId, gameOpen, GAMES, gameReady, gameWait, TIMED_GAMES } from '../game/extras';
 import { HAND } from '../ui/WoodMap';
 import { fmt } from '../game/format';
 import { Net, StickRace, useGame } from '../state/GameContext';
-import { GameState } from '../game/engine';
+import { Challenge, GameState } from '../game/engine';
 import { Button, C, Card, Section } from '../ui/kit';
 import { HoneyDrip, Poohsticks, RabbitsGarden, WoozleTracks } from '../ui/Minigames';
 import { Balloons, BeeLine, Bounce, CountPots, OddOne, Pairs, River, Spelling, Stretch, Tail, Trap } from '../ui/HomeGames';
@@ -25,14 +25,23 @@ const homeName = (home: string) => (home === POOH_HOUSE.id ? POOH_HOUSE.name : B
 type Result = { score: number; honey: number; newBest: boolean; best: number };
 
 /** Runs one game full-screen and pays out when it ends. Used by the Games tab and the map. */
-export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void }) {
-  const { s, act, toast, save } = useGame();
+export function GameRunner({ id, onClose, challenge }: { id: GameId; onClose: () => void; challenge?: Challenge }) {
+  const { s, act, toast, save, wood } = useGame();
   const [soloRace, setSoloRace] = useState<StickRace | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const finished = useRef(false);
   const done = (score: number, won?: boolean) => {
     if (finished.current) return;
     finished.current = true;
+    // A friend's challenge: no rest and no regular prize; beating their score wins one instead.
+    if (challenge) {
+      const beat = score > challenge.score;
+      wood.challengeDone(challenge, score);
+      play(beat ? 'fanfare' : 'pop');
+      toast(beat ? `⚔️ You beat ${challenge.name}'s ${fmt(challenge.score)}! A honey prize for you.` : `⚔️ ${challenge.name}'s ${fmt(challenge.score)} stands this time.`);
+      setResult({ score, honey: 0, newBest: false, best: s.games[id]?.best ?? score });
+      return;
+    }
     const r = act((g, t) => finishGame(g, id, score, t, won)); save(); // straight away, so closing the app can't undo it and pay out again
     if (id === 'sticks') {
       // Poohsticks shows its own finish, so just say what was won.
@@ -44,10 +53,10 @@ export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void })
     setResult({ score, honey: r.honey, newBest: r.newBest && score > 0, best: s.games[id]?.best ?? score });
   };
   // The Games tab and the map only offer games that are unlocked and rested, but check again here.
-  const [allowed] = useState(() => gameOpen(s, id) && gameReady(s, id, Date.now()));
+  const [allowed] = useState(() => !!challenge || (gameOpen(s, id) && gameReady(s, id, Date.now())));
   useEffect(() => { if (!allowed) onClose(); }, [allowed, onClose]);
   if (!allowed) return null;
-  if (result) return <GameOver id={id} r={result} onClose={onClose} />;
+  if (result) return <GameOver id={id} r={result} challenge={challenge} onClose={onClose} />;
   const Game = SOLO[id];
   if (Game) return <Game onDone={(n) => done(n)} onQuit={onClose} />;
 
@@ -69,7 +78,7 @@ export function GameRunner({ id, onClose }: { id: GameId; onClose: () => void })
 }
 
 /** The end of a game: time's up or game over, the score, your high score, the prize, and the wood's best. */
-function GameOver({ id, r, onClose }: { id: GameId; r: Result; onClose: () => void }) {
+function GameOver({ id, r, challenge, onClose }: { id: GameId; r: Result; challenge?: Challenge; onClose: () => void }) {
   const g = GAMES[id];
   const timed = TIMED_GAMES.has(id);
   return (
@@ -82,7 +91,7 @@ function GameOver({ id, r, onClose }: { id: GameId; r: Result; onClose: () => vo
         </Text>
         <Text style={styles.overScore}>{r.score}</Text>
         <Text style={styles.small}>{g.emoji} {g.name} · High score {r.best}</Text>
-        <Text style={[styles.prize, r.honey <= 0 && { color: C.soft, fontSize: 16 }]}>{r.honey > 0 ? `+${fmt(r.honey)} honey` : 'No honey this time'}</Text>
+        <Text style={[styles.prize, r.honey <= 0 && { color: C.soft, fontSize: 16 }]}>{challenge ? (r.score > challenge.score ? `⚔️ You beat ${challenge.name}! A honey prize is yours.` : `⚔️ ${challenge.name}'s ${fmt(challenge.score)} stands this time`) : r.honey > 0 ? `+${fmt(r.honey)} honey` : 'No honey this time'}</Text>
         <Card style={{ width: '100%', marginTop: 14 }}>
           <Text style={styles.name}>🏆 High scores</Text>
           <Leaderboard id={id} />
@@ -160,8 +169,11 @@ function HighScores() {
 }
 
 export function GamesScreen() {
-  const { s, net, now, stickApi } = useGame();
+  const { s, net, now, stickApi, wood, act, save } = useGame();
   const [playing, setPlaying] = useState<GameId | null>(null);
+  const [answering, setAnswering] = useState<Challenge | null>(null);
+  // Anyone in your wood can be challenged; it waits for them if they're away.
+  const pals = net.status === 'online' ? net.roster.filter((m) => m.id !== net.you) : [];
   const [board, setBoard] = useState<GameId | null>(null);
   const event = activeEvent(now);
   // Friends in the wood, or away but with notifications on (they get a ping).
@@ -172,6 +184,22 @@ export function GamesScreen() {
       <ScrollView contentContainerStyle={styles.list}>
         <Section title="🎲 Games in the Wood" />
         <Text style={styles.note}>Every home has its own game. Each pays a honey prize, bigger for better scores, then rests for {GAME_COOLDOWN_MIN} minutes before you can play it again.</Text>
+        {s.challenges.some((c) => GAMES[c.game as GameId]) && (
+          <Card style={{ borderColor: C.pink }}>
+            <Text style={styles.name}>⚔️ Challenges</Text>
+            {s.challenges.map((c) => GAMES[c.game as GameId] && (
+              <View key={c.id} style={[styles.row, { marginTop: 8 }]}>
+                <Text style={{ flex: 1, color: C.ink, fontWeight: '700' }}>
+                  {c.avatar} {c.name}: beat {fmt(c.score)} in {GAMES[c.game as GameId].emoji} {GAMES[c.game as GameId].name}
+                </Text>
+                <Button small label="Play" onPress={() => { play('pop'); setAnswering(c); }} />
+                <Pressable onPress={() => { act((g) => { g.challenges = g.challenges.filter((x) => x.id !== c.id); }); save(); }} hitSlop={10} accessibilityLabel="Decline">
+                  <Text style={{ color: C.soft, fontWeight: '900', marginLeft: 10 }}>✕</Text>
+                </Pressable>
+              </View>
+            ))}
+          </Card>
+        )}
         <HighScores />
         {event?.kind === 'game' && !s.eventsWon.includes(event.id) && (
           <Card style={{ borderColor: C.green }}>
@@ -219,6 +247,13 @@ export function GamesScreen() {
               ) : (
                 <>
                   <Button label={ready ? 'Play' : `Ready in ${wait}m`} disabled={!ready} onPress={() => { play('pop'); setPlaying(id); }} style={{ marginTop: 8 }} />
+                  {!!s.games[id]?.best && pals.length > 0 && (
+                    <View style={styles.buttons}>
+                      {pals.map((m) => (
+                        <Button key={m.id} small outline color={C.pink} label={`⚔️ Challenge ${m.name}`} sub={`to beat ${fmt(s.games[id]!.best)}`} onPress={() => wood.challenge(m.id, id, s.games[id]!.best)} style={{ flex: 1 }} />
+                      ))}
+                    </View>
+                  )}
                   <Button small outline color={C.soft} label={board === id ? '🏆 Hide high scores' : '🏆 High scores'} onPress={() => setBoard((b) => (b === id ? null : id))} style={{ marginTop: 8 }} />
                   {board === id && <Leaderboard id={id} />}
                 </>
@@ -229,6 +264,7 @@ export function GamesScreen() {
         })}
       </ScrollView>
       {playing && <GameRunner id={playing} onClose={() => setPlaying(null)} />}
+      {answering && <GameRunner id={answering.game as GameId} challenge={answering} onClose={() => setAnswering(null)} />}
     </View>
   );
 }

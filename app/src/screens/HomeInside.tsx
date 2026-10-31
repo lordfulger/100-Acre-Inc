@@ -6,7 +6,7 @@ import { BIZ_BY_ID, POOH_HOUSE } from '../game/catalog';
 import { seasonAt, SEASONS, weatherAt } from '../game/calendar';
 import { COSY_BONUS, HEART_BONUS } from '../game/engine';
 import {
-  buyDecor, DECOR, DECOR_BY_ID, decorCost, MAX_HEARTS, moveDecor, placeDecor, placedIn, resident, ROOM_SLOTS, takeDownDecor, talk,
+  buyDecor, chatter, DECOR, DECOR_BY_ID, decorCost, MAX_HEARTS, moveDecor, placeDecor, placedIn, resident, ROOM_SLOTS, takeDownDecor, talk,
 } from '../game/extras';
 import { fmt } from '../game/format';
 import { useGame } from '../state/GameContext';
@@ -39,8 +39,8 @@ const ICON = 60;
  * A decoration standing in the room. Drag it anywhere; a quick tap (barely moving)
  * takes it down. `spot` is where its middle is, as fractions of the room's size.
  */
-function Placed({ id, w, h, spot, onMove, onTap, onDragging }: {
-  id: string; w: number; h: number; spot: [number, number];
+function Placed({ id, w, h, spot, onMove, onTap, onDragging, editable }: {
+  id: string; w: number; h: number; spot: [number, number]; editable: boolean;
   onMove: (x: number, y: number) => void; onTap: () => void; onDragging: (on: boolean) => void;
 }) {
   const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
@@ -63,6 +63,14 @@ function Placed({ id, w, h, spot, onMove, onTap, onDragging }: {
     },
     onPanResponderTerminate: () => { latest.current.onDragging(false); drag.setValue({ x: 0, y: 0 }); },
   }), [drag]);
+  // Out of edit mode it's just part of the room: nothing moves by accident.
+  if (!editable) {
+    return (
+      <View pointerEvents="none" style={[styles.placed, { left: spot[0] * w - ICON / 2, top: spot[1] * h - ICON / 2 }]}>
+        <DecorIcon id={id} size={ICON} />
+      </View>
+    );
+  }
   return (
     <Animated.View
       {...pan.panHandlers}
@@ -74,15 +82,20 @@ function Placed({ id, w, h, spot, onMove, onTap, onDragging }: {
   );
 }
 
-export function HomeInside({ id, onClose }: { id: string; onClose: () => void }) {
+/** A friend's room, for looking round when visiting their wood. */
+export type RoomVisit = { owner: string; rooms: string[]; spots: Record<string, [number, number]> };
+
+export function HomeInside({ id, onClose, visit }: { id: string; onClose: () => void; visit?: RoomVisit }) {
   const { s, act, toast, now, save } = useGame();
   const { width } = useWindowDimensions();
   const [dragging, setDragging] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const [tab, setTab] = useState<'mine' | 'store'>('mine');
   const who = resident(id);
   const name = id === POOH_HOUSE.id ? POOH_HOUSE.name : BIZ_BY_ID[id].name;
-  const room = s.rooms[id] || [];
+  const room = visit ? visit.rooms : s.rooms[id] || [];
+  const spots = visit ? visit.spots : s.roomSpots[id] || {};
   const hearts = s.friends[id]?.hearts || 0;
   const w = Math.min(width, 520) - 24;
   const h = w * 0.7;
@@ -94,6 +107,8 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
   const store = DECOR.filter((d) => d.how === 'shop' && !s.decor.includes(d.id));
 
   const chat = () => {
+    // Visiting: they chat, but friendship hearts are your own homes' business.
+    if (visit) { setLine(chatter(id)); play('pop'); say(who.portrait, 'hello'); return; }
     const r = act((g, t) => talk(g, id, t));
     setLine(r.line);
     play('pop');
@@ -104,7 +119,7 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
   return (
     <View style={styles.wrap}>
       <View style={styles.head}>
-        <Text style={styles.title} numberOfLines={1}>🚪 {name}</Text>
+        <Text style={styles.title} numberOfLines={1}>🚪 {visit ? `${visit.owner}'s ${name}` : name}</Text>
         <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Leave"><Text style={styles.close}>✕</Text></Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.list} scrollEnabled={!dragging}>
@@ -121,7 +136,8 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
           {room.map((d, i) => DECOR_BY_ID[d] && (
             <Placed
               key={d} id={d} w={w} h={h}
-              spot={s.roomSpots[id]?.[d] ?? SLOTS[i % SLOTS.length]}
+              spot={spots[d] ?? SLOTS[i % SLOTS.length]}
+              editable={!visit && editing}
               onDragging={setDragging}
               onMove={(x, y) => { if (act((g) => moveDecor(g, id, d, x, y))) save(); }}
               onTap={() => { if (act((g) => takeDownDecor(g, id, d))) { play('tick'); save(); toast(`${DECOR_BY_ID[d].emoji} Taken down. It's back in your things.`); } }}
@@ -131,14 +147,23 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
             <Portrait id={who.portrait} size={90} />
           </Pressable>
           {line && <View style={[styles.bubble, { left: w / 2 - 110, top: h * 0.08 + 56 }]}><Text style={styles.bubbleText}>{line}</Text></View>}
+          {!visit && room.length > 0 && (
+            <Pressable onPress={() => { play('tick'); setEditing((e) => !e); }} style={[styles.editBtn, editing && styles.editOn]} accessibilityRole="switch" accessibilityState={{ checked: editing }}>
+              <Text style={[styles.editText, editing && { color: 'white' }]}>{editing ? '✓ Done' : '✏️ Edit room'}</Text>
+            </Pressable>
+          )}
         </View>
 
+        {visit ? (
+          <Text style={styles.note}>You're visiting {visit.owner}'s home. Tap {who.name} to say hallo.</Text>
+        ) : (
+        <>
         <View style={styles.friendRow}>
           <Text style={styles.hearts}>{'❤️'.repeat(hearts)}{'🤍'.repeat(MAX_HEARTS - hearts)}</Text>
           <Button small label={`💬 Talk to ${who.name}`} color={C.pink} onPress={chat} />
         </View>
         <Text style={styles.note}>
-          Talk every day to grow your friendship: each heart adds +{HEART_BONUS * 100}% to all honey. Each decoration here adds +{COSY_BONUS * 100}% to this home's {id === 'pooh' ? 'taps' : 'honey'} ({room.length}/{ROOM_SLOTS} spots used). Drag them anywhere in the room; tap one to take it down.
+          Talk every day to grow your friendship: each heart adds +{HEART_BONUS * 100}% to all honey. Each decoration here adds +{COSY_BONUS * 100}% to this home's {id === 'pooh' ? 'taps' : 'honey'} ({room.length}/{ROOM_SLOTS} spots used). Tap ✏️ Edit room to drag them about or tap one to take it down.
         </Text>
 
         <View style={styles.tabs}>
@@ -182,6 +207,8 @@ export function HomeInside({ id, onClose }: { id: string; onClose: () => void })
             ))}
           </View>
         )}
+        </>
+        )}
       </ScrollView>
     </View>
   );
@@ -196,6 +223,9 @@ const styles = StyleSheet.create({
   room: { borderRadius: 18, overflow: 'hidden', borderWidth: 3, borderColor: '#8A6440', alignSelf: 'center' },
   floor: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '36%', backgroundColor: '#B98B5C', borderTopWidth: 3, borderTopColor: '#8A6440' },
   window: { position: 'absolute', top: '8%', width: 68, height: 52, borderRadius: 8, backgroundColor: '#CFE6F5', borderWidth: 3, borderColor: '#8A6440', alignItems: 'center', justifyContent: 'center' },
+  editBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,250,232,0.95)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1.5, borderColor: '#D9C48E' },
+  editOn: { backgroundColor: C.green, borderColor: C.green },
+  editText: { fontWeight: '900', color: C.ink, fontSize: 13 },
   placed: { position: 'absolute', width: ICON, height: ICON, alignItems: 'center', justifyContent: 'center' },
   resident: { position: 'absolute' },
   bubble: { position: 'absolute', width: 220, backgroundColor: 'white', borderRadius: 14, padding: 9, borderWidth: 1.5, borderColor: '#D9C48E' },

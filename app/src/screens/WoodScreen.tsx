@@ -9,6 +9,8 @@ import { HAND, WoodMap } from '../ui/WoodMap';
 import { Portrait } from '../ui/Portrait';
 import { Letters, NotifyCard, Projects, WoodLeaderboard } from '../ui/Together';
 import { JointMap } from '../ui/JointMap';
+import { HomeInside } from './HomeInside';
+import { play } from '../audio/sound';
 
 /** A room code from an invite link (…/?wood=CODE), if the game was opened from one. */
 function invitedCode() {
@@ -158,7 +160,7 @@ function ContractCard({ c, def }: { c: Contract; def: ContractDef }) {
       <View style={styles.tiers}>
         {def.combs.map((n, i) => (
           <Text key={i} style={[styles.tier, i < c.tiersReached && { color: C.green }]}>
-            {i < c.tiersReached ? '✅' : '⭐'} {Math.round((net.tiers[i] || 0) * 100)}%: +{n} ✨
+            {i < c.tiersReached ? '✅' : '⭐'} {Math.round((net.tiers[i] || 0) * 100)}%: +{n}% ✨
           </Text>
         ))}
       </View>
@@ -216,7 +218,7 @@ function Expotitions() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.memberName}>{x.name}</Text>
                 <Text style={styles.small}>
-                  {span(x.minutes)} · up to {x.combs.reduce((a, b) => a + b, 0)} ✨ each · finish: ×{x.boost?.mult ?? 2} for {span((x.boost?.secs ?? 1200) / 60)}
+                  {span(x.minutes)} · up to {x.combs.reduce((a, b) => a + b, 0)}% of your run in ✨ · finish: ×{x.boost?.mult ?? 2} for {span((x.boost?.secs ?? 1200) / 60)}
                 </Text>
               </View>
               {(net.rests[x.id] || 0) > now
@@ -271,7 +273,14 @@ function Chat() {
 
 function Visit({ m, onClose }: { m: Member; onClose: () => void }) {
   const { width } = useWindowDimensions();
+  const { toast } = useGame();
+  const [inside, setInside] = useState<string | null>(null);
   const view = m.stats.buildings!;
+  // Tap a home whose door they've opened to look round inside.
+  const enter = (id: string) => {
+    if (view.doors?.includes(id)) { play('pop'); setInside(id); }
+    else toast(`🚪 ${m.name} hasn't opened that door yet.`);
+  };
   return (
     <View style={styles.visit}>
       <View style={styles.visitHead}>
@@ -279,8 +288,15 @@ function Visit({ m, onClose }: { m: Member; onClose: () => void }) {
         <Pressable onPress={onClose} hitSlop={12}><Text style={styles.visitClose}>✕</Text></Pressable>
       </View>
       <ScrollView>
-        <WoodMap view={{ owned: view.owned || {}, levels: view.levels || {}, managed: view.managed || {} }} width={Math.min(width, 700)} />
+        {!!view.doors?.length && <Text style={[styles.small, { textAlign: 'center', marginBottom: 6 }]}>Tap a home with an open door to look round inside.</Text>}
+        <WoodMap view={{ owned: view.owned || {}, levels: view.levels || {}, managed: view.managed || {} }} width={Math.min(width, 700)} onSelect={enter} />
       </ScrollView>
+      {inside && (
+        <HomeInside
+          id={inside} onClose={() => setInside(null)}
+          visit={{ owner: m.name, rooms: view.rooms?.[inside] || [], spots: view.roomSpots?.[inside] || {} }}
+        />
+      )}
     </View>
   );
 }

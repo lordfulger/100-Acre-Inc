@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BIZ_BY_ID, buildingMult, BUSINESSES, LEVEL_STEP, lookName, lookOf, perkFor, POOH_HOUSE, poohTapMult } from '../game/catalog';
 import { addonEffectText } from '../game/catalog';
@@ -244,12 +244,25 @@ function Finder({ id }: { id: string }) {
 }
 
 export function MapScreen() {
-  const { s, now } = useGame();
+  const { s, now, act, toast } = useGame();
   const [inside, setInside] = useState<string | null>(null);
+  // Quick upgrade: tapping a home buys its next level straight away, without opening its card.
+  const [quick, setQuick] = useState(false);
   const [game, setGame] = useState<GameId | null>(null);
   const [width, setWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
+  const tapHome = useCallback((id: string) => {
+    if (!quick) return setSelected(id);
+    const r = act((g) => {
+      const next = buildingNext(g, id);
+      if (!next.ready) return { locked: true, level: 0, cost: 0 };
+      return { locked: false, level: upgradeBuilding(g, id) ? next.level + 1 : 0, cost: next.cost };
+    });
+    if (r.locked) return setSelected(id); // not bought yet: the card shows how to unlock it
+    if (r.level) { playLevel(r.level); buzz(); return; }
+    toast(`Not enough honey yet: the next level costs ${fmt(r.cost)}`);
+  }, [quick, act, toast]);
   const upgradable = new Set(ALL_IDS.filter((id) => homeHasUpgrade(s, id)));
   const away = new Set(wanderers(s).map((w) => w.home));
   const mapWidth = width * zoom;
@@ -284,16 +297,21 @@ export function MapScreen() {
             scrollEventThrottle={32} onScroll={(e) => { at.current.x = e.nativeEvent.contentOffset.x; }}
           >
             <View>
-              <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={setSelected} away={away} tints={[SEASONS[seasonAt(now)].tint, skyAt(now).tint]} />
+              <WoodMap view={mapView(s)} width={mapWidth} selected={selected} upgradable={upgradable} onSelect={tapHome} away={away} tints={[SEASONS[seasonAt(now)].tint, skyAt(now).tint]} />
               <MapLife s={s} width={mapWidth} now={now} />
             </View>
           </ScrollView>
         </ScrollView>
       )}
       {!selected && (
-        <Pressable style={styles.zoom} onPress={toggleZoom}>
-          <Text style={styles.zoomText}>{zoom === 1 ? '🔍 Zoom in' : '🗺️ Whole wood'}</Text>
-        </Pressable>
+        <>
+          <Pressable style={[styles.zoom, styles.quick, quick && styles.quickOn]} onPress={() => { play('tick'); setQuick((q) => !q); }} accessibilityRole="switch" accessibilityState={{ checked: quick }}>
+            <Text style={[styles.zoomText, quick && { color: 'white' }]}>{quick ? '⚡ Quick upgrade: on' : '⚡ Quick upgrade'}</Text>
+          </Pressable>
+          <Pressable style={styles.zoom} onPress={toggleZoom}>
+            <Text style={styles.zoomText}>{zoom === 1 ? '🔍 Zoom in' : '🗺️ Whole wood'}</Text>
+          </Pressable>
+        </>
       )}
       {!lightEffects(s.settings.effects) && <Weather now={now} />}
       {!selected && <TopBar />}
@@ -314,6 +332,8 @@ const styles = StyleSheet.create({
   visitorName: { fontFamily: HAND, fontSize: 19, color: C.ink },
   visitorLine: { color: C.ink, fontSize: 13, fontStyle: 'italic', marginTop: 2 },
   locked: { color: C.soft, fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
+  quick: { bottom: 52 },
+  quickOn: { backgroundColor: C.green, borderColor: C.green },
   zoom: { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(255,250,232,0.95)', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1.5, borderColor: '#D9C48E' },
   zoomText: { fontFamily: HAND, fontSize: 15, color: C.ink },
   sheet: {

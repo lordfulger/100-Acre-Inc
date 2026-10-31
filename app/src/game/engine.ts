@@ -41,6 +41,7 @@ export type GameState = {
   roomSpots: Record<string, Record<string, [number, number]>>; // where each decoration stands in its room (fractions of its size)
   doors: string[]; // homes whose doors you've opened with Golden Honeycombs (open for good)
   lastNap: number; // when you last napped (Pooh rests between naps)
+  challenges: Challenge[]; // friends' minigame scores waiting for you to beat
   friends: Record<string, { hearts: number; day: string }>; // friendship with whoever lives in each home
   games: Record<string, { last: number; best: number }>; // minigames: last rewarded play and best score
   visitor: { day: string; idx: number; base: number; place: string; found: boolean; done: boolean };
@@ -68,6 +69,8 @@ export type GameState = {
   profile: { name: string; avatar: string; secret: string; room: string; server: string; cloud?: { token: string; email: string; base?: string } }; // base: the cloud version this phone last synced with
 };
 
+/** A friend's score in a minigame, sent for you to try to beat. */
+export type Challenge = { id: string; from: string; name: string; avatar: string; game: string; score: number; at: number };
 export type Letter = { id: string; from: string; name: string; avatar: string; text: string; amount: number; at: number; read: boolean };
 
 export type BizInfo = { cycle: number; perCycle: number; perSec: number; nextMilestone: number; mult: number };
@@ -115,7 +118,7 @@ export function newGame(now: number): GameState {
   return {
     v: 1, honey: 0, runEarned: 0, allTimeEarned: 0, combsFromNaps: 0, napBase: 0, combsBonus: 0, combsSpent: 0, combStore: {}, variety: 0,
     biz, research: {}, levels: {}, addons: [], album: ['pooh'], albumNew: [], chatSeen: 0,
-    trophies: [], decor: [], rooms: {}, roomSpots: {}, doors: [], lastNap: 0, friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
+    trophies: [], decor: [], rooms: {}, roomSpots: {}, doors: [], lastNap: 0, challenges: [], friends: {}, games: {}, visitor: { day: '', idx: 0, base: 0, place: '', found: false, done: false },
     events: {}, eventsWon: [], projects: [], joint: {}, trips: {}, artifacts: {}, equipped: [], daily: { last: '', streak: 0 }, letters: [], newsSeen: NEWS_VERSION, secrets: [], blocked: [], treats: {},
     settings: { music: true, sfx: true, voices: true, localWeather: false, effects: 'auto' }, boosts: [], lastTick: now, pendingContribution: 0,
     stats: { taps: 0, balloons: 0, naps: 0, hugsGot: 0, giftsSent: 0, startedAt: now, hugsSent: 0, upgrades: 0, games: 0, sticksWon: 0, visitors: 0, lettersSent: 0, expos: 0, trips: 0 },
@@ -192,6 +195,7 @@ export function migrate(raw: any, now: number): GameState {
   s.daily = { ...base.daily, ...obj(raw.daily) };
   s.rooms = obj(raw.rooms);
   s.roomSpots = obj(raw.roomSpots);
+  s.challenges = Array.isArray(raw.challenges) ? raw.challenges.filter((c: Challenge) => c && typeof c.id === 'string' && typeof c.game === 'string').slice(0, 10) : [];
   s.lastNap = Number.isFinite(raw.lastNap) ? raw.lastNap : 0;
   if (Array.isArray(raw.doors)) s.doors = list(raw.doors);
   else {
@@ -276,6 +280,13 @@ const napCombsUncapped = (s: GameState) => Math.floor(napBaseFor(s.runEarned) * 
 export const napCombsAvailable = (s: GameState) => Math.min(napCombsUncapped(s), napCap(s));
 /** True once this run's honey has reached the most one nap can bring. */
 export const napCapped = (s: GameState) => napCombsUncapped(s) >= napCap(s);
+/**
+ * Golden Honeycombs from a group reward (an Expotition tier): this percent of the combs
+ * your current run is worth (at least 10), so it suits where you are rather than handing
+ * everyone the same number. Always at least 1.
+ */
+export const groupRewardCombs = (s: GameState, percent: number) =>
+  Math.max(1, Math.round((Math.max(10, napCombsUncapped(s)) * percent) / 100));
 
 /** This run's honey needed before the next nap comb unlocks. */
 export function nextCombAt(s: GameState) {
@@ -608,13 +619,18 @@ export function upgradeBuilding(s: GameState, id: string) {
 /** Everything the map needs to draw a wood — yours or a friend's. */
 export type MapView = {
   owned: Record<string, number>; levels: Record<string, number>; managed: Record<string, boolean>; addons?: string[]; rooms?: Record<string, string[]>;
+  /** Open doors and where things stand in each room, so friends can look round when visiting. */
+  doors?: string[]; roomSpots?: Record<string, Record<string, [number, number]>>;
 };
 
 export function mapView(s: GameState): MapView {
   const owned: Record<string, number> = {};
   const managed: Record<string, boolean> = {};
   for (const b of BUSINESSES) { owned[b.id] = s.biz[b.id].owned; managed[b.id] = s.biz[b.id].managed; }
-  return { owned, levels: { ...s.levels }, managed, addons: [...s.addons], rooms: JSON.parse(JSON.stringify(s.rooms)) };
+  return {
+    owned, levels: { ...s.levels }, managed, addons: [...s.addons], rooms: JSON.parse(JSON.stringify(s.rooms)),
+    doors: [...s.doors], roomSpots: JSON.parse(JSON.stringify(s.roomSpots)),
+  };
 }
 
 export function buyVariety(s: GameState) {

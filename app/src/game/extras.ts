@@ -287,6 +287,13 @@ export const treatReady = (s: GameState, kind: TreatKind, now: number) => now - 
 export const treatWait = (s: GameState, kind: TreatKind, now: number) =>
   Math.max(0, Math.ceil((TREATS[kind].secs * 1000 - (now - (s.treats[kind] || 0))) / 1000));
 
+/** Winning a minigame challenge with a friend: a prize like a good game's. */
+export function winChallenge(s: GameState, now: number) {
+  const honey = prize(s, now, 5);
+  earn(s, honey);
+  return honey;
+}
+
 export function mapTreat(s: GameState, kind: TreatKind, now: number) {
   if (!treatReady(s, kind, now)) return 0;
   s.treats[kind] = now;

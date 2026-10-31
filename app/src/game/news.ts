@@ -119,6 +119,17 @@ export const NEWS: News[] = [
       ['😴', 'Pooh rests between naps', 'After your first 3 naps, Pooh needs 12 hours of rest before the next one.'],
     ],
   },
+  {
+    v: 13,
+    title: 'Friends round the wood',
+    items: [
+      ['⚡', 'Quick upgrade', 'Turn on ⚡ Quick upgrade on the map, then tap a building to level it up straight away.'],
+      ['✏️', 'Edit your rooms', 'Rooms stay put until you tap ✏️ Edit room, so nothing moves by accident.'],
+      ['🚪', 'Look round friends\' homes', 'When you visit a friend\'s wood, tap a home with an open door to see how they\'ve arranged it.'],
+      ['⚔️', 'Challenges', 'Challenge a friend to beat your best score in a game. It waits in their Games tab, and whoever wins gets a honey prize.'],
+      ['🏆', 'Fairer Expotitions', 'Expotition combs are now a share of what your current run is worth, so they help everyone without overpowering big woods.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;
