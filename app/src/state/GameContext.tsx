@@ -656,6 +656,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       act((g, t) => {
         g.challenges = g.challenges.filter((x) => x.id !== c.id);
         if (beat) winChallenge(g, t);
+        // A challenge game still counts toward your high score (but doesn't rest the game).
+        const rec = g.games[c.game];
+        if (score > (rec?.best ?? 0)) g.games[c.game] = { last: rec?.last ?? 0, best: score };
       });
       save();
       client.send({ t: 'challengeResult', to: c.from, game: c.game, score, beat });

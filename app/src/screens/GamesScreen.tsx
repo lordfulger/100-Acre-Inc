@@ -36,10 +36,11 @@ export function GameRunner({ id, onClose, challenge }: { id: GameId; onClose: ()
     // A friend's challenge: no rest and no regular prize; beating their score wins one instead.
     if (challenge) {
       const beat = score > challenge.score;
+      const before = s.games[id]?.best ?? 0;
       wood.challengeDone(challenge, score);
       play(beat ? 'fanfare' : 'pop');
       toast(beat ? `⚔️ You beat ${challenge.name}'s ${fmt(challenge.score)}! A honey prize for you.` : `⚔️ ${challenge.name}'s ${fmt(challenge.score)} stands this time.`);
-      setResult({ score, honey: 0, newBest: false, best: s.games[id]?.best ?? score });
+      setResult({ score, honey: 0, newBest: score > before && score > 0, best: Math.max(before, score) });
       return;
     }
     const r = act((g, t) => finishGame(g, id, score, t, won)); save(); // straight away, so closing the app can't undo it and pay out again
