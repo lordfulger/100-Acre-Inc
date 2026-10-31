@@ -137,6 +137,7 @@ export const NEWS: News[] = [
       ['🍯', 'Goals for everyone', "Building Together, Expotitions and Our Wood goals now come from the average friend's honey, not everyone's added up, so one big wood doesn't make them out of reach."],
       ['💕', 'Hugs take a rest', 'After hugging a friend you can hug them again in 10 minutes. The Hug button shows how long is left.'],
       ['⚔️', 'Challenges count', 'A great score in a friend\'s challenge now counts as your high score too.'],
+      ['🐝', 'Slower hives', 'Every hive except the Bee Tree now makes half as much honey per cycle, so each run lasts longer and new homes feel more special.'],
       ['🌱', 'A real fresh start', 'Starting over now clears your album cards and trophies too, and your old honey no longer sets the wood\'s goals.'],
     ],
   },
