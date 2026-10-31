@@ -18,8 +18,11 @@ async function call(server: string, method: string, path: string, body?: unknown
   return { status: res.status, data };
 }
 
+/** Whether the server has Google sign-in (then the game is played from the cloud save). Gives up after 8 seconds. */
 export async function cloudReady(server: string) {
-  try { return (await call(server, 'GET', '/cloud/status')).data.ready === true; } catch { return false; }
+  const timeout = new Promise<false>((r) => setTimeout(() => r(false), 8_000));
+  const ask = call(server, 'GET', '/cloud/status').then((r) => r.data.ready === true, () => false);
+  return Promise.race([ask, timeout]);
 }
 
 /** Opens the Google sign-in page and waits (up to 10 minutes) for it to finish. */

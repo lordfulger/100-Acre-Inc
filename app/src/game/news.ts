@@ -138,6 +138,7 @@ export const NEWS: News[] = [
       ['💕', 'Hugs take a rest', 'After hugging a friend you can hug them again in 10 minutes. The Hug button shows how long is left.'],
       ['⚔️', 'Challenges count', 'A great score in a friend\'s challenge now counts as your high score too.'],
       ['🐝', 'Slower hives', 'Every hive except the Bee Tree now makes half as much honey per cycle, so each run lasts longer and new homes feel more special.'],
+      ['☁️', 'Your wood lives in the cloud', 'Sign in with Google to play. Your save always comes from your account, so every phone shows the same wood.'],
       ['🌱', 'A real fresh start', 'Starting over now clears your album cards and trophies too, and your old honey no longer sets the wood\'s goals.'],
     ],
   },

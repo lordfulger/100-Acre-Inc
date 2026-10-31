@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { fmt, timeAgo } from '../game/format';
+import { timeAgo } from '../game/format';
 import { cloudReady } from '../net/cloud';
 import { useGame } from '../state/GameContext';
 import { Button, C, Card } from './kit';
@@ -18,7 +18,7 @@ export function CloudCard() {
           <Text style={styles.title}>☁️ Saved to Google</Text>
           <Text style={styles.body}>{cloud.email}</Text>
           <Text style={styles.small}>
-            {cloud.lastSaved ? `Last saved ${timeAgo(cloud.lastSaved)}` : 'Saving…'} · saves every minute and when you leave the app
+            {cloud.lastSaved ? `Last saved ${timeAgo(cloud.lastSaved)}` : 'Saving…'} · saves every minute and when you leave the app. Signing out saves, then clears this phone.
           </Text>
           <View style={styles.row}>
             <Button small label="Save now" onPress={cloud.saveNow} style={{ flex: 1 }} />
@@ -47,18 +47,33 @@ export function CloudCard() {
   );
 }
 
-/** Shown when the cloud has more progress than this phone: pick which to keep. */
-export function CloudConflict() {
-  const { s, cloud } = useGame();
-  if (!cloud.conflict) return null;
-  const c = cloud.conflict;
+/**
+ * When the server has Google sign-in, the game is played from your cloud save: this covers
+ * everything until you're signed in and your save has loaded.
+ */
+export function CloudGate() {
+  const { cloud } = useGame();
+  if (cloud.phase === 'on' || (cloud.phase !== 'checking' && !cloud.required)) return null;
+  const waiting = cloud.phase === 'checking' || cloud.phase === 'loading';
   return (
-    <View style={styles.scrim}>
+    <View style={[styles.scrim, { backgroundColor: C.bg }]}>
       <View style={styles.modal}>
-        <Text style={styles.modalTitle}>☁️ Which save do you want?</Text>
-        <Text style={styles.body}>Your Google account already has a save that's further along than this phone.</Text>
-        <Button label="Use the cloud save" sub={`${fmt(c.allTime)} all-time honey · saved ${timeAgo(Date.parse(c.savedAt))}`} onPress={() => cloud.resolve(true)} style={{ marginTop: 12 }} />
-        <Button outline color={C.soft} label="Keep this phone's" sub={`${fmt(s.allTimeEarned)} all-time honey · replaces the cloud`} onPress={() => cloud.resolve(false)} style={{ marginTop: 8 }} />
+        <Text style={styles.gateEmoji}>🍯</Text>
+        <Text style={styles.modalTitle}>{waiting ? 'Opening your wood…' : '100 Acre Inc'}</Text>
+        {waiting ? (
+          <Text style={[styles.body, { textAlign: 'center' }]}>{cloud.phase === 'loading' ? `Loading your save for ${cloud.email}` : 'Just a moment.'}</Text>
+        ) : cloud.phase === 'signing-in' ? (
+          <>
+            <Text style={[styles.body, { textAlign: 'center' }]}>Finish signing in with Google in the page that just opened, then come back here.</Text>
+            <Button small outline color={C.soft} label="Cancel" onPress={cloud.cancelSignIn} style={{ marginTop: 12 }} />
+          </>
+        ) : (
+          <>
+            <Text style={[styles.body, { textAlign: 'center' }]}>Sign in with Google to play. Your wood is saved to your account, so it's the same on every phone and never gets lost.</Text>
+            <Button label="Sign in with Google" color="#4285F4" onPress={cloud.signIn} style={{ marginTop: 14 }} />
+          </>
+        )}
+        {cloud.error && <Text style={[styles.error, { textAlign: 'center' }]}>{cloud.error}</Text>}
       </View>
     </View>
   );
@@ -70,7 +85,8 @@ const styles = StyleSheet.create({
   small: { color: C.soft, fontSize: 12, fontWeight: '600', marginTop: 4 },
   error: { color: C.red, fontSize: 12, fontWeight: '700', marginTop: 6 },
   row: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(74,52,24,0.45)', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 120 },
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000, elevation: 1000 },
   modal: { backgroundColor: C.card, borderRadius: 24, padding: 20, width: '100%', maxWidth: 420 },
   modalTitle: { fontSize: 20, fontWeight: '900', color: C.ink, textAlign: 'center' },
+  gateEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 6 },
 });

@@ -17,7 +17,7 @@ import { GameProvider, useGame } from './src/state/GameContext';
 import { Header } from './src/ui/Header';
 import { C } from './src/ui/kit';
 import { play, startMusic, unlockAudio } from './src/audio/sound';
-import { CloudConflict } from './src/ui/CloudCard';
+import { CloudGate } from './src/ui/CloudCard';
 import { BalloonLayer, DailyGift, Onboarding, Toasts, WelcomeBack } from './src/ui/Overlays';
 import { TripsScreen } from './src/screens/TripsScreen';
 import { EXPLORERS, explorerState } from './src/game/trips';
@@ -98,10 +98,10 @@ function Game() {
       <Toasts />
       <WelcomeBack />
       <SticksLive />
-      <CloudConflict />
       {!s.profile.name && <Onboarding />}
       {s.profile.name && s.newsSeen < NEWS_VERSION && !welcomeBack && <WhatsNew />}
       {s.profile.name && s.newsSeen >= NEWS_VERSION && !welcomeBack && <DailyGift />}
+      <CloudGate />
     </SafeAreaView>
   );
 }

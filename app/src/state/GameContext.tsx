@@ -65,13 +65,17 @@ export type Sticks = {
 };
 export type Toast = { id: number; text: string };
 
-/** Cloud save status. `conflict` is set when the cloud has further-along progress than this phone. */
+/**
+ * Cloud save status. When the server has Google sign-in (`required`), the cloud save is the
+ * game: you sign in to play, and the cloud copy always wins over this phone's, which is only
+ * a cache. `checking` = asking the server, `loading` = fetching your cloud save.
+ */
 export type CloudState = {
-  phase: 'off' | 'signing-in' | 'on';
+  phase: 'checking' | 'off' | 'signing-in' | 'loading' | 'on';
+  required?: boolean;
   email?: string;
   lastSaved?: number;
   error?: string;
-  conflict?: { data: any; allTime: number; honey: number; savedAt: string };
 };
 
 /** The server's waits before you can send each friend honey (ms left), as times on this phone's clock. */
@@ -160,8 +164,6 @@ type Ctx = {
     cancelSignIn: () => void;
     signOut: () => void;
     saveNow: () => void;
-    /** Settle a conflict: true = load the cloud save, false = keep this phone's and overwrite the cloud. */
-    resolve: (useCloud: boolean) => void;
   };
 };
 
@@ -186,8 +188,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   sticksRef.current = sticks;
   const netRef = useRef(net);
   netRef.current = net;
-  const [cloud, setCloud] = useState<CloudState>({ phase: 'off' });
+  const [cloud, setCloud] = useState<CloudState>({ phase: 'checking' });
   const signInCancelled = useRef(false);
+  // While the cloud save is being fetched, nothing is uploaded (it would be about to be replaced).
+  const cloudLoading = useRef(false);
   // Honey in gifts sent but not yet confirmed by the server (paid for on confirmation).
   const giftsPending = useRef(0);
   const clientRef = useRef<WoodClient | null>(null);
@@ -554,17 +558,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const signedOut = useCallback(() => {
     delete sRef.current!.profile.cloud;
     save();
-    setCloud({ phase: 'off', error: 'Signed out. Please sign in again.' });
+    setCloud((x) => ({ phase: 'off', required: x.required, error: 'Signed out. Please sign in again.' }));
   }, [save]);
 
   const uploadNow = useCallback(async (force = false) => {
     const s = sRef.current!;
-    if (!s.profile.cloud) return;
+    if (!s.profile.cloud || cloudLoading.current) return;
     try {
       const r = await Cloud.uploadCloud(s.profile.server, s.profile.cloud.token, snapshot(), force, s.profile.cloud.base);
       const c = r.conflict;
       if (c) {
-        setCloud((x) => ({ ...x, conflict: { data: c.data, allTime: c.allTime, honey: c.data?.honey ?? 0, savedAt: c.updatedAt } }));
+        // Another copy of the game saved since this phone last synced: the cloud copy wins.
+        replaceRef.current(c.data, c.updatedAt);
+        toast('☁️ Loaded your latest cloud save');
       } else {
         // Remember which cloud version this phone now matches, so it only asks when another copy changes it.
         if (sRef.current?.profile.cloud && r.updatedAt) { sRef.current.profile.cloud.base = r.updatedAt; save(); }
@@ -574,7 +580,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (e.message === 'signed-out') signedOut();
       else setCloud((x) => ({ ...x, error: e.message }));
     }
-  }, [snapshot, signedOut, save]);
+  }, [snapshot, signedOut, save, toast]);
 
   /** Swap in a different save (the cloud copy) without losing this phone's sign-in or server address. */
   const replaceState = useCallback((data: any, savedAt?: string) => {
@@ -583,8 +589,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     // This phone now matches that cloud version.
     next.profile.cloud = cur.profile.cloud && { ...cur.profile.cloud, base: savedAt ?? cur.profile.cloud.base };
     next.profile.server = cur.profile.server;
-    // Album cards are kept forever, so ones found on this phone stay.
-    next.album = [...new Set([...next.album, ...cur.album])];
     const off = applyOffline(next, Date.now());
     if (off.earned > 0 && off.seconds > 60) setWelcomeBack(off);
     sRef.current = next;
@@ -594,16 +598,47 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (next.profile.room && next.profile.name) { setNet({ ...emptyNet, status: 'connecting' }); client.connect(next.profile.server, hello); }
     rerender();
   }, [client, hello, save, rerender]);
+  const replaceRef = useRef(replaceState);
+  replaceRef.current = replaceState;
+
+  /**
+   * Brings this phone up to date with the cloud: loads the cloud save if it has changed since
+   * this phone last synced (or this phone never has), and uploads this phone's if the cloud
+   * has none yet.
+   */
+  const syncFromCloud = useCallback(async () => {
+    const c = sRef.current!.profile.cloud;
+    if (!c || cloudLoading.current) return;
+    cloudLoading.current = true;
+    try {
+      const existing = await Cloud.loadCloud(sRef.current!.profile.server, c.token);
+      cloudLoading.current = false;
+      if (!existing) await uploadNow(true);
+      else if (!c.base || Date.parse(existing.updatedAt) !== Date.parse(c.base)) replaceState(existing.data, existing.updatedAt);
+      setCloud((x) => ({ ...x, phase: 'on', email: c.email, error: undefined }));
+    } catch (e: any) {
+      cloudLoading.current = false;
+      if (e.message === 'signed-out') signedOut();
+      // Can't reach the cloud right now: carry on, and the next save sorts it out.
+      else setCloud((x) => ({ ...x, phase: 'on', email: c.email, error: e.message }));
+    }
+  }, [uploadNow, replaceState, signedOut]);
 
   useEffect(() => {
     if (!ready) return;
-    const c = sRef.current!.profile.cloud;
-    if (c) setCloud({ phase: 'on', email: c.email });
-    // Back up a minute after changes, and whenever the app goes to the background.
+    (async () => {
+      const required = await Cloud.cloudReady(sRef.current!.profile.server);
+      const c = sRef.current!.profile.cloud;
+      if (!c) return setCloud({ phase: 'off', required });
+      setCloud({ phase: 'loading', required, email: c.email });
+      await syncFromCloud();
+    })();
+    // Back up every minute and whenever the app goes to the background; coming back, pick up
+    // anything saved from another phone in the meantime.
     const id = setInterval(() => uploadNow(), 60_000);
-    const sub = AppState.addEventListener('change', (state) => { if (state !== 'active') uploadNow(); });
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') syncFromCloud(); else uploadNow(); });
     return () => { clearInterval(id); sub.remove(); };
-  }, [ready, uploadNow]);
+  }, [ready, uploadNow, syncFromCloud]);
 
   if (!ready || !sRef.current) return null;
   const s = sRef.current;
@@ -725,34 +760,35 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     ...cloud,
     signIn: async () => {
       signInCancelled.current = false;
-      setCloud({ phase: 'signing-in' });
+      setCloud((x) => ({ phase: 'signing-in', required: x.required }));
       try {
         const session = await Cloud.signIn(s.profile.server, () => signInCancelled.current);
+        // A fresh sign-in has never synced: whatever is in the cloud for this account is loaded.
         sRef.current!.profile.cloud = session;
         save();
-        setCloud({ phase: 'on', email: session.email });
+        setCloud((x) => ({ phase: 'loading', required: x.required, email: session.email }));
+        await syncFromCloud();
         toast(`☁️ Signed in as ${session.email}`);
-        // A save already in the cloud that's further along? Ask which to keep.
-        const existing = await Cloud.loadCloud(s.profile.server, session.token);
-        if (existing && existing.allTime > sRef.current!.allTimeEarned) {
-          setCloud((x) => ({ ...x, conflict: { data: existing.data, allTime: existing.allTime, honey: existing.data?.honey ?? 0, savedAt: existing.updatedAt } }));
-        } else {
-          await uploadNow(true);
-        }
       } catch (e: any) {
-        setCloud({ phase: 'off', error: signInCancelled.current ? undefined : e.message });
+        setCloud((x) => ({ phase: 'off', required: x.required, error: signInCancelled.current ? undefined : e.message }));
       }
     },
-    cancelSignIn: () => { signInCancelled.current = true; setCloud({ phase: 'off' }); },
-    signOut: () => { delete s.profile.cloud; save(); setCloud({ phase: 'off' }); },
-    saveNow: () => { uploadNow(); },
-    resolve: (useCloud) => {
-      const c = cloud.conflict;
-      setCloud((x) => ({ ...x, conflict: undefined }));
-      if (!c) return;
-      if (useCloud) { replaceState(c.data, c.savedAt); toast('☁️ Loaded your cloud save'); }
-      else uploadNow(true);
+    cancelSignIn: () => { signInCancelled.current = true; setCloud((x) => ({ phase: 'off', required: x.required })); },
+    signOut: async () => {
+      // Save first, then clear this phone, so the next person to sign in starts from their own save.
+      await uploadNow();
+      const fresh = newGame(Date.now());
+      fresh.profile.server = s.profile.server;
+      fresh.settings = { ...s.settings };
+      sRef.current = fresh;
+      save();
+      client.close();
+      setNet(emptyNet);
+      setWelcomeBack(null);
+      setCloud((x) => ({ phase: 'off', required: x.required }));
+      rerender();
     },
+    saveNow: () => { uploadNow(); },
   };
 
   return (
