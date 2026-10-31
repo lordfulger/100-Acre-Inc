@@ -342,17 +342,22 @@ setInterval(() => {
 
 // ---------- shared projects ----------
 
-// Goals (Expotitions, projects, joint levels) come from what the wood steadily earns: each
-// friend's best steady honey per second (boosts left out), fading by half every 3 days, so a
-// nap (honey per second near 0) or a boost doesn't make goals tiny or huge. Friends not seen
-// for two weeks don't count.
+// Goals (Expotitions, projects, joint levels) come from what the wood steadily earns: the
+// average of each friend's best steady honey per second (boosts left out), fading by half every
+// 3 days, so a nap (honey per second near 0) or a boost doesn't make goals tiny or huge, and one
+// big wood doesn't set everyone's goals. Friends not seen for two weeks don't count.
 const PEAK_HALF_LIFE_MS = 3 * 86_400_000;
 const AWAY_MS = 14 * 86_400_000;
 const peakNow = (m, now = Date.now()) => num(m.peak) * 0.5 ** (Math.max(0, now - (m.peakAt || now)) / PEAK_HALF_LIFE_MS);
 const roomHps = (room) => {
   const now = Date.now();
-  return Object.values(room.members).reduce((s, m) => (now - (m.lastSeen || 0) > AWAY_MS ? s : s + Math.max(peakNow(m, now), num(m.stats?.steady ?? m.stats?.hps))), 0);
+  const here = Object.values(room.members).filter((m) => now - (m.lastSeen || 0) <= AWAY_MS);
+  if (!here.length) return 0;
+  return here.reduce((s, m) => s + Math.max(peakNow(m, now), num(m.stats?.steady ?? m.stats?.hps)), 0) / here.length;
 };
+// A best honey per second that this run's total honey couldn't have earned (more than a minute's
+// worth of everything earned) is from before the friend started over, so it's dropped.
+const PEAK_CHECK_SECS = 60;
 /** Goals stay ordinary numbers (never Infinity, which would save as nothing). */
 const safeGoal = (g) => Math.min(Math.round(g), 1e300);
 
@@ -596,6 +601,7 @@ wss.on('connection', (ws) => {
           bests: cleanBests(s.bests),
           steady: num(s.steady ?? s.hps),
         };
+        if (num(me.peak) * PEAK_CHECK_SECS > me.stats.allTime) me.peak = 0;
         if (me.stats.steady >= peakNow(me)) { me.peak = me.stats.steady; me.peakAt = Date.now(); }
         settleGoals(room);
         if (s.name) me.name = cleanText(s.name, 16) || me.name;

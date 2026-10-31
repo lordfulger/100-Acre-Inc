@@ -109,18 +109,27 @@ try {
   await z.wait((m) => m.t === 'pong');
   assert.equal((await z.wait((m) => m.t === 'error' && m.asked === 5)).asked, 5);
   // Goals come from what friends steadily earn at their best, so a nap (earning ~0) doesn't shrink them.
-  z.send({ t: 'stats', stats: { hps: 5000, steady: 1000 } });
-  z.send({ t: 'stats', stats: { hps: 0, steady: 0 } });
+  z.send({ t: 'stats', stats: { hps: 5000, steady: 1000, allTime: 1e7 } });
+  z.send({ t: 'stats', stats: { hps: 0, steady: 0, allTime: 1e7 } });
   await new Promise((r) => setTimeout(r, 100));
   z.send({ t: 'startContract', id: 'flood' });
   const zc = await z.wait((m) => m.t === 'contract' && m.contract.status === 'active');
   assert.ok(Math.abs(zc.contract.goal - 1000 * 25_000) / (1000 * 25_000) < 0.01, `goal from the steady best, not the nap (${zc.contract.goal})`);
+  // Starting over (this run's honey far too little for that best) drops the old best.
+  z.send({ t: 'abandonContract' });
+  await z.wait((m) => m.t === 'contract' && m.contract.status === 'expired');
+  z.send({ t: 'stats', stats: { hps: 10, steady: 10, allTime: 50 } });
+  await new Promise((r) => setTimeout(r, 100));
+  z.send({ t: 'startContract', id: 'flood' });
+  const zf = await z.wait((m) => m.t === 'contract' && m.contract.status === 'active');
+  assert.equal(zf.contract.goal, 1_000_000, 'after starting over, the old best no longer sets goals');
   z.ws.close();
   console.log('✓ gifts and hugs (with cooldown)');
 
   a.send({ t: 'startContract', id: 'tail' });
   const c = await b.wait((m) => m.t === 'contract' && m.contract.status === 'active');
-  assert.equal(c.contract.goal, 15 * 600 > 5000 ? 15 * 600 : 5000);
+  // The average friend's honey per second: (10 + 5) / 2.
+  assert.equal(c.contract.goal, Math.max(7.5 * 600, 5000));
   a.send({ t: 'contribute', amount: c.contract.goal * 0.3 });
   const r1 = await b.wait((m) => m.t === 'reward' && m.tier === 0);
   assert.equal(r1.combs, 1);

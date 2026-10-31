@@ -698,10 +698,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const fresh = newGame(Date.now());
     fresh.profile = { ...s.profile };
     fresh.settings = { ...s.settings };
-    fresh.album = [...s.album];
-    fresh.albumNew = [...s.albumNew];
     fresh.chatSeen = s.chatSeen;
-    fresh.trophies = [...s.trophies];
     fresh.newsSeen = s.newsSeen;
     fresh.blocked = [...s.blocked];
     // The wood's projects and joint buildings belong to the wood, not this run.

@@ -130,6 +130,14 @@ export const NEWS: News[] = [
       ['🏆', 'Fairer Expotitions', 'Expotition combs are now a share of what your current run is worth, so they help everyone without overpowering big woods.'],
     ],
   },
+  {
+    v: 14,
+    title: 'Fairer goals',
+    items: [
+      ['🍯', 'Goals for everyone', "Building Together, Expotitions and Our Wood goals now come from the average friend's honey, not everyone's added up, so one big wood doesn't make them out of reach."],
+      ['🌱', 'A real fresh start', 'Starting over now clears your album cards and trophies too, and your old honey no longer sets the wood\'s goals.'],
+    ],
+  },
 ];
 
 export const NEWS_VERSION = NEWS[NEWS.length - 1].v;
