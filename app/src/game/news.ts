@@ -135,6 +135,7 @@ export const NEWS: News[] = [
     title: 'Fairer goals',
     items: [
       ['🍯', 'Goals for everyone', "Building Together, Expotitions and Our Wood goals now come from the average friend's honey, not everyone's added up, so one big wood doesn't make them out of reach."],
+      ['💕', 'Hugs take a rest', 'After hugging a friend you can hug them again in 10 minutes. The Hug button shows how long is left.'],
       ['🌱', 'A real fresh start', 'Starting over now clears your album cards and trophies too, and your old honey no longer sets the wood\'s goals.'],
     ],
   },

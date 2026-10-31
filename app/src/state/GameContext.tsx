@@ -53,6 +53,8 @@ export type Net = {
   joint: Record<string, JointSite>;
   /** When (by this phone's clock) you can next send each friend honey: after a gift or honey in a letter, that friend waits 5 minutes. */
   giftReadyAt: Record<string, number>;
+  /** When you can hug each friend again. */
+  hugReadyAt: Record<string, number>;
 };
 export type StickPlayer = { pid: string; name: string; avatar: string };
 export type StickRace = { sticks: (StickPlayer & { q: number; time: number })[]; winner: string; seed: number };
@@ -82,7 +84,7 @@ const jointLevels = (joint: Record<string, JointSite> | undefined) =>
 
 const emptyNet: Net = {
   status: 'offline', you: null, room: null, roster: [], chat: [], contract: null, contracts: [], tiers: [], error: null,
-  project: null, projectDef: null, built: [], pushKey: null, pushOn: false, rests: {}, joint: {}, giftReadyAt: {},
+  project: null, projectDef: null, built: [], pushKey: null, pushOn: false, rests: {}, joint: {}, giftReadyAt: {}, hugReadyAt: {},
 };
 
 /** The online server baked into app.json (`extra.serverUrl`), if any. */
@@ -327,7 +329,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             ...n, you: m.you, room: m.room, roster: m.roster, chat: m.chat, contract: m.contract, contracts: m.contracts, tiers: m.tiers, error: null,
             project: m.project || null, projectDef: m.projectDef || null, built: m.built || [],
             pushKey: m.pushKey || null, pushOn: !!m.pushOn, rests: m.rests || {}, joint: m.joint || {},
-            giftReadyAt: readyTimes(m.giftWaits),
+            giftReadyAt: readyTimes(m.giftWaits), hugReadyAt: readyTimes(m.hugWaits),
           }));
           s.joint = jointLevels(m.joint);
           // Already allowed on this phone: keep the server's copy of the address fresh.
@@ -374,6 +376,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           save();
           break;
         case 'giftWaits': setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) })); break;
+        case 'hugWaits': setNet((n) => ({ ...n, hugReadyAt: readyTimes(m.hugWaits) })); break;
         case 'giftSent':
           setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) }));
           // Paid for once the server has it, so a dropped connection can't lose the honey.
@@ -415,6 +418,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         case 'hugSent':
           s.stats.hugsSent++;
           bumpEvent(s, 'hug', now);
+          if (m.hugWaits) setNet((n) => ({ ...n, hugReadyAt: readyTimes(m.hugWaits) }));
           toast('💕 Hug sent!');
           break;
         case 'pushOn': setNet((n) => ({ ...n, pushOn: true })); break;
@@ -473,6 +477,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           break;
         case 'error':
           if (m.giftWaits) setNet((n) => ({ ...n, giftReadyAt: readyTimes(m.giftWaits) }));
+          if (m.hugWaits) setNet((n) => ({ ...n, hugReadyAt: readyTimes(m.hugWaits) }));
           // A refused gift or letter: the honey held back for it is free again.
           if (m.asked) giftsPending.current = Math.max(0, giftsPending.current - (Number(m.asked) || 0));
           if (client.status !== 'online') {
@@ -624,7 +629,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       save();
     },
     chat: (text) => { if (text.trim()) client.send({ t: 'chat', text: text.trim() }); },
-    hug: (to) => { client.send({ t: 'hug', to }); },
+    hug: (to) => { if ((net.hugReadyAt[to] || 0) <= Date.now()) client.send({ t: 'hug', to }); },
     gift: (to, amount) => {
       if (amount <= 0 || amount > s.honey - giftsPending.current || (net.giftReadyAt[to] || 0) > Date.now()) return;
       if (client.send({ t: 'gift', to, amount })) giftsPending.current += amount;

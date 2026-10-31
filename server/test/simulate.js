@@ -10,7 +10,7 @@ import WebSocket from 'ws';
 const PORT = 3999;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const server = spawn(process.execPath, ['src/index.js'], {
-  env: { ...process.env, PORT: String(PORT), DATA_DIR: mkdtempSync(join(tmpdir(), 'honey-')), GIFT_COOLDOWN_MS: '1500' },
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: mkdtempSync(join(tmpdir(), 'honey-')), GIFT_COOLDOWN_MS: '1500', HUG_COOLDOWN_MS: '1500' },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((ok) => server.stdout.on('data', (d) => String(d).includes('listening') && ok()));
@@ -78,7 +78,12 @@ try {
   a.send({ t: 'hug', to: wb.you });
   await b.wait((m) => m.t === 'hug' && m.name === 'Pooh');
   a.send({ t: 'hug', to: wb.you });
-  await a.wait((m) => m.t === 'error' && /rest/.test(m.text));
+  const hugWait = await a.wait((m) => m.t === 'error' && /hug Piglet again in/.test(m.text));
+  assert.ok(hugWait.hugWaits[wb.you] > 0, 'the hug wait is for that friend');
+  // Reconnecting doesn't skip it: the wait is kept with the wood.
+  const a2 = player('a'.repeat(32), 'Pooh', '🐻');
+  assert.ok((await a2.wait((m) => m.t === 'welcome')).hugWaits[wb.you] > 0, 'the hug wait survives reconnecting');
+  a2.ws.close();
   // Each friend has their own wait: gifting one doesn't hold up gifting another.
   const g1 = player('d'.repeat(32), 'Tigger', '🐯', 'gifts');
   await g1.wait((m) => m.t === 'welcome');

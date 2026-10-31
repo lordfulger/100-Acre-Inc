@@ -79,6 +79,7 @@ function JoinCard() {
 function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () => void }) {
   const { s, net, wood, now } = useGame();
   const giftWait = (net.giftReadyAt[m.id] || 0) - now;
+  const hugWait = (net.hugReadyAt[m.id] || 0) - now;
   const [giving, setGiving] = useState(false);
   const [more, setMore] = useState(false);
   const blocked = s.blocked.includes(m.id);
@@ -99,7 +100,7 @@ function MemberCard({ m, me, onVisit }: { m: Member; me: boolean; onVisit: () =>
       </View>
       {!me && !blocked && (
         <View style={styles.memberActions}>
-          <Button small label="💕 Hug" color={C.pink} onPress={() => wood.hug(m.id)} style={{ flex: 1 }} />
+          <Button small label="💕 Hug" sub={hugWait > 0 ? fmtWait(hugWait) : undefined} color={C.pink} disabled={hugWait > 0} onPress={() => wood.hug(m.id)} style={{ flex: 1 }} />
           <Button small label="🎁 Honey" color={C.blue} onPress={() => setGiving((g) => !g)} style={{ flex: 1 }} />
           <Button small label="🗺️ Visit" color={C.green} disabled={!m.stats.buildings} onPress={onVisit} style={{ flex: 1 }} />
         </View>

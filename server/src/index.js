@@ -18,7 +18,9 @@ const DATA_DIR = process.env.DATA_DIR || join(dirname(fileURLToPath(import.meta.
 const DATA_FILE = join(DATA_DIR, 'rooms.json');
 const MAX_MEMBERS = 8;
 const CHAT_HISTORY = 60;
-const HUG_COOLDOWN_MS = 20_000;
+// After hugging a friend you wait this long before hugging that friend again. Each friend has
+// their own wait, and it's kept with the wood, so reconnecting doesn't skip it.
+const HUG_COOLDOWN_MS = Number(process.env.HUG_COOLDOWN_MS) || 10 * 60_000;
 // After sending a friend honey (a gift, or honey in a letter) you wait this long before sending
 // that friend more. Each friend has their own wait.
 const GIFT_COOLDOWN_MS = Number(process.env.GIFT_COOLDOWN_MS) || 5 * 60_000;
@@ -191,6 +193,10 @@ const giftWait = (member, to) => Math.max(0, (member.giftTo?.[to] || 0) + GIFT_C
 const giftWaits = (room, member) => Object.fromEntries(Object.keys(room.members).map((to) => [to, giftWait(member, to)]).filter(([, ms]) => ms > 0));
 const sentHoney = (member, to) => { (member.giftTo ||= {})[to] = Date.now(); markDirty(); };
 const giftWaitText = (room, to, ms) => `You can send ${memberOf(room, to)?.name || 'them'} honey again in ${Math.ceil(ms / 60_000)} min.`;
+/** How long until this player can hug that friend again (0 when they can). */
+const hugWait = (member, to) => Math.max(0, (member.hugTo?.[to] || 0) + HUG_COOLDOWN_MS - Date.now());
+/** Every friend you're waiting to hug: their id -> ms left. */
+const hugWaits = (room, member) => Object.fromEntries(Object.keys(room.members).map((to) => [to, hugWait(member, to)]).filter(([, ms]) => ms > 0));
 const giftCap = (room, to) => num(memberOf(room, to)?.stats?.honey) * GIFT_SHARE_MAX;
 // Best minigame scores, for the leaderboards: game id -> score.
 function cleanBests(b) {
@@ -525,7 +531,6 @@ const wss = new WebSocketServer({ server: http, maxPayload: 16 * 1024 });
 wss.on('connection', (ws) => {
   let room = null;
   let pid = null;
-  let lastHug = 0;
   let lastBalloon = 0;
   let lastChat = 0;
   ws.isAlive = true;
@@ -572,7 +577,7 @@ wss.on('connection', (ws) => {
       sockets.get(key).add(ws);
       markDirty();
 
-      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, rests: r.rests || {}, ...projectInfo(r), ...jointInfo(r), giftWaits: giftWaits(r, r.members[id]), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
+      send(ws, { t: 'welcome', you: id, room: code, contracts: CONTRACTS, tiers: TIERS, roster: roster(r), chat: r.chat, contract: r.contract, rests: r.rests || {}, ...projectInfo(r), ...jointInfo(r), giftWaits: giftWaits(r, r.members[id]), hugWaits: hugWaits(r, r.members[id]), pushKey: pushKeys.publicKey, pushOn: !!r.members[id].push });
       for (const [raceId, race] of races) {
         if (race.room === r && race.b === id && race.phase === 'invited') {
           const from = r.members[race.a];
@@ -634,11 +639,14 @@ wss.on('connection', (ws) => {
       case 'hug': {
         const to = String(msg.to || '');
         if (!memberOf(room, to) || to === pid) return;
-        if (Date.now() - lastHug < HUG_COOLDOWN_MS) return send(ws, { t: 'error', text: 'Hugs need a little rest between them.' });
-        lastHug = Date.now();
+        const wait = hugWait(me, to);
+        if (wait) return send(ws, { t: 'error', text: `You can hug ${room.members[to].name} again in ${Math.ceil(wait / 60_000)} min.`, hugWaits: hugWaits(room, me) });
+        (me.hugTo ||= {})[to] = Date.now();
+        markDirty();
         sendTo(room, to, { t: 'hug', from: pid, name: me.name, avatar: me.avatar }, { queue: true });
         notify(room, to, `💕 ${me.name} sent you a big hug!`, 'Double honey while it lasts.', 'hug');
-        send(ws, { t: 'hugSent', to });
+        send(ws, { t: 'hugSent', to, hugWaits: hugWaits(room, me) });
+        sendTo(room, pid, { t: 'hugWaits', hugWaits: hugWaits(room, me) });
         break;
       }
       case 'balloon': {
