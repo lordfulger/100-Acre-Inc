@@ -616,6 +616,37 @@ export function upgradeBuilding(s: GameState, id: string) {
   return true;
 }
 
+/**
+ * Several levels of a home at once, like buying hives: ×1, ×10, ×100, or Max (as many as you
+ * can afford, at least 1). Gives how many levels and what they cost together.
+ */
+export function levelQuote(s: GameState, id: string, mode: BuyMode) {
+  const level = s.levels[id] || 0;
+  const costAt = (l: number) => (id === POOH_HOUSE.id ? poohCost(l) : buildingCost(BIZ_BY_ID[id].baseCost, l));
+  let n = 0;
+  let cost = 0;
+  if (mode === 'max') {
+    // Each level costs more than the last, so this stops long before it gets slow.
+    while (n < 10_000 && cost + costAt(level + n) <= s.honey) cost += costAt(level + n++);
+    if (n === 0) { n = 1; cost = costAt(level); }
+  } else {
+    for (; n < mode; n++) cost += costAt(level + n);
+  }
+  return { n, cost };
+}
+
+/** Buys `mode` levels of a home at once. Returns the level before and after, or false. */
+export function upgradeBuildingBy(s: GameState, id: string, mode: BuyMode) {
+  if (!buildingNext(s, id).ready) return false;
+  const { n, cost } = levelQuote(s, id, mode);
+  if (!(s.honey >= cost)) return false;
+  const from = s.levels[id] || 0;
+  s.honey -= cost;
+  s.levels[id] = from + n;
+  s.stats.upgrades += n;
+  return { from, to: from + n };
+}
+
 /** Everything the map needs to draw a wood — yours or a friend's. */
 export type MapView = {
   owned: Record<string, number>; levels: Record<string, number>; managed: Record<string, boolean>; addons?: string[]; rooms?: Record<string, string[]>;

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { BUSINESSES, RESEARCH, varietyAt } from './catalog';
 import {
   addonList, applyOffline, buildingNext, buyAddon, buyBiz, buyResearch, buyVariety, derive, GameState, hireManager, migrate,
-  nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, varietyCost, setCombFull, effectiveCombs, combBonusOf, COMB_FULL, napCap, napCapped,
+  nap, napCombsAvailable, newGame, quote, researchNext, startCycle, tap, tick, totalCombs, upgradeBuilding, upgradeBuildingBy, levelQuote, varietyCost, setCombFull, effectiveCombs, combBonusOf, COMB_FULL, napCap, napCapped,
 } from './engine';
 // Try other comb settings in the simulation: COMB_FULL=1e12 counts every comb in full (the old way).
 if (process.env.COMB_FULL) setCombFull(Number(process.env.COMB_FULL));
@@ -433,5 +433,17 @@ function shop(s: GameState, t: number) {
   assert.equal(napCombsAvailable(giant), 108_600);
   assert.ok(napCapped(giant));
   assert.ok(napCombsAvailable(newGame(now)) === 0 && napCap(newGame(now)) === 100, 'a new game can still nap for up to 100');
+}
+// Upgrading several levels at once costs the same as one at a time; Max buys as many as you can afford.
+{
+  const s = newGame(now);
+  const one = [0, 1, 2].reduce((sum, l) => sum + 15 * 1.7 ** l, 0);
+  assert.ok(Math.abs(levelQuote(s, 'pooh', 10).cost - [...Array(10)].reduce((sum, _, l) => sum + 15 * 1.7 ** l, 0)) < 1e-6);
+  s.honey = one;
+  assert.equal(levelQuote(s, 'pooh', 'max').n, 3);
+  assert.deepEqual(upgradeBuildingBy(s, 'pooh', 'max'), { from: 0, to: 3 });
+  assert.ok(Math.abs(s.honey) < 1e-9 && s.levels.pooh === 3);
+  assert.equal(upgradeBuildingBy(s, 'pooh', 'max'), false, "Max with too little honey still can't buy");
+  assert.equal(upgradeBuildingBy(s, 'garden', 1), false, 'a home not bought yet has no levels to buy');
 }
 console.log('All engine checks passed 🍯');

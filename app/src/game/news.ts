@@ -139,6 +139,7 @@ export const NEWS: News[] = [
       ['⚔️', 'Challenges count', 'A great score in a friend\'s challenge now counts as your high score too.'],
       ['🐝', 'Slower hives', 'Every hive except the Bee Tree now makes half as much honey per cycle, so each run lasts longer and new homes feel more special.'],
       ['☁️', 'Your wood lives in the cloud', 'Sign in with Google to play. Your save always comes from your account, so every phone shows the same wood.'],
+      ['🔨', 'Upgrade by ×10, ×100 or Max', "Each home's card on the map has ×1, ×10, ×100 and Max for its upgrades, just like buying hives. The ⚡ Quick upgrade switch is gone."],
       ['🌱', 'A real fresh start', 'Starting over now clears your album cards and trophies too, and your old honey no longer sets the wood\'s goals.'],
     ],
   },

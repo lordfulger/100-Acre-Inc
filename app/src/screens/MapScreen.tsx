@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BIZ_BY_ID, buildingMult, BUSINESSES, LEVEL_STEP, lookName, lookOf, perkFor, POOH_HOUSE, poohTapMult } from '../game/catalog';
 import { addonEffectText } from '../game/catalog';
-import { addonList, buildingNext, buyAddon, buyBiz, canUpgradeBuilding, hireManager, homeHasUpgrade, managerCost, mapView, quote, totalCombs, upgradeBuilding } from '../game/engine';
+import { addonList, buildingNext, buyAddon, buyBiz, BuyMode, hireManager, homeHasUpgrade, levelQuote, managerCost, mapView, quote, totalCombs, upgradeBuildingBy } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../state/GameContext';
 import { Bar, Button, buzz, C, nativeDriver } from '../ui/kit';
 import { Portrait, portraitFor } from '../ui/Portrait';
 import { HAND, HomeCloseUp, WoodMap } from '../ui/WoodMap';
 import { play, playLevel } from '../audio/sound';
+import { varietyAt } from '../game/catalog';
 import { activeEvent, eventProgress, seasonAt, SEASONS, WEATHER_NAMES, weatherAt } from '../game/calendar';
 import { findThing, gameForHome, GameId, GAMES, gameReady, gameWait, doorCost, homeOpen, openDoor, thankVisitor, visitorToday } from '../game/extras';
 import { GameRunner } from './GamesScreen';
@@ -100,7 +101,9 @@ function TopBar() {
   );
 }
 
-function BuildingSheet({ id, onClose, onEnter, onPlay }: { id: string; onClose: () => void; onEnter: () => void; onPlay: (g: GameId) => void }) {
+const LEVEL_MODES: BuyMode[] = [1, 10, 100, 'max'];
+
+function BuildingSheet({ id, onClose, onEnter, onPlay, mode, setMode }: { id: string; onClose: () => void; onEnter: () => void; onPlay: (g: GameId) => void; mode: BuyMode; setMode: (m: BuyMode) => void }) {
   const { s, d, act, toast, now, save } = useGame();
   const isPooh = id === POOH_HOUSE.id;
   const b = isPooh ? null : BIZ_BY_ID[id];
@@ -114,14 +117,24 @@ function BuildingSheet({ id, onClose, onEnter, onPlay }: { id: string; onClose: 
   const total = isPooh ? poohTapMult(level) : buildingMult(level);
   const buy = b ? quote(s, id, 1) : null;
   const managerId = isPooh ? 'pooh' : portraitFor(b!.manager.emoji);
+  // Upgrading several levels at once, like buying hives.
+  const lq = levelQuote(s, id, mode);
+  const to = level + lq.n;
+  const lookUp = lookOf(to) > look;
+  const multAt = (l: number) => (isPooh ? poohTapMult(l) : buildingMult(l));
+  const canUpgrade = next.ready && s.honey >= lq.cost;
 
   const upgrade = () => {
-    if (!act((g) => upgradeBuilding(g, id))) return;
-    buzz(next.newLook ? 'success' : 'light');
-    if (next.newLook) play('upgrade');
-    else playLevel(level + 1);
-    if (next.newLook) say(managerId, 'upgrade');
-    if (next.newLook) toast(`🔨 ${name} is now ${lookName(level + 1)}!${nextPerk ? ` ${nextPerk}!` : ''}`);
+    const r = act((g) => upgradeBuildingBy(g, id, mode));
+    if (!r) return;
+    const newLook = lookOf(r.to) > lookOf(r.from);
+    buzz(newLook ? 'success' : 'light');
+    if (newLook) play('upgrade');
+    else playLevel(r.to);
+    if (newLook) say(managerId, 'upgrade');
+    // The newest thing the home gained: the perk of the last look it reached.
+    const perk = perkFor(id, lookOf(r.to) - 1);
+    if (newLook) toast(`🔨 ${name} is now ${lookName(r.to)}!${perk ? ` ${perk}!` : ''}`);
   };
 
   return (
@@ -179,16 +192,23 @@ function BuildingSheet({ id, onClose, onEnter, onPlay }: { id: string; onClose: 
           </Text>
 
           <View style={styles.next}>
+            <View style={styles.modes}>
+              {LEVEL_MODES.map((m) => (
+                <Pressable key={String(m)} onPress={() => setMode(m)} style={[styles.mode, mode === m && { backgroundColor: varietyAt(s.variety).deep }]}>
+                  <Text style={[styles.modeText, mode === m && { color: 'white' }]}>{m === 'max' ? 'Max' : `×${m}`}</Text>
+                </Pressable>
+              ))}
+            </View>
             <Text style={styles.nextTitle}>
-              Next: Lv {level + 1} — {next.newLook ? `${lookName(level + 1)}! ` : ''}×{Number(next.gain.toFixed(2))} {isPooh ? 'taps' : 'honey'}
+              {lq.n === 1 ? 'Next' : `+${lq.n} levels`}: Lv {to} — {lookUp ? `${lookName(to)}! ` : ''}×{Number((multAt(to) / multAt(level)).toFixed(2))} {isPooh ? 'taps' : 'honey'}
             </Text>
             <Text style={styles.info}>
               🎨 {!nextPerk ? 'As grand as a home can look!' : next.newLook ? `Adds: ${nextPerk}` : `${toNextLook} more level${toNextLook === 1 ? '' : 's'} until: ${nextPerk}`}
             </Text>
             <View style={{ marginVertical: 6 }}><Bar value={(level % LEVEL_STEP) / LEVEL_STEP} color="#C27C0E" height={8} /></View>
             <Button
-              label={next.newLook ? '✨ Upgrade' : 'Upgrade'} sub={fmt(next.cost)}
-              disabled={!canUpgradeBuilding(s, id)} onPress={upgrade}
+              label={`${lookUp ? '✨ ' : ''}Upgrade${lq.n > 1 ? ` ×${lq.n}` : ''}`} sub={fmt(lq.cost)}
+              disabled={!canUpgrade} onPress={upgrade}
             />
           </View>
 
@@ -246,23 +266,13 @@ function Finder({ id }: { id: string }) {
 export function MapScreen() {
   const { s, now, act, toast } = useGame();
   const [inside, setInside] = useState<string | null>(null);
-  // Quick upgrade: tapping a home buys its next level straight away, without opening its card.
-  const [quick, setQuick] = useState(false);
+  // How many levels the Upgrade button buys (kept while you go from home to home).
+  const [mode, setMode] = useState<BuyMode>(1);
   const [game, setGame] = useState<GameId | null>(null);
   const [width, setWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
-  const tapHome = useCallback((id: string) => {
-    if (!quick) return setSelected(id);
-    const r = act((g) => {
-      const next = buildingNext(g, id);
-      if (!next.ready) return { locked: true, level: 0, cost: 0 };
-      return { locked: false, level: upgradeBuilding(g, id) ? next.level + 1 : 0, cost: next.cost };
-    });
-    if (r.locked) return setSelected(id); // not bought yet: the card shows how to unlock it
-    if (r.level) { playLevel(r.level); buzz(); return; }
-    toast(`Not enough honey yet: the next level costs ${fmt(r.cost)}`);
-  }, [quick, act, toast]);
+  const tapHome = useCallback((id: string) => setSelected(id), []);
   const upgradable = new Set(ALL_IDS.filter((id) => homeHasUpgrade(s, id)));
   const away = new Set(wanderers(s).map((w) => w.home));
   const mapWidth = width * zoom;
@@ -305,9 +315,6 @@ export function MapScreen() {
       )}
       {!selected && (
         <>
-          <Pressable style={[styles.zoom, styles.quick, quick && styles.quickOn]} onPress={() => { play('tick'); setQuick((q) => !q); }} accessibilityRole="switch" accessibilityState={{ checked: quick }}>
-            <Text style={[styles.zoomText, quick && { color: 'white' }]}>{quick ? '⚡ Quick upgrade: on' : '⚡ Quick upgrade'}</Text>
-          </Pressable>
           <Pressable style={styles.zoom} onPress={toggleZoom}>
             <Text style={styles.zoomText}>{zoom === 1 ? '🔍 Zoom in' : '🗺️ Whole wood'}</Text>
           </Pressable>
@@ -315,7 +322,7 @@ export function MapScreen() {
       )}
       {!lightEffects(s.settings.effects) && <Weather now={now} />}
       {!selected && <TopBar />}
-      {selected && <BuildingSheet id={selected} onClose={() => setSelected(null)} onEnter={() => setInside(selected)} onPlay={setGame} />}
+      {selected && <BuildingSheet id={selected} onClose={() => setSelected(null)} onEnter={() => setInside(selected)} onPlay={setGame} mode={mode} setMode={setMode} />}
       {inside && <HomeInside id={inside} onClose={() => setInside(null)} />}
       {game && <GameRunner id={game} onClose={() => setGame(null)} />}
     </View>
@@ -332,8 +339,9 @@ const styles = StyleSheet.create({
   visitorName: { fontFamily: HAND, fontSize: 19, color: C.ink },
   visitorLine: { color: C.ink, fontSize: 13, fontStyle: 'italic', marginTop: 2 },
   locked: { color: C.soft, fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
-  quick: { bottom: 52 },
-  quickOn: { backgroundColor: C.green, borderColor: C.green },
+  modes: { flexDirection: 'row', gap: 6, marginBottom: 6 },
+  mode: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: '#F1E5C8' },
+  modeText: { fontWeight: '900', color: C.ink },
   zoom: { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(255,250,232,0.95)', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1.5, borderColor: '#D9C48E' },
   zoomText: { fontFamily: HAND, fontSize: 15, color: C.ink },
   sheet: {
